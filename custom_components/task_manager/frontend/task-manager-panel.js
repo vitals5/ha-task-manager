@@ -171,6 +171,12 @@
       externalTask: "External",
       loadingEntities: "Loading available entities...",
       noEntitiesFound: "No other to-do entities found in Home Assistant.",
+      enterManually: "Enter manually",
+      chooseFromList: "Select from list",
+      manualEntityId: "To-do Entity ID (e.g. todo.shopping_list)",
+      enterManuallyHint: "You can enter your entity ID directly:",
+      selectOrEnterEntity: "Please select or enter a valid to-do entity ID",
+      mustStartWithTodo: "Entity ID must start with 'todo.' (e.g. todo.shopping_list)",
       optional: "optional"
     },
     de: {
@@ -330,6 +336,12 @@
       externalTask: "Extern",
       loadingEntities: "Lade verfügbare Entitäten...",
       noEntitiesFound: "Keine weiteren To-do-Entitäten in Home Assistant gefunden.",
+      enterManually: "Manuell eingeben",
+      chooseFromList: "Aus Liste auswählen",
+      manualEntityId: "To-do-Entitäts-ID (z. B. todo.einkaufsliste)",
+      enterManuallyHint: "Du kannst die Entitäts-ID direkt manuell eingeben:",
+      selectOrEnterEntity: "Bitte wähle eine To-do-Entitäts-ID aus oder gib eine ein",
+      mustStartWithTodo: "Die Entitäts-ID muss mit 'todo.' beginnen (z. B. todo.einkaufsliste)",
       optional: "optional"
     }
   };
@@ -677,20 +689,82 @@
       this._render();
     }
 
-    async openLinkProviderModal() {
-      this._availableTodoEntities = [];
-      this._modalState = { type: "link_provider" };
-      this._render();
-      try {
-        const res = await this._hass.callWS({ type: "task_manager/get_ha_todo_entities" });
-        if (res && res.entities) {
-          this._availableTodoEntities = res.entities;
-          if (this._modalState && this._modalState.type === "link_provider") {
-            this._render();
+    _getFrontendTodoEntities() {
+      const list = [];
+      if (this._hass && this._hass.states) {
+        for (const [entityId, stateObj] of Object.entries(this._hass.states)) {
+          if (entityId.startsWith("todo.") && !entityId.startsWith("todo.task_manager")) {
+            const friendlyName = (stateObj && stateObj.attributes && stateObj.attributes.friendly_name) || entityId;
+            let icon = (stateObj && stateObj.attributes && stateObj.attributes.icon) || "mdi:format-list-checks";
+            let providerType = "generic";
+            let providerName = friendlyName;
+
+            const lowerId = entityId.toLowerCase();
+            if (lowerId.includes("google")) {
+              providerType = "google_tasks";
+              providerName = "Google Tasks";
+              icon = "mdi:google";
+            } else if (lowerId.includes("todoist")) {
+              providerType = "todoist";
+              providerName = "Todoist";
+              icon = "mdi:checkbox-marked";
+            } else if (lowerId.includes("bring")) {
+              providerType = "bring";
+              providerName = "Bring Shopping";
+              icon = "mdi:cart";
+            } else if (lowerId.includes("caldav") || lowerId.includes("nextcloud")) {
+              providerType = "caldav";
+              providerName = "CalDAV";
+              icon = "mdi:calendar-sync";
+            } else if (lowerId.includes("local")) {
+              providerType = "local_todo";
+              providerName = "Local To-do";
+              icon = "mdi:clipboard-list";
+            } else if (lowerId.includes("shopping") || lowerId.includes("einkauf")) {
+              providerType = "shopping_list";
+              providerName = "Shopping List";
+              icon = "mdi:cart-outline";
+            }
+
+            list.push({
+              entity_id: entityId,
+              name: friendlyName,
+              provider_name: providerName,
+              provider_type: providerType,
+              icon: icon
+            });
           }
         }
+      }
+      return list;
+    }
+
+    async openLinkProviderModal() {
+      const localEntities = this._getFrontendTodoEntities();
+      this._availableTodoEntities = localEntities;
+      this._loadingTodoEntities = true;
+      this._modalState = { type: "link_provider", manualMode: false };
+      this._render();
+
+      try {
+        const res = await this._hass.callWS({ type: "task_manager/get_ha_todo_entities" });
+        if (res && Array.isArray(res.entities)) {
+          const map = new Map();
+          for (const ent of localEntities) {
+            map.set(ent.entity_id, ent);
+          }
+          for (const ent of res.entities) {
+            map.set(ent.entity_id, ent);
+          }
+          this._availableTodoEntities = Array.from(map.values());
+        }
       } catch (err) {
-        console.error("Task Manager: Failed to load todo entities", err);
+        console.warn("Task Manager: Could not query backend todo entities, using frontend states", err);
+      } finally {
+        this._loadingTodoEntities = false;
+        if (this._modalState && this._modalState.type === "link_provider") {
+          this._render();
+        }
       }
     }
 
@@ -2193,6 +2267,8 @@
       const entities = this._availableTodoEntities || [];
       const linkedIds = new Set((this._data.providers || []).map(p => p.entity_id));
       const unlinked = entities.filter(e => !linkedIds.has(e.entity_id));
+      const isLoading = Boolean(this._loadingTodoEntities && entities.length === 0);
+      const isManual = Boolean(this._modalState && this._modalState.manualMode);
 
       return `
         <div class="modal-backdrop" id="modal-backdrop">
@@ -2205,17 +2281,21 @@
               ${this.t("providersSubtitle")}
             </p>
 
-            <div class="form-group">
-              <label class="form-label">${this.t("selectTodoEntity")}</label>
-              ${entities.length === 0 ? `
+            ${isLoading ? `
+              <div class="form-group">
+                <label class="form-label">${this.t("selectTodoEntity")}</label>
                 <div style="font-size:13px; color:#64748b; padding:8px 0;">
                   ⌛ ${this.t("loadingEntities")}
                 </div>
-              ` : unlinked.length === 0 ? `
-                <div style="font-size:13px; color:#64748b; padding:8px 0;">
-                  ${this.t("noEntitiesFound")}
+              </div>
+            ` : (unlinked.length > 0 && !isManual) ? `
+              <div class="form-group">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <label class="form-label" style="margin:0;">${this.t("selectTodoEntity")}</label>
+                  <a href="#" id="btn-toggle-manual-provider" style="font-size:12px; color:#2563eb; text-decoration:none; cursor:pointer;">
+                    ✏️ ${this.t("enterManually")}
+                  </a>
                 </div>
-              ` : `
                 <select class="select-input" id="m-provider-entity">
                   ${unlinked.map(e => `
                     <option value="${e.entity_id}">
@@ -2223,8 +2303,25 @@
                     </option>
                   `).join("")}
                 </select>
-              `}
-            </div>
+              </div>
+            ` : `
+              <div class="form-group">
+                ${unlinked.length > 0 ? `
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <label class="form-label" style="margin:0;">${this.t("manualEntityId")}</label>
+                    <a href="#" id="btn-toggle-manual-provider" style="font-size:12px; color:#2563eb; text-decoration:none; cursor:pointer;">
+                      📋 ${this.t("chooseFromList")}
+                    </a>
+                  </div>
+                ` : `
+                  <div style="font-size:13px; color:#64748b; padding:8px 12px; background:rgba(0,0,0,0.03); border-radius:8px; margin-bottom:12px; border:1px solid rgba(0,0,0,0.06);">
+                    ℹ️ ${this.t("noEntitiesFound")} ${this.t("enterManuallyHint")}
+                  </div>
+                  <label class="form-label">${this.t("manualEntityId")}</label>
+                `}
+                <input type="text" class="text-input" id="m-provider-entity-manual" placeholder="todo.shopping_list" value="">
+              </div>
+            `}
 
             <div class="form-group">
               <label class="form-label">${this.t("providerName")} (${this.t("optional")})</label>
@@ -2233,7 +2330,7 @@
 
             <div class="modal-footer">
               <button class="btn btn-secondary" id="modal-cancel">${this.t("cancel")}</button>
-              <button class="btn btn-primary" id="modal-save-provider" ${unlinked.length === 0 ? "disabled" : ""}>
+              <button class="btn btn-primary" id="modal-save-provider">
                 ${this.t("save")}
               </button>
             </div>
@@ -2822,13 +2919,38 @@
         });
       }
 
+      // Toggle manual vs dropdown in provider modal
+      const btnToggleManual = root.getElementById("btn-toggle-manual-provider");
+      if (btnToggleManual) {
+        btnToggleManual.addEventListener("click", (e) => {
+          e.preventDefault();
+          if (this._modalState && this._modalState.type === "link_provider") {
+            this._modalState.manualMode = !this._modalState.manualMode;
+            this._render();
+          }
+        });
+      }
+
       // Modal Save Provider
       const btnSaveProvider = root.getElementById("modal-save-provider");
       if (btnSaveProvider) {
         btnSaveProvider.addEventListener("click", async () => {
+          const manualInput = root.getElementById("m-provider-entity-manual");
           const entitySelect = root.getElementById("m-provider-entity");
-          if (!entitySelect) return;
-          const entityId = entitySelect.value;
+          let entityId = "";
+          if (manualInput && manualInput.value.trim()) {
+            entityId = manualInput.value.trim();
+          } else if (entitySelect && entitySelect.value) {
+            entityId = entitySelect.value;
+          }
+          if (!entityId) {
+            alert(this.t("selectOrEnterEntity"));
+            return;
+          }
+          if (!entityId.startsWith("todo.")) {
+            alert(this.t("mustStartWithTodo"));
+            return;
+          }
           const nameInput = root.getElementById("m-provider-name");
           const customName = nameInput ? nameInput.value.trim() : "";
           await this.linkProvider(entityId, customName);

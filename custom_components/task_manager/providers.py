@@ -53,31 +53,51 @@ def detect_provider_type(hass: HomeAssistant, entity_id: str) -> dict[str, str]:
         entity_reg = er.async_get(hass)
         entry = entity_reg.async_get(entity_id)
         if entry:
-            name = entry.name or entry.original_name or entity_id
-            if entry.config_entry_id:
+            name = getattr(entry, "name", None) or getattr(entry, "original_name", None) or entity_id
+            if getattr(entry, "config_entry_id", None) and hasattr(hass, "config_entries"):
                 cfg = hass.config_entries.async_get_entry(entry.config_entry_id)
                 if cfg:
-                    domain = cfg.domain
-            elif entry.platform:
+                    domain = getattr(cfg, "domain", "generic")
+            elif getattr(entry, "platform", None):
                 domain = entry.platform
     except Exception:
         pass
 
-    # If entity state has friendly_name
-    state = hass.states.get(entity_id) if hass and hasattr(hass, "states") else None
-    if state and hasattr(state, "attributes") and isinstance(state.attributes, dict) and state.attributes.get("friendly_name"):
-        name = state.attributes["friendly_name"]
+    try:
+        state = hass.states.get(entity_id) if hass and hasattr(hass, "states") else None
+        if state and hasattr(state, "attributes") and isinstance(state.attributes, dict):
+            fn = state.attributes.get("friendly_name")
+            if fn:
+                name = fn
+    except Exception:
+        pass
+
+    # Heuristic fallback if domain is generic
+    if domain == "generic":
+        lower_id = entity_id.lower()
+        if "google" in lower_id:
+            domain = "google_tasks"
+        elif "todoist" in lower_id:
+            domain = "todoist"
+        elif "bring" in lower_id:
+            domain = "bring"
+        elif "caldav" in lower_id or "nextcloud" in lower_id:
+            domain = "caldav"
+        elif "local" in lower_id:
+            domain = "local_todo"
+        elif "shopping" in lower_id or "einkauf" in lower_id:
+            domain = "shopping_list"
 
     meta = PROVIDER_METADATA.get(domain, {
-        "name": domain.replace("_", " ").title(),
+        "name": domain.replace("_", " ").title() if isinstance(domain, str) else "External To-do",
         "icon": "mdi:format-list-checks",
     })
 
     return {
-        "provider_type": domain,
-        "name": name,
-        "provider_name": meta["name"],
-        "icon": meta["icon"],
+        "provider_type": domain or "generic",
+        "name": name or entity_id,
+        "provider_name": meta.get("name", "External To-do"),
+        "icon": meta.get("icon", "mdi:format-list-checks"),
     }
 
 
@@ -88,44 +108,66 @@ def async_get_available_todo_entities(hass: HomeAssistant, our_domain: str = "ta
 
     # 1. From states
     if hasattr(hass, "states"):
-        for state in hass.states.async_all("todo"):
-            e_id = state.entity_id
-            if e_id.startswith(f"todo.{our_domain}"):
-                continue
-            if e_id in seen:
-                continue
-            seen.add(e_id)
-            meta = detect_provider_type(hass, e_id)
-            result.append({
-                "entity_id": e_id,
-                "name": meta["name"],
-                "provider_type": meta["provider_type"],
-                "provider_name": meta["provider_name"],
-                "icon": meta["icon"],
-            })
+        states = []
+        try:
+            states = hass.states.async_all("todo")
+        except TypeError:
+            try:
+                states = [s for s in hass.states.async_all() if getattr(s, "domain", "") == "todo" or getattr(s, "entity_id", "").startswith("todo.")]
+            except Exception:
+                states = []
+        except Exception:
+            states = []
+
+        for state in states:
+            try:
+                e_id = getattr(state, "entity_id", None)
+                if not e_id or not e_id.startswith("todo."):
+                    continue
+                if e_id.startswith(f"todo.{our_domain}"):
+                    continue
+                if e_id in seen:
+                    continue
+                seen.add(e_id)
+                meta = detect_provider_type(hass, e_id)
+                result.append({
+                    "entity_id": e_id,
+                    "name": meta["name"],
+                    "provider_type": meta["provider_type"],
+                    "provider_name": meta["provider_name"],
+                    "icon": meta["icon"],
+                })
+            except Exception as err:
+                _LOGGER.debug("Error processing todo state: %s", err)
 
     # 2. From entity registry
     try:
         entity_reg = er.async_get(hass)
-        for entry in entity_reg.entities.values():
-            if entry.domain != "todo":
-                continue
-            e_id = entry.entity_id
-            if e_id.startswith(f"todo.{our_domain}"):
-                continue
-            if e_id in seen:
-                continue
-            seen.add(e_id)
-            meta = detect_provider_type(hass, e_id)
-            result.append({
-                "entity_id": e_id,
-                "name": meta["name"],
-                "provider_type": meta["provider_type"],
-                "provider_name": meta["provider_name"],
-                "icon": meta["icon"],
-            })
-    except Exception:
-        pass
+        entries = list(entity_reg.entities.values()) if hasattr(entity_reg.entities, "values") else []
+        for entry in entries:
+            try:
+                if getattr(entry, "domain", None) != "todo":
+                    continue
+                e_id = getattr(entry, "entity_id", None)
+                if not e_id or not e_id.startswith("todo."):
+                    continue
+                if e_id.startswith(f"todo.{our_domain}"):
+                    continue
+                if e_id in seen:
+                    continue
+                seen.add(e_id)
+                meta = detect_provider_type(hass, e_id)
+                result.append({
+                    "entity_id": e_id,
+                    "name": meta["name"],
+                    "provider_type": meta["provider_type"],
+                    "provider_name": meta["provider_name"],
+                    "icon": meta["icon"],
+                })
+            except Exception as err:
+                _LOGGER.debug("Error processing entity registry entry: %s", err)
+    except Exception as err:
+        _LOGGER.debug("Error querying entity registry: %s", err)
 
     return result
 
