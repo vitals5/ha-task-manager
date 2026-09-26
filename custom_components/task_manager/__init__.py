@@ -7,7 +7,8 @@ from typing import Any
 
 from homeassistant.components import panel_custom
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EVENT_STATE_CHANGED
+from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN, FRONTEND_DIR, PLATFORMS, URL_BASE
 from .services import async_register_services, async_unregister_services
@@ -48,7 +49,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if entity_id in provider_ids:
             hass.async_create_task(storage.async_sync_providers())
 
-    from homeassistant.const import EVENT_STATE_CHANGED
     entry.async_on_unload(
         hass.bus.async_listen(EVENT_STATE_CHANGED, _async_on_state_change)
     )
@@ -71,7 +71,7 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
     else:
         hass.http.register_static_path(URL_BASE, FRONTEND_DIR, cache_headers=False)
 
-    version_str = "1.0.5"
+    version_str = "1.0.6"
     try:
         js_file = os.path.join(FRONTEND_DIR, "task-manager-panel.js")
         if os.path.exists(js_file):
