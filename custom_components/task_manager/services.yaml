@@ -1,0 +1,182 @@
+create_task:
+  name: Create Task
+  description: Creates a new chore or task in Task Manager.
+  fields:
+    title:
+      name: Title
+      description: The title or name of the task.
+      required: true
+      example: "Take out the recycling bin"
+      selector:
+        text:
+    description:
+      name: Description
+      description: Additional notes or instructions for the chore.
+      required: false
+      example: "Yellow bin to the curb before 07:00"
+      selector:
+        text:
+          multiline: true
+    due_date:
+      name: Due Date
+      description: Due date in YYYY-MM-DD format (defaults to today).
+      required: false
+      example: "2026-09-30"
+      selector:
+        date:
+    priority:
+      name: Priority
+      description: Priority level (p1=Urgent, p2=High, p3=Medium, p4=Low, none=None).
+      required: false
+      default: none
+      selector:
+        select:
+          options:
+            - label: "P1 (Urgent)"
+              value: "p1"
+            - label: "P2 (High)"
+              value: "p2"
+            - label: "P3 (Medium)"
+              value: "p3"
+            - label: "P4 (Low)"
+              value: "p4"
+            - label: "None"
+              value: "none"
+    assignee:
+      name: Assignee User ID
+      description: ID of user to assign this chore to.
+      required: false
+      example: "user_household"
+      selector:
+        text:
+    points:
+      name: Points
+      description: Reward points on completion.
+      required: false
+      default: 10
+      selector:
+        number:
+          min: 0
+          max: 1000
+    linked_thing_id:
+      name: Linked Thing ID
+      description: ID of a Thing linked to this task (e.g. thing_water_filter).
+      required: false
+      selector:
+        text:
+
+complete_task:
+  name: Complete Task
+  description: Marks a task or chore as completed, awarding points, rotating assignee, and recalculating recurrence.
+  fields:
+    task_id:
+      name: Task ID
+      description: The unique identifier of the task.
+      required: false
+      example: "e34b9d0b-..."
+      selector:
+        text:
+    task_title:
+      name: Task Title
+      description: Find and complete the pending task matching this exact title.
+      required: false
+      example: "Empty Robot Vacuum Bin"
+      selector:
+        text:
+    user_id:
+      name: Completed by User ID
+      description: User ID who gets credit and points (defaults to task's active assignee).
+      required: false
+      selector:
+        text:
+
+reset_task:
+  name: Reset Task
+  description: Resets a completed task back to pending.
+  fields:
+    task_id:
+      name: Task ID
+      description: The unique identifier of the task.
+      required: false
+      selector:
+        text:
+    task_title:
+      name: Task Title
+      description: The title of the task to reset.
+      required: false
+      selector:
+        text:
+
+delete_task:
+  name: Delete Task
+  description: Permanently deletes a task.
+  fields:
+    task_id:
+      name: Task ID
+      description: The unique identifier of the task to delete.
+      required: true
+      selector:
+        text:
+
+update_thing:
+  name: Update Thing
+  description: Updates, increments, or resets a Thing counter or meter (Donetick item).
+  fields:
+    thing_id:
+      name: Thing ID
+      description: ID of the thing to update (e.g. thing_robot_dustbin).
+      required: true
+      selector:
+        text:
+    value:
+      name: Set Absolute Value
+      description: Set current value directly.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: any
+    delta:
+      name: Delta Change
+      description: Increment or decrement current value by this amount (e.g. +1 or -1).
+      required: false
+      selector:
+        number:
+          min: -1000
+          max: 1000
+          step: any
+    reset:
+      name: Reset to Zero
+      description: Reset the current value back to 0.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+award_points:
+  name: Award Points
+  description: Awards or adjusts gamification points for a household user.
+  fields:
+    user_id:
+      name: User ID
+      description: Target user ID.
+      required: true
+      selector:
+        text:
+    points:
+      name: Points
+      description: Number of points to award.
+      required: true
+      example: 25
+      selector:
+        number:
+          min: 1
+          max: 10000
+    reason:
+      name: Reason
+      description: Note or reason for points adjustment.
+      required: false
+      example: "Special garden cleaning bonus"
+      selector:
+        text:

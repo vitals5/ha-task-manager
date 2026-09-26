@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Task Manager Setup",
+        "description": "Do you want to set up the Task Manager integration? Chores, gamification, and settings can be managed directly via the sidebar panel."
+      }
+    },
+    "abort": {
+      "already_configured": "Task Manager is already configured."
+    }
+  },
+  "services": {
+    "create_task": {
+      "name": "Create Task",
+      "description": "Creates a new chore or task in Task Manager."
+    },
+    "complete_task": {
+      "name": "Complete Task",
+      "description": "Completes a task, awards points, rotates assignees, and calculates recurrence."
+    },
+    "reset_task": {
+      "name": "Reset Task",
+      "description": "Resets a completed task back to pending."
+    },
+    "delete_task": {
+      "name": "Delete Task",
+      "description": "Deletes a task permanently."
+    },
+    "update_thing": {
+      "name": "Update Thing",
+      "description": "Updates, increments, or resets a Thing counter or meter."
+    },
+    "award_points": {
+      "name": "Award Points",
+      "description": "Adjusts gamification points for a household member."
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Task Manager Einrichtung",
+        "description": "Möchtest du die Task Manager Integration einrichten? Aufgaben, Gamification und Einstellungen können direkt über das Seitenleisten-Panel verwaltet werden."
+      }
+    },
+    "abort": {
+      "already_configured": "Task Manager ist bereits eingerichtet."
+    }
+  },
+  "services": {
+    "create_task": {
+      "name": "Aufgabe erstellen",
+      "description": "Erstellt eine neue Aufgabe oder einen Haushalts-Task im Task Manager."
+    },
+    "complete_task": {
+      "name": "Aufgabe abschließen",
+      "description": "Schließt eine Aufgabe ab, vergibt Punkte, rotiert Zuständige und berechnet die Wiederholung."
+    },
+    "reset_task": {
+      "name": "Aufgabe zurücksetzen",
+      "description": "Setzt eine erledigte Aufgabe auf ausstehend zurück."
+    },
+    "delete_task": {
+      "name": "Aufgabe löschen",
+      "description": "Löscht eine Aufgabe dauerhaft."
+    },
+    "update_thing": {
+      "name": "Thing aktualisieren",
+      "description": "Aktualisiert, erhöht oder setzt einen Zähler/Messwert eines Things zurück."
+    },
+    "award_points": {
+      "name": "Punkte vergeben",
+      "description": "Vergibt oder korrigiert Punkte für ein Haushaltsmitglied."
+    }
+  }
+}
