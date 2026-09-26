@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
 
-A modern, collaborative household task, chore, and maintenance manager for Home Assistant, inspired by [**Donetick**](https://donetick.com).
+A modern, collaborative household task, chore, and maintenance manager for Home Assistant.
 
 Task Manager brings powerful chore tracking, recurring cadences, assignee rotations, gamification, and physical appliance monitoring ("Things") into Home Assistant. The entire workflow—task management, administration, household members, categories, and settings—is handled directly within an integrated, mobile- and tablet-friendly **Sidebar Panel**.
 
@@ -25,7 +25,7 @@ Task Manager brings powerful chore tracking, recurring cadences, assignee rotati
   - **Least Completed**: Automatically assigns the chore to whoever has completed the fewest tasks.
   - **Random**: Randomly selects among members.
 
-### ⚙️ "Things" Tracking (Inspired by Donetick)
+### ⚙️ "Things" Tracking
 Track non-task household items and consumables that require maintenance over time:
 - **Meters & Counters**: Water filter lifespans (days), robot vacuum dustbin cycles (runs), coffee machine descaling (brews), air purifier filters, or water softener salt.
 - **Interactive Controls**: Increment (`+1`), decrement (`-1`), or reset (`↺`) counters directly on the card.
@@ -232,7 +232,7 @@ cards:
 All tasks, things, users, and settings are stored locally in Home Assistant's secure storage directory (`.storage/task_manager_data`). Your data never leaves your local network.
 
 ### How does Subtask Smart Reset work?
-In Donetick and Task Manager, recurring chores with subtask checklists (e.g. *"Clean Bathroom"* with steps: *Mirror*, *Sink*, *Toilet*, *Shower*) will have their subtasks automatically reset to unchecked once the parent chore is completed, ready for the next scheduled occurrence.
+In Task Manager, recurring chores with subtask checklists (e.g. *"Clean Bathroom"* with steps: *Mirror*, *Sink*, *Toilet*, *Shower*) will have their subtasks automatically reset to unchecked once the parent chore is completed, ready for the next scheduled occurrence.
 
 ### How do I access the panel on a mobile device?
 Open the Home Assistant Companion App and tap **Task Manager** in the sidebar. It is fully responsive and adjusts to screen sizes from phones to 4K wall panels.
@@ -242,4 +242,3 @@ Open the Home Assistant Companion App and tap **Task Manager** in the sidebar. I
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
-Inspiration and design principles credited to the [Donetick](https://github.com/donetick/donetick) open-source chore management project.

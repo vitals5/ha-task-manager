@@ -14,7 +14,7 @@ STORAGE_KEY = "task_manager_data"
 
 SIGNAL_TASK_MANAGER_UPDATED = f"{DOMAIN}_updated"
 
-# Priority Levels (Donetick-style)
+# Priority Levels
 PRIORITY_P1 = "p1"      # Urgent (Red)
 PRIORITY_P2 = "p2"      # High (Orange)
 PRIORITY_P3 = "p3"      # Medium (Blue)
@@ -111,7 +111,7 @@ DEFAULT_USERS = [
     }
 ]
 
-# Default "Things" (Appliance/Household item counters inspired by Donetick)
+# Default "Things" (Appliance and household item counters)
 DEFAULT_THINGS = [
     {
         "id": "thing_water_filter",

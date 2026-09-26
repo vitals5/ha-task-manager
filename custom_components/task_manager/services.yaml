@@ -120,7 +120,7 @@ delete_task:
 
 update_thing:
   name: Update Thing
-  description: Updates, increments, or resets a Thing counter or meter (Donetick item).
+  description: Updates, increments, or resets a Thing counter or meter.
   fields:
     thing_id:
       name: Thing ID

@@ -113,7 +113,7 @@ class TestTaskManagerStorage(unittest.TestCase):
         self.assertEqual(updated_user["streak"], 1)
 
     def test_complete_recurring_task_smart_subtask_reset(self):
-        """Test recurring tasks advance due date and automatically reset subtasks (Donetick feature)."""
+        """Test recurring tasks advance due date and automatically reset subtasks."""
         task = self.data.create_task({
             "title": "Take out trash",
             "due_date": "2026-09-26",

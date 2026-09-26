@@ -196,7 +196,7 @@ class TaskManagerUserSensor(SensorEntity):
 
 
 class TaskManagerThingSensor(SensorEntity):
-    """Sensor for household things/meters (Donetick style)."""
+    """Sensor for household things/meters."""
 
     _attr_has_entity_name = True
 

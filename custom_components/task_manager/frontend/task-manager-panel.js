@@ -1,6 +1,5 @@
 /**
  * Task Manager Custom Sidebar Panel for Home Assistant
- * Inspired by Donetick (https://donetick.com)
  *
  * Features:
  * - Tasks & Chores Management (Due date, priority P1-P4, recurring cadences)
@@ -610,7 +609,7 @@
             box-sizing: border-box;
           }
 
-          /* Header bar inspired by Donetick */
+          /* Header bar */
           .header {
             display: flex;
             align-items: center;
@@ -1944,7 +1943,7 @@
             <div style="border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
               <label style="display:flex; align-items:center; gap:8px; font-weight:600; font-size:14px; cursor:pointer;">
                 <input type="checkbox" id="m-task-rec-enable" ${rec.enabled ? "checked" : ""}>
-                <span>${this.t("recurrence")} (Donetick Smart Schedule)</span>
+                <span>${this.t("recurrence")} (Smart Schedule)</span>
               </label>
 
               <div id="m-rec-fields" style="display:${rec.enabled ? "grid" : "none"}; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
@@ -1992,7 +1991,7 @@
 
             <!-- Linked Thing -->
             <div class="form-group">
-              <label class="form-label">${this.t("linkedThing")} (Donetick Feature)</label>
+              <label class="form-label">${this.t("linkedThing")}</label>
               <select class="select-input" id="m-task-linked-thing">
                 <option value="">None</option>
                 ${this._data.things.map(th => `

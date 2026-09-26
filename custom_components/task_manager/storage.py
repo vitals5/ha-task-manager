@@ -327,7 +327,7 @@ class TaskManagerData:
                 elif thing_action == THING_ACTION_DECREMENT:
                     thing["current_value"] = max(0, thing.get("current_value", 0) - 1)
 
-        # 4. Handle Recurrence & Subtasks Reset (Donetick signature feature)
+        # 4. Handle Recurrence & Subtasks Reset
         rec = task.get("recurrence", {})
         is_recurring = rec.get("enabled", False) and rec.get("type", RECURRENCE_NONE) != RECURRENCE_NONE
 
