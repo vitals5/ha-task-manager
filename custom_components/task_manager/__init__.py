@@ -38,16 +38,58 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as err:
         _LOGGER.warning("Could not initially sync providers: %s", err)
 
-    # Listen for state changes on external provider todo entities
+    # Initial sync of external entities linked to Things
+    things_updated = False
+    for th in storage.data.things:
+        ext_id = th.get("external_entity_id")
+        if ext_id and hass.states.get(ext_id):
+            st = hass.states.get(ext_id)
+            if st and st.state not in ("unavailable", "unknown"):
+                try:
+                    val = float(st.state)
+                    if storage.data.update_thing_value(th["id"], value=val):
+                        things_updated = True
+                except (ValueError, TypeError):
+                    pass
+    if things_updated:
+        try:
+            await storage.async_save()
+        except Exception as err:
+            _LOGGER.debug("Could not save storage after initial things sync: %s", err)
+
+    # Listen for state changes on external provider todo entities and linked thing entities
     @callback
     def _async_on_state_change(event: Any) -> None:
-        """Handle state change of external provider todo entities."""
+        """Handle state change of external provider todo entities and linked thing entities."""
         entity_id = event.data.get("entity_id", "")
-        if not entity_id.startswith("todo.") or entity_id.startswith(f"todo.{DOMAIN}"):
+        if not entity_id:
             return
-        provider_ids = {p.get("entity_id") for p in storage.data.providers}
-        if entity_id in provider_ids:
-            hass.async_create_task(storage.async_sync_providers())
+
+        # 1. External Todo Provider sync
+        if entity_id.startswith("todo.") and not entity_id.startswith(f"todo.{DOMAIN}"):
+            provider_ids = {p.get("entity_id") for p in storage.data.providers}
+            if entity_id in provider_ids:
+                hass.async_create_task(storage.async_sync_providers())
+                return
+
+        # 2. Linked numeric entities for Things
+        things_to_update = [
+            th for th in storage.data.things
+            if th.get("external_entity_id") == entity_id
+        ]
+        if things_to_update:
+            new_state = event.data.get("new_state")
+            if new_state and new_state.state not in ("unavailable", "unknown"):
+                try:
+                    val = float(new_state.state)
+                    updated = False
+                    for th in things_to_update:
+                        if storage.data.update_thing_value(th["id"], value=val):
+                            updated = True
+                    if updated:
+                        hass.async_create_task(storage.async_save())
+                except (ValueError, TypeError):
+                    pass
 
     entry.async_on_unload(
         hass.bus.async_listen(EVENT_STATE_CHANGED, _async_on_state_change)
@@ -71,7 +113,7 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
     else:
         hass.http.register_static_path(URL_BASE, FRONTEND_DIR, cache_headers=False)
 
-    version_str = "1.0.9"
+    version_str = "1.0.10"
     try:
         js_file = os.path.join(FRONTEND_DIR, "task-manager-panel.js")
         if os.path.exists(js_file):

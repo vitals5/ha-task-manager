@@ -127,6 +127,18 @@
         "reset": {
           "name": "Auf 0 zurücksetzen",
           "description": "Setzt den aktuellen Wert auf 0 zurück."
+        },
+        "target_value": {
+          "name": "Ziel- / Schwellwert",
+          "description": "Trigger-Schwellwert für verknüpfte Aufgaben."
+        },
+        "threshold_operator": {
+          "name": "Trigger-Bedingung",
+          "description": "Bedingung: >= (Zähler zählt hoch) oder <= (Lebensdauer zählt runter)."
+        },
+        "external_entity_id": {
+          "name": "Externe Entitäts-ID",
+          "description": "Optionale numerische Home Assistant Entität zum automatischen Synchronisieren."
         }
       }
     },

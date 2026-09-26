@@ -17,6 +17,7 @@ from .const import (
     DEFAULT_SETTINGS,
     DEFAULT_THINGS,
     DEFAULT_USERS,
+    FAR_FUTURE_DUE_DATE,
     PRIORITIES,
     PRIORITY_NONE,
     RECURRENCE_BASED_COMPLETION,
@@ -37,6 +38,8 @@ from .const import (
     THING_ACTION_DECREMENT,
     THING_ACTION_INCREMENT,
     THING_ACTION_RESET,
+    THRESHOLD_OP_GTE,
+    THRESHOLD_OP_LTE,
 )
 from .providers import (
     async_create_external_task,
@@ -46,6 +49,24 @@ from .providers import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def is_thing_threshold_reached(thing: dict[str, Any]) -> bool:
+    """Check if the thing's current value meets or exceeds the trigger threshold."""
+    operator = thing.get("threshold_operator", THRESHOLD_OP_GTE)
+    try:
+        threshold = float(thing.get("target_value", 0))
+    except (ValueError, TypeError):
+        threshold = 0.0
+
+    try:
+        current = float(thing.get("current_value", 0))
+    except (ValueError, TypeError):
+        current = 0.0
+
+    if operator in (THRESHOLD_OP_LTE, "lte", "down", "countdown", "<"):
+        return current <= threshold
+    return current >= threshold
 
 
 def calculate_next_due_date(
@@ -219,11 +240,34 @@ class TaskManagerData:
                     "completed": bool(st.get("completed", False)),
                 })
 
+        linked_thing_id = task_data.get("linked_thing_id")
+        rec = task_data.get("recurrence", {
+            "enabled": False,
+            "type": RECURRENCE_NONE,
+            "interval": 1,
+            "days_of_week": [],
+            "based_on": RECURRENCE_BASED_DUE_DATE,
+        })
+        has_time_fallback = (
+            rec.get("enabled", False)
+            and rec.get("type", RECURRENCE_NONE) not in (RECURRENCE_NONE, "none", "")
+            and int(rec.get("interval", 1)) > 0
+        )
+
+        initial_due_date = task_data.get("due_date", today_str)
+        if linked_thing_id:
+            thing = self.get_thing(linked_thing_id)
+            if thing and is_thing_threshold_reached(thing):
+                initial_due_date = today_str
+            elif not has_time_fallback:
+                # Without a time schedule fallback, due date is set to far future until threshold triggers!
+                initial_due_date = FAR_FUTURE_DUE_DATE
+
         new_task = {
             "id": task_id,
             "title": task_data.get("title", "New Task"),
             "description": task_data.get("description", ""),
-            "due_date": task_data.get("due_date", today_str),
+            "due_date": initial_due_date,
             "due_time": task_data.get("due_time", ""),
             "priority": task_data.get("priority", PRIORITY_NONE),
             "status": "pending",
@@ -231,16 +275,10 @@ class TaskManagerData:
             "current_assignee": current_assignee,
             "rotation_mode": task_data.get("rotation_mode", ROTATION_NONE),
             "labels": task_data.get("labels", []),
-            "recurrence": task_data.get("recurrence", {
-                "enabled": False,
-                "type": RECURRENCE_NONE,
-                "interval": 1,
-                "days_of_week": [],
-                "based_on": RECURRENCE_BASED_DUE_DATE,
-            }),
+            "recurrence": rec,
             "subtasks": subtasks,
             "points": int(task_data.get("points", self.settings.get("default_points", 10))),
-            "linked_thing_id": task_data.get("linked_thing_id"),
+            "linked_thing_id": linked_thing_id,
             "thing_action": task_data.get("thing_action", THING_ACTION_RESET),
             "completion_restriction": task_data.get("completion_restriction", {
                 "enabled": False,
@@ -279,6 +317,22 @@ class TaskManagerData:
                 task["subtasks"] = clean_st
             else:
                 task[key] = val
+
+        # Handle linked thing due date adjustment
+        linked_thing_id = task.get("linked_thing_id")
+        if linked_thing_id and task.get("status") == "pending":
+            thing = self.get_thing(linked_thing_id)
+            rec = task.get("recurrence", {})
+            has_time_fallback = (
+                rec.get("enabled", False)
+                and rec.get("type", RECURRENCE_NONE) not in (RECURRENCE_NONE, "none", "")
+                and int(rec.get("interval", 1)) > 0
+            )
+            today_str = dt_util.now().date().strftime("%Y-%m-%d")
+            if thing and is_thing_threshold_reached(thing):
+                task["due_date"] = today_str
+            elif not has_time_fallback and "due_date" not in updates and task.get("due_date", "") < FAR_FUTURE_DUE_DATE:
+                task["due_date"] = FAR_FUTURE_DUE_DATE
 
         self._log_activity("task_updated", {"task_id": task_id, "title": task["title"]})
         return task
@@ -334,16 +388,25 @@ class TaskManagerData:
             thing = self.get_thing(linked_thing_id)
             if thing:
                 if thing_action == THING_ACTION_RESET:
-                    thing["current_value"] = 0
+                    operator = thing.get("threshold_operator", THRESHOLD_OP_GTE)
+                    if operator in (THRESHOLD_OP_LTE, "lte", "down", "countdown", "<"):
+                        thing["current_value"] = float(thing.get("initial_value", 100))
+                    else:
+                        thing["current_value"] = 0.0
                     thing["last_reset"] = now_str
                 elif thing_action == THING_ACTION_INCREMENT:
-                    thing["current_value"] = thing.get("current_value", 0) + 1
+                    thing["current_value"] = float(thing.get("current_value", 0)) + 1
                 elif thing_action == THING_ACTION_DECREMENT:
-                    thing["current_value"] = max(0, thing.get("current_value", 0) - 1)
+                    thing["current_value"] = max(0.0, float(thing.get("current_value", 0)) - 1)
 
         # 4. Handle Recurrence & Subtasks Reset
         rec = task.get("recurrence", {})
-        is_recurring = rec.get("enabled", False) and rec.get("type", RECURRENCE_NONE) != RECURRENCE_NONE
+        has_time_fallback = (
+            rec.get("enabled", False)
+            and rec.get("type", RECURRENCE_NONE) not in (RECURRENCE_NONE, "none", "")
+            and int(rec.get("interval", 1)) > 0
+        )
+        is_recurring = rec.get("enabled", False) and (has_time_fallback or bool(linked_thing_id))
 
         if is_recurring:
             # Smart Subtasks Reset: reset all subtasks when recurring task completes
@@ -376,11 +439,15 @@ class TaskManagerData:
                     task["current_assignee"] = random.choice(candidates if candidates else assignees)
 
             # Recalculate next due date
-            task["due_date"] = calculate_next_due_date(
-                current_due_date_str=task.get("due_date", today_date_str),
-                recurrence=rec,
-                completion_date_str=today_date_str,
-            )
+            if linked_thing_id and not has_time_fallback:
+                # No schedule fallback configured: next due date is set to far future until threshold triggers!
+                task["due_date"] = FAR_FUTURE_DUE_DATE
+            else:
+                task["due_date"] = calculate_next_due_date(
+                    current_due_date_str=task.get("due_date", today_date_str),
+                    recurrence=rec,
+                    completion_date_str=today_date_str,
+                )
             task["status"] = "pending"
             task["completed_at"] = None
             task["completed_by"] = None
@@ -444,13 +511,32 @@ class TaskManagerData:
     def create_thing(self, thing_data: dict[str, Any]) -> dict[str, Any]:
         """Create a new tracked thing/meter."""
         thing_id = thing_data.get("id") or str(uuid.uuid4())
+        threshold_val = thing_data.get("threshold_value", thing_data.get("target_value", 100))
+        try:
+            target_value = float(threshold_val)
+        except (ValueError, TypeError):
+            target_value = 100.0
+
+        cur_val = thing_data.get("current_value", 0)
+        try:
+            current_value = float(cur_val)
+        except (ValueError, TypeError):
+            current_value = 0.0
+
+        operator = thing_data.get("threshold_operator", THRESHOLD_OP_GTE)
+        if operator not in (THRESHOLD_OP_GTE, THRESHOLD_OP_LTE):
+            operator = THRESHOLD_OP_GTE
+
         new_thing = {
             "id": thing_id,
             "name": thing_data.get("name", "New Thing"),
             "category": thing_data.get("category", "General"),
             "icon": thing_data.get("icon", "mdi:chart-arc"),
-            "current_value": float(thing_data.get("current_value", 0)),
-            "target_value": float(thing_data.get("target_value", 100)),
+            "current_value": current_value,
+            "target_value": target_value,
+            "threshold_operator": operator,
+            "external_entity_id": thing_data.get("external_entity_id") or None,
+            "initial_value": float(thing_data.get("initial_value", 100 if operator == THRESHOLD_OP_LTE else 0)),
             "unit": thing_data.get("unit", "units"),
             "auto_task_creation": bool(thing_data.get("auto_task_creation", False)),
             "auto_task_title": thing_data.get("auto_task_title", f"Maintain {thing_data.get('name', 'Thing')}"),
@@ -468,6 +554,28 @@ class TaskManagerData:
         for key, val in updates.items():
             if key != "id":
                 thing[key] = val
+
+        if "threshold_value" in updates and "target_value" not in updates:
+            try:
+                thing["target_value"] = float(updates["threshold_value"])
+            except (ValueError, TypeError):
+                pass
+
+        if "external_entity_id" in updates:
+            thing["external_entity_id"] = updates["external_entity_id"] or None
+
+        if is_thing_threshold_reached(thing):
+            today_str = dt_util.now().date().strftime("%Y-%m-%d")
+            for task in self.tasks:
+                if task.get("linked_thing_id") == thing_id and task.get("status") == "pending":
+                    if task.get("due_date") != today_str:
+                        task["due_date"] = today_str
+                        self._log_activity("task_threshold_triggered", {
+                            "task_id": task["id"],
+                            "title": task["title"],
+                            "thing_id": thing_id,
+                            "due_date": today_str,
+                        })
         return thing
 
     def update_thing_value(
@@ -483,33 +591,59 @@ class TaskManagerData:
             return None
 
         now_str = dt_util.now().isoformat()
+        today_str = dt_util.now().date().strftime("%Y-%m-%d")
 
         if reset:
-            thing["current_value"] = 0
+            operator = thing.get("threshold_operator", THRESHOLD_OP_GTE)
+            if operator in (THRESHOLD_OP_LTE, "lte", "down", "countdown", "<"):
+                thing["current_value"] = float(thing.get("initial_value", 100))
+            else:
+                thing["current_value"] = 0.0
             thing["last_reset"] = now_str
         elif value is not None:
             thing["current_value"] = float(value)
         elif delta is not None:
-            thing["current_value"] = max(0.0, float(thing.get("current_value", 0)) + float(delta))
+            cur = float(thing.get("current_value", 0))
+            thing["current_value"] = max(0.0, cur + float(delta))
 
-        # Check threshold for auto task creation
-        target = float(thing.get("target_value", 100))
-        cur = float(thing.get("current_value", 0))
-        if thing.get("auto_task_creation") and target > 0 and cur >= target:
-            # Check if auto task already exists and is pending
-            title = thing.get("auto_task_title") or f"Maintain {thing['name']}"
-            existing = any(
-                t.get("title") == title and t.get("status") == "pending"
-                for t in self.tasks
-            )
-            if not existing:
-                self.create_task({
-                    "title": title,
-                    "description": f"Automatically generated by Thing '{thing['name']}' (Reached {cur}/{target} {thing.get('unit')}).",
-                    "priority": PRIORITIES[0],  # P1
-                    "linked_thing_id": thing_id,
-                    "thing_action": THING_ACTION_RESET,
-                })
+        # Check threshold
+        if is_thing_threshold_reached(thing):
+            # 1. Update any existing pending tasks linked to this thing
+            for task in self.tasks:
+                if task.get("linked_thing_id") == thing_id and task.get("status") == "pending":
+                    if task.get("due_date") != today_str:
+                        task["due_date"] = today_str
+                        self._log_activity("task_threshold_triggered", {
+                            "task_id": task["id"],
+                            "title": task["title"],
+                            "thing_id": thing_id,
+                            "due_date": today_str,
+                        })
+
+            # 2. Update external overlays linked to this thing
+            for uid, overlay in self.external_overlays.items():
+                if overlay.get("linked_thing_id") == thing_id:
+                    overlay["due_date"] = today_str
+
+            # 3. Auto-task creation if enabled
+            if thing.get("auto_task_creation"):
+                title = thing.get("auto_task_title") or f"Maintain {thing['name']}"
+                existing = any(
+                    (t.get("linked_thing_id") == thing_id or t.get("title") == title)
+                    and t.get("status") == "pending"
+                    for t in self.tasks
+                )
+                if not existing:
+                    cur = float(thing.get("current_value", 0))
+                    target = float(thing.get("target_value", 0))
+                    self.create_task({
+                        "title": title,
+                        "description": f"Automatically generated by Thing '{thing['name']}' (Reached {cur}/{target} {thing.get('unit', '')}).",
+                        "priority": PRIORITIES[0],  # P1
+                        "linked_thing_id": thing_id,
+                        "thing_action": THING_ACTION_RESET,
+                        "due_date": today_str,
+                    })
 
         self._log_activity("thing_value_updated", {
             "thing_id": thing_id,

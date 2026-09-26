@@ -16,14 +16,25 @@ core_mock = MagicMock()
 def dummy_callback(func):
     return func
 
+ha_mock.callback = dummy_callback
 core_mock.callback = dummy_callback
 core_mock.HomeAssistant = MagicMock
+ha_mock.core = core_mock
+
+if "homeassistant.core" in sys.modules:
+    sys.modules["homeassistant.core"].callback = dummy_callback
+
+ha_const_mock = MagicMock()
+ha_const_mock.EVENT_STATE_CHANGED = "state_changed"
+ha_mock.const = ha_const_mock
 
 sys.modules.setdefault("homeassistant", ha_mock)
 sys.modules.setdefault("homeassistant.core", core_mock)
+sys.modules.setdefault("homeassistant.const", ha_const_mock)
+sys.modules["homeassistant.const"] = ha_const_mock
 sys.modules.setdefault("homeassistant.config_entries", MagicMock())
-sys.modules.setdefault("homeassistant.const", MagicMock())
 sys.modules.setdefault("homeassistant.components", MagicMock())
+sys.modules.setdefault("homeassistant.helpers.dispatcher", MagicMock())
 panel_custom_mock = MagicMock()
 panel_custom_mock.async_register_panel = AsyncMock()
 sys.modules.setdefault("homeassistant.components.panel_custom", panel_custom_mock)
@@ -83,6 +94,59 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
                 unload_result = await task_manager.async_unload_entry(hass, entry)
                 self.assertTrue(unload_result)
                 self.assertNotIn("test_entry_123", hass.data["task_manager"])
+
+    async def test_external_entity_state_change_updates_thing(self):
+        """Test state changes on external numeric entities automatically update linked things."""
+        hass = MagicMock()
+        hass.data = {}
+        hass.config_entries = MagicMock()
+        hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
+        hass.states = MagicMock()
+        hass.states.get.return_value = None
+        listeners = {}
+        def mock_listen(event_type, callback):
+            listeners[event_type] = callback
+            return MagicMock()
+        hass.bus = MagicMock()
+        hass.bus.async_listen = mock_listen
+        hass.http = MagicMock()
+        hass.http.async_register_static_paths = AsyncMock(return_value=None)
+        hass.async_create_task = MagicMock()
+
+        entry = MagicMock()
+        entry.entry_id = "test_entry_456"
+        entry.async_on_unload = MagicMock()
+
+        with patch.object(task_manager.TaskManagerStorage, "async_load", AsyncMock()):
+            with patch.object(task_manager.TaskManagerStorage, "async_sync_providers", AsyncMock()):
+                with patch("task_manager.panel_custom.async_register_panel", AsyncMock()):
+                    await task_manager.async_setup_entry(hass, entry)
+
+        storage = hass.data["task_manager"]["test_entry_456"]
+        thing = storage.data.create_thing({
+            "name": "Brush",
+            "external_entity_id": "sensor.vacuum_brush_life",
+            "threshold_operator": "<=",
+            "target_value": 0,
+            "current_value": 80,
+        })
+
+        # Simulate state change event
+        event = MagicMock()
+        event.data = {
+            "entity_id": "sensor.vacuum_brush_life",
+            "new_state": MagicMock(state="0.0"),
+        }
+        from homeassistant.const import EVENT_STATE_CHANGED
+        cb = listeners.get(EVENT_STATE_CHANGED)
+        self.assertIsNotNone(cb)
+        cb(event)
+
+        updated_thing = storage.data.get_thing(thing["id"])
+        self.assertEqual(updated_thing["current_value"], 0.0)
+        hass.async_create_task.assert_called()
+        for call in hass.async_create_task.call_args_list:
+            call[0][0].close()
 
 
 if __name__ == "__main__":

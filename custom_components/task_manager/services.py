@@ -56,6 +56,10 @@ SCHEMA_UPDATE_THING = vol.Schema({
     vol.Optional("value"): vol.Any(vol.Coerce(float), None),
     vol.Optional("delta"): vol.Any(vol.Coerce(float), None),
     vol.Optional("reset", default=False): cv.boolean,
+    vol.Optional("target_value"): vol.Coerce(float),
+    vol.Optional("threshold_value"): vol.Coerce(float),
+    vol.Optional("threshold_operator"): vol.In([">=", "<=", "gte", "lte"]),
+    vol.Optional("external_entity_id"): vol.Any(cv.entity_id, None),
 })
 
 SCHEMA_AWARD_POINTS = vol.Schema({
@@ -122,12 +126,20 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
     async def handle_update_thing(call: ServiceCall) -> None:
         """Handle updating or resetting a Thing via service."""
         thing_id = call.data["thing_id"]
-        storage.data.update_thing_value(
-            thing_id=thing_id,
-            value=call.data.get("value"),
-            delta=call.data.get("delta"),
-            reset=call.data.get("reset", False),
-        )
+        prop_updates = {}
+        for k in ("target_value", "threshold_value", "threshold_operator", "external_entity_id"):
+            if k in call.data:
+                prop_updates[k] = call.data[k]
+        if prop_updates:
+            storage.data.update_thing(thing_id, prop_updates)
+
+        if any(k in call.data for k in ("value", "delta", "reset")):
+            storage.data.update_thing_value(
+                thing_id=thing_id,
+                value=call.data.get("value"),
+                delta=call.data.get("delta"),
+                reset=call.data.get("reset", False),
+            )
         await storage.async_save()
 
     async def handle_award_points(call: ServiceCall) -> None:

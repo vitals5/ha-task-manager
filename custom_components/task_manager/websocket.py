@@ -122,9 +122,17 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
     ) -> None:
         """Handle save or update thing command."""
-        thing_data = msg["thing"]
-        thing_id = thing_data.get("id")
+        thing_data = dict(msg["thing"])
+        ext_id = thing_data.get("external_entity_id")
+        if ext_id and hass.states.get(ext_id):
+            st = hass.states.get(ext_id)
+            if st and st.state not in ("unavailable", "unknown"):
+                try:
+                    thing_data["current_value"] = float(st.state)
+                except (ValueError, TypeError):
+                    pass
 
+        thing_id = thing_data.get("id")
         if thing_id and storage.data.get_thing(thing_id):
             result = storage.data.update_thing(thing_id, thing_data)
         else:
@@ -302,6 +310,36 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         connection.send_result(msg["id"], {"entities": entities})
 
     @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/get_ha_numeric_entities",
+    })
+    @websocket_api.async_response
+    async def ws_get_ha_numeric_entities(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Return available numeric entities in Home Assistant for Thing linking."""
+        entities = []
+        for state in hass.states.async_all():
+            eid = state.entity_id
+            if eid.startswith("task_manager") or eid.startswith("sensor.task_manager"):
+                continue
+            is_num = False
+            try:
+                float(state.state)
+                is_num = True
+            except (ValueError, TypeError):
+                if state.attributes.get("unit_of_measurement"):
+                    is_num = True
+            if is_num:
+                entities.append({
+                    "entity_id": eid,
+                    "name": state.attributes.get("friendly_name") or eid,
+                    "state": state.state,
+                    "unit": state.attributes.get("unit_of_measurement", ""),
+                })
+        entities.sort(key=lambda x: str(x.get("name", "")).lower())
+        connection.send_result(msg["id"], {"entities": entities})
+
+    @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/link_provider",
         vol.Required("entity_id"): str,
         vol.Optional("name", default=""): str,
@@ -376,6 +414,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
     websocket_api.async_register_command(hass, ws_update_settings)
     websocket_api.async_register_command(hass, ws_import_data)
     websocket_api.async_register_command(hass, ws_get_ha_todo_entities)
+    websocket_api.async_register_command(hass, ws_get_ha_numeric_entities)
     websocket_api.async_register_command(hass, ws_link_provider)
     websocket_api.async_register_command(hass, ws_unlink_provider)
     websocket_api.async_register_command(hass, ws_sync_providers)

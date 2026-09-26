@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 
 # Mock homeassistant module hierarchy
 ha_mock = MagicMock()
+ha_mock.callback = lambda func: func
 dt_mock = MagicMock()
 dt_mock.DEFAULT_TIME_ZONE = timezone.utc
 dt_mock.now.return_value = datetime(2026, 9, 26, 12, 0, 0, tzinfo=timezone.utc)

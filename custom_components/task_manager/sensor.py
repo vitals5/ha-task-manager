@@ -17,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, SIGNAL_TASK_MANAGER_UPDATED
-from .storage import TaskManagerStorage
+from .storage import TaskManagerStorage, is_thing_threshold_reached
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -299,6 +299,9 @@ class TaskManagerThingSensor(SensorEntity):
             "thing_id": self._thing_id,
             "category": thing.get("category", ""),
             "target_value": target,
+            "threshold_operator": thing.get("threshold_operator", ">="),
+            "external_entity_id": thing.get("external_entity_id"),
+            "threshold_reached": is_thing_threshold_reached(thing),
             "progress_percent": pct,
             "auto_task_creation": thing.get("auto_task_creation", False),
             "last_reset": thing.get("last_reset", ""),

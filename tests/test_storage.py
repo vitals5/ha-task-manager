@@ -54,6 +54,8 @@ storage_spec.loader.exec_module(storage_mod)
 
 TaskManagerData = storage_mod.TaskManagerData
 calculate_next_due_date = storage_mod.calculate_next_due_date
+is_thing_threshold_reached = storage_mod.is_thing_threshold_reached
+FAR_FUTURE_DUE_DATE = const_mod.FAR_FUTURE_DUE_DATE
 
 
 class TestTaskManagerStorage(unittest.TestCase):
@@ -309,6 +311,113 @@ class TestTaskManagerStorage(unittest.TestCase):
         self.assertEqual(ext_task["priority"], "p1")
         self.assertEqual(ext_task["provider_name"], "Test Provider")
         self.assertEqual(ext_task["provider_type"], "todoist")
+
+    def test_thing_threshold_operator_and_linkage(self):
+        """Test threshold calculation for both >= and <= operators."""
+        # GTE operator (count up)
+        thing_gte = {
+            "current_value": 50,
+            "target_value": 100,
+            "threshold_operator": ">=",
+        }
+        self.assertFalse(is_thing_threshold_reached(thing_gte))
+        thing_gte["current_value"] = 100
+        self.assertTrue(is_thing_threshold_reached(thing_gte))
+        thing_gte["current_value"] = 105
+        self.assertTrue(is_thing_threshold_reached(thing_gte))
+
+        # LTE operator (countdown, e.g. vacuum brush life 100% -> 0%)
+        thing_lte = {
+            "current_value": 15,
+            "target_value": 0,
+            "threshold_operator": "<=",
+        }
+        self.assertFalse(is_thing_threshold_reached(thing_lte))
+        thing_lte["current_value"] = 0
+        self.assertTrue(is_thing_threshold_reached(thing_lte))
+        thing_lte["current_value"] = -2
+        self.assertTrue(is_thing_threshold_reached(thing_lte))
+
+    def test_task_linked_to_thing_threshold_due_date_lifecycle(self):
+        """Test full lifecycle of a task linked to a countdown Thing without time fallback."""
+        # 1. Create a Thing with external_entity_id and countdown operator
+        thing = self.data.create_thing({
+            "name": "Roborock Main Brush",
+            "external_entity_id": "sensor.p50_pro_ultra_main_brush_left",
+            "threshold_operator": "<=",
+            "target_value": 0,
+            "initial_value": 100,
+            "current_value": 45,
+            "unit": "%",
+        })
+        self.assertEqual(thing["threshold_operator"], "<=")
+        self.assertEqual(thing["initial_value"], 100)
+        self.assertEqual(thing["external_entity_id"], "sensor.p50_pro_ultra_main_brush_left")
+
+        # 2. Create a recurring task linked to this Thing, with no time schedule fallback
+        task = self.data.create_task({
+            "title": "Clean or replace main brush",
+            "linked_thing_id": thing["id"],
+            "recurrence": {
+                "enabled": True,
+                "type": "none",
+                "interval": 1,
+            },
+        })
+        # Since threshold is not reached yet (45 > 0) and no schedule fallback, due date is FAR_FUTURE_DUE_DATE
+        self.assertEqual(task["due_date"], FAR_FUTURE_DUE_DATE)
+
+        # 3. Simulate external sensor counting down and reaching threshold (0%)
+        self.data.update_thing_value(thing["id"], value=0)
+
+        # Pending linked task should automatically have its due_date pulled to today (2026-09-26)
+        updated_task = self.data.get_task(task["id"])
+        self.assertEqual(updated_task["due_date"], "2026-09-26")
+
+        # 4. Complete the task
+        self.data.complete_task(task["id"])
+
+        # Thing's current value should reset to initial_value (100) because it's a countdown (<=)
+        rechecked_thing = self.data.get_thing(thing["id"])
+        self.assertEqual(rechecked_thing["current_value"], 100)
+
+        # Recurring task remains pending, but its next due_date is set back to FAR_FUTURE_DUE_DATE
+        rechecked_task = self.data.get_task(task["id"])
+        self.assertEqual(rechecked_task["status"], "pending")
+        self.assertEqual(rechecked_task["due_date"], FAR_FUTURE_DUE_DATE)
+
+    def test_task_linked_to_thing_with_fallback_schedule(self):
+        """Test task linked to Thing with a fallback time schedule."""
+        thing = self.data.create_thing({
+            "name": "Coffee Machine Descaling",
+            "threshold_operator": ">=",
+            "target_value": 100,
+            "current_value": 20,
+            "unit": "cups",
+        })
+
+        # Task linked to Thing with a weekly fallback schedule
+        task = self.data.create_task({
+            "title": "Descale Coffee Machine",
+            "linked_thing_id": thing["id"],
+            "due_date": "2026-09-26",
+            "recurrence": {
+                "enabled": True,
+                "type": "weekly",
+                "interval": 1,
+                "based_on": "due_date",
+            },
+        })
+        # Due date should remain the configured fallback date, not far future
+        self.assertEqual(task["due_date"], "2026-09-26")
+
+        # Complete task
+        self.data.complete_task(task["id"])
+
+        # Next due date should be calculated using the recurrence fallback (next week: 2026-10-03)
+        updated_task = self.data.get_task(task["id"])
+        self.assertEqual(updated_task["due_date"], "2026-10-03")
+        self.assertEqual(updated_task["status"], "pending")
 
 
 if __name__ == "__main__":

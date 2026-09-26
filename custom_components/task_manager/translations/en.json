@@ -127,6 +127,18 @@
         "reset": {
           "name": "Reset to Zero",
           "description": "Reset the current value back to 0."
+        },
+        "target_value": {
+          "name": "Target / Threshold Value",
+          "description": "Trigger threshold for linked tasks."
+        },
+        "threshold_operator": {
+          "name": "Trigger Operator",
+          "description": "Operator condition: >= (count up) or <= (count down)."
+        },
+        "external_entity_id": {
+          "name": "External Entity ID",
+          "description": "Optional numeric Home Assistant entity to automatically sync from."
         }
       }
     },

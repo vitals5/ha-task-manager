@@ -74,6 +74,18 @@ THING_ACTION_RESET = "reset"
 THING_ACTION_INCREMENT = "increment"
 THING_ACTION_DECREMENT = "decrement"
 
+# Thing Threshold Operators
+THRESHOLD_OP_GTE = ">="
+THRESHOLD_OP_LTE = "<="
+
+THRESHOLD_OPERATORS = [
+    THRESHOLD_OP_GTE,
+    THRESHOLD_OP_LTE,
+]
+
+# Far Future Due Date for threshold-driven tasks without time schedule
+FAR_FUTURE_DUE_DATE = "2099-12-31"
+
 # Services
 SERVICE_CREATE_TASK = "create_task"
 SERVICE_UPDATE_TASK = "update_task"

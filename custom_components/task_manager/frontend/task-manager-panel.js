@@ -177,7 +177,17 @@
       enterManuallyHint: "You can enter your entity ID directly:",
       selectOrEnterEntity: "Please select or enter a valid to-do entity ID",
       mustStartWithTodo: "Entity ID must start with 'todo.' (e.g. todo.shopping_list)",
-      optional: "optional"
+      optional: "optional",
+      linkedEntity: "Linked Home Assistant Entity (optional)",
+      linkedEntityPlaceholder: "e.g. sensor.p50_pro_ultra_main_brush_left",
+      linkedEntityHint: "Automatically syncs this Thing's value with an external numeric sensor.",
+      thresholdCondition: "Trigger Condition",
+      thresholdOperatorGte: "≥ Greater than or equal (counts up, e.g. filter days)",
+      thresholdOperatorLte: "≤ Less than or equal (counts down, e.g. remaining brush %)",
+      thresholdValue: "Trigger Threshold Value",
+      taskLinkedThingHint: "⚡ This task is linked to a Thing with threshold. It becomes due on the day the threshold is reached. A schedule is optional as a fallback.",
+      waitingForThreshold: "Waiting for threshold",
+      thresholdTriggered: "Threshold reached"
     },
     de: {
       appName: "Task Manager",
@@ -342,7 +352,17 @@
       enterManuallyHint: "Du kannst die Entitäts-ID direkt manuell eingeben:",
       selectOrEnterEntity: "Bitte wähle eine To-do-Entitäts-ID aus oder gib eine ein",
       mustStartWithTodo: "Die Entitäts-ID muss mit 'todo.' beginnen (z. B. todo.einkaufsliste)",
-      optional: "optional"
+      optional: "optional",
+      linkedEntity: "Verknüpfte Home Assistant Entität (optional)",
+      linkedEntityPlaceholder: "z. B. sensor.p50_pro_ultra_main_brush_left",
+      linkedEntityHint: "Synchronisiert den Wert dieses Things automatisch mit einem externen numerischen Sensor.",
+      thresholdCondition: "Trigger-Bedingung",
+      thresholdOperatorGte: "≥ Größer oder gleich (Zähler zählt hoch, z. B. Filter-Tage)",
+      thresholdOperatorLte: "≤ Kleiner oder gleich (Lebensdauer zählt runter, z. B. Bürsten-Rest %)",
+      thresholdValue: "Trigger-Schwellwert",
+      taskLinkedThingHint: "⚡ Diese Aufgabe ist an ein Thing mit Schwellwert gekoppelt. Sie wird am Tag der Schwellwert-Überschreitung fällig. Ein Zeitplan ist optional als Fallback.",
+      waitingForThreshold: "Wartet auf Schwellwert",
+      thresholdTriggered: "Schwellwert erreicht"
     }
   };
 
@@ -737,6 +757,24 @@
       return list;
     }
 
+    _getNumericEntities() {
+      const list = [];
+      if (this._hass && this._hass.states) {
+        for (const [entityId, stateObj] of Object.entries(this._hass.states)) {
+          if (entityId.startsWith("task_manager") || entityId.startsWith("sensor.task_manager")) continue;
+          const s = stateObj ? stateObj.state : "";
+          const isNum = !isNaN(parseFloat(s)) || (stateObj && stateObj.attributes && Boolean(stateObj.attributes.unit_of_measurement));
+          if (isNum) {
+            const name = (stateObj.attributes && stateObj.attributes.friendly_name) || entityId;
+            const unit = (stateObj.attributes && stateObj.attributes.unit_of_measurement) || "";
+            list.push({ entity_id: entityId, name, state: s, unit });
+          }
+        }
+      }
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      return list;
+    }
+
     async openLinkProviderModal() {
       const localEntities = this._getFrontendTodoEntities();
       this._availableTodoEntities = localEntities;
@@ -833,8 +871,11 @@
         category: "General",
         icon: "mdi:chart-arc",
         current_value: 0,
-        target_value: 30,
-        unit: "days",
+        target_value: 0,
+        threshold_operator: ">=",
+        external_entity_id: "",
+        initial_value: 0,
+        unit: "",
         auto_task_creation: true,
         auto_task_title: ""
       };
@@ -874,7 +915,7 @@
       if (this._filterStatus === "today") {
         tasks = tasks.filter(t => t.status === "pending" && t.due_date === todayStr);
       } else if (this._filterStatus === "upcoming") {
-        tasks = tasks.filter(t => t.status === "pending" && t.due_date > todayStr);
+        tasks = tasks.filter(t => t.status === "pending" && t.due_date > todayStr && t.due_date < "2099-01-01");
       } else if (this._filterStatus === "overdue") {
         tasks = tasks.filter(t => t.status === "pending" && t.due_date && t.due_date < todayStr);
       } else if (this._filterStatus === "completed") {
@@ -1814,7 +1855,7 @@
 
                 ${task.due_date ? `
                   <span class="meta-chip ${isOverdue ? "overdue" : isToday ? "due-today" : ""}">
-                    📅 ${task.due_date} ${task.due_time || ""}
+                    ${task.due_date >= "2099-01-01" && linkedThing ? `⚡ ${this.t("waitingForThreshold")}` : `📅 ${task.due_date} ${task.due_time || ""}`}
                   </span>
                 ` : ""}
 
@@ -1994,15 +2035,30 @@
 
     _renderThingCard(thing) {
       const cur = parseFloat(thing.current_value) || 0;
-      const target = parseFloat(thing.target_value) || 100;
-      const pct = Math.min(100, Math.round((cur / target) * 100));
+      const target = thing.target_value !== undefined && !isNaN(parseFloat(thing.target_value)) ? parseFloat(thing.target_value) : 0;
+      const operator = thing.threshold_operator || ">=";
+      const isLte = operator === "<=";
+
+      let isAlert = false;
+      let isWarning = false;
+      let pct = 0;
+
+      if (isLte) {
+        isAlert = cur <= target;
+        isWarning = !isAlert && cur <= target + 15;
+        pct = Math.min(100, Math.max(0, Math.round(cur)));
+      } else {
+        isAlert = cur >= target;
+        isWarning = !isAlert && cur >= target * 0.75;
+        pct = target > 0 ? Math.min(100, Math.max(0, Math.round((cur / target) * 100))) : 100;
+      }
 
       let fillColor = "fill-green";
       let statusText = this.t("statusNormal");
-      if (pct >= 100) {
+      if (isAlert) {
         fillColor = "fill-red";
         statusText = this.t("statusAlert");
-      } else if (pct >= 75) {
+      } else if (isWarning) {
         fillColor = "fill-amber";
         statusText = this.t("statusWarning");
       }
@@ -2025,7 +2081,7 @@
 
           <div>
             <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600;">
-              <span>${cur} / ${target} ${this._escape(thing.unit || "")}</span>
+              <span>${cur} ${this._escape(thing.unit || "")} <span style="font-size:11px; color:#64748b; font-weight:normal;">(${operator} ${target})</span></span>
               <span>${pct}%</span>
             </div>
             <div class="progress-bar-bg">
@@ -2035,6 +2091,12 @@
               <span>${statusText}</span>
               ${thing.last_reset ? `<span>${this.t("lastReset")}: ${thing.last_reset.slice(0, 10)}</span>` : ""}
             </div>
+            ${thing.external_entity_id ? `
+              <div style="font-size:11px; color:#0284c7; margin-top:4px; display:flex; align-items:center; gap:4px; background:#f0f9ff; padding:2px 6px; border-radius:4px;">
+                <span>🔗</span>
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${this._escape(thing.external_entity_id)}">${this._escape(thing.external_entity_id)}</span>
+              </div>
+            ` : ""}
           </div>
 
           <div class="thing-actions">
@@ -2486,10 +2548,13 @@
                 <option value="">${this.t("none")}</option>
                 ${this._data.things.map(th => `
                   <option value="${th.id}" ${th.id === task.linked_thing_id ? "selected" : ""}>
-                    ${th.name} (${th.current_value}/${th.target_value} ${th.unit})
+                    ${th.name} (${th.current_value} / ${th.threshold_operator || ">="} ${th.target_value} ${th.unit || ""})
                   </option>
                 `).join("")}
               </select>
+              <div id="m-task-thing-hint" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 12px; font-size:12px; color:#1e40af; margin-top:6px; display:${task.linked_thing_id ? "block" : "none"};">
+                ${this.t("taskLinkedThingHint")}
+              </div>
             </div>
 
             <div class="modal-footer">
@@ -2503,6 +2568,7 @@
 
     _renderThingModal() {
       const thing = this._modalState.thing;
+      const numEntities = this._getNumericEntities();
       return `
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
@@ -2513,6 +2579,16 @@
             <div class="form-group">
               <label class="form-label">${this.t("thingNameLabel")}</label>
               <input type="text" class="text-input" id="m-thing-name" value="${this._escape(thing.name)}" placeholder="${this.t("thingNamePlaceholder")}">
+            </div>
+
+            <!-- Optional Linked External Numeric Entity -->
+            <div class="form-group">
+              <label class="form-label">${this.t("linkedEntity")}</label>
+              <input type="text" list="ha-numeric-entities" class="text-input" id="m-thing-external-entity" value="${this._escape(thing.external_entity_id || "")}" placeholder="${this.t("linkedEntityPlaceholder")}">
+              <datalist id="ha-numeric-entities">
+                ${numEntities.map(e => `<option value="${e.entity_id}">${this._escape(e.name)} (${e.state} ${e.unit || ""})</option>`).join("")}
+              </datalist>
+              <div style="font-size:11px; color:#64748b; margin-top:3px;">${this.t("linkedEntityHint")}</div>
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -2528,13 +2604,21 @@
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
               <div class="form-group">
-                <label class="form-label">${this.t("currentValue")}</label>
-                <input type="number" class="text-input" id="m-thing-current" value="${thing.current_value || 0}">
+                <label class="form-label">${this.t("thresholdCondition")}</label>
+                <select class="select-input" id="m-thing-operator">
+                  <option value=">=" ${thing.threshold_operator !== "<=" ? "selected" : ""}>${this.t("thresholdOperatorGte")}</option>
+                  <option value="<=" ${thing.threshold_operator === "<=" ? "selected" : ""}>${this.t("thresholdOperatorLte")}</option>
+                </select>
               </div>
               <div class="form-group">
-                <label class="form-label">${this.t("targetValue")}</label>
-                <input type="number" class="text-input" id="m-thing-target" value="${thing.target_value || 30}">
+                <label class="form-label">${this.t("thresholdValue")}</label>
+                <input type="number" step="any" class="text-input" id="m-thing-target" value="${thing.target_value !== undefined ? thing.target_value : 0}">
               </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">${this.t("currentValue")}</label>
+              <input type="number" step="any" class="text-input" id="m-thing-current" value="${thing.current_value !== undefined ? thing.current_value : 0}">
             </div>
 
             <div class="form-group">
@@ -3031,6 +3115,39 @@
         });
       });
 
+      // Modal Linked Thing Change (Show Hint)
+      const mLinkedThing = root.getElementById("m-task-linked-thing");
+      if (mLinkedThing) {
+        mLinkedThing.addEventListener("change", (e) => {
+          const hint = root.getElementById("m-task-thing-hint");
+          if (hint) hint.style.display = e.target.value ? "block" : "none";
+        });
+      }
+
+      // Modal External Entity Auto-fill for Thing
+      const extEntityInput = root.getElementById("m-thing-external-entity");
+      if (extEntityInput) {
+        const numEntities = this._getNumericEntities();
+        extEntityInput.addEventListener("input", (e) => {
+          const val = e.target.value.trim();
+          const match = numEntities.find(ent => ent.entity_id === val);
+          if (match) {
+            const nameEl = root.getElementById("m-thing-name");
+            if (nameEl && !nameEl.value.trim()) nameEl.value = match.name;
+            const unitEl = root.getElementById("m-thing-unit");
+            if (unitEl && !unitEl.value.trim() && match.unit) unitEl.value = match.unit;
+            const curEl = root.getElementById("m-thing-current");
+            if (curEl && (!curEl.value || curEl.value === "0")) curEl.value = match.state;
+            const opEl = root.getElementById("m-thing-operator");
+            const targetEl = root.getElementById("m-thing-target");
+            if (match.unit === "%" || /brush|filter|battery|life|rest/i.test(match.entity_id)) {
+              if (opEl) opEl.value = "<=";
+              if (targetEl && (!targetEl.value || targetEl.value === "30" || targetEl.value === "100")) targetEl.value = "0";
+            }
+          }
+        });
+      }
+
       // Modal Save Thing
       const btnSaveThing = root.getElementById("modal-save-thing");
       if (btnSaveThing) {
@@ -3040,13 +3157,20 @@
             alert(this.t("nameRequired"));
             return;
           }
+          const curVal = parseFloat(root.getElementById("m-thing-current").value);
+          const targetVal = parseFloat(root.getElementById("m-thing-target").value);
+          const operator = root.getElementById("m-thing-operator") ? root.getElementById("m-thing-operator").value : ">=";
+          const extEntity = root.getElementById("m-thing-external-entity") ? root.getElementById("m-thing-external-entity").value.trim() || null : null;
+
           const thingPayload = {
             id: this._modalState.thing.id || undefined,
             name: name,
             category: root.getElementById("m-thing-category").value.trim(),
             unit: root.getElementById("m-thing-unit").value.trim(),
-            current_value: parseFloat(root.getElementById("m-thing-current").value) || 0,
-            target_value: parseFloat(root.getElementById("m-thing-target").value) || 30,
+            current_value: isNaN(curVal) ? 0 : curVal,
+            target_value: isNaN(targetVal) ? 0 : targetVal,
+            threshold_operator: operator,
+            external_entity_id: extEntity,
             auto_task_creation: root.getElementById("m-thing-auto-task").checked,
             auto_task_title: root.getElementById("m-thing-task-title").value.trim()
           };
