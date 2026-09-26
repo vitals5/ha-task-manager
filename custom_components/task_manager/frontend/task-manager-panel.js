@@ -73,6 +73,7 @@
       statusNormal: "Normal",
       statusWarning: "Nearing limit",
       statusAlert: "Limit reached!",
+      menuToggle: "Toggle sidebar",
     },
     de: {
       appName: "Task Manager",
@@ -132,6 +133,7 @@
       statusNormal: "Normal",
       statusWarning: "Bald fällig",
       statusAlert: "Limit erreicht!",
+      menuToggle: "Seitenleiste ein-/ausblenden",
     }
   };
 
@@ -162,12 +164,67 @@
       this._audioCtx = null;
     }
 
+    connectedCallback() {
+      this._onResize = () => this._updateSidebarVisibility();
+      window.addEventListener("resize", this._onResize);
+      this._updateSidebarVisibility();
+    }
+
+    disconnectedCallback() {
+      if (this._onResize) {
+        window.removeEventListener("resize", this._onResize);
+      }
+    }
+
+    _isSidebarHidden() {
+      if (!this._hass) return true;
+      if (window.innerWidth < 870) {
+        return true;
+      }
+      const docked = this._hass.dockedSidebar;
+      if (docked === "docked") {
+        return false;
+      }
+      if (docked === "hidden" || docked === "undocked") {
+        return true;
+      }
+      if (docked === "auto") {
+        try {
+          const ha = document.querySelector("home-assistant");
+          const main = ha && ha.shadowRoot && ha.shadowRoot.querySelector("home-assistant-main");
+          if (main && main.shadowRoot) {
+            const sidebar = main.shadowRoot.querySelector("ha-sidebar");
+            if (sidebar) {
+              const rect = sidebar.getBoundingClientRect();
+              if (rect.width > 50 && sidebar.offsetParent !== null) {
+                return false;
+              }
+            }
+          }
+        } catch (e) {}
+        return true;
+      }
+      return true;
+    }
+
+    _updateSidebarVisibility() {
+      const isHidden = this._isSidebarHidden();
+      const menuBtn = this.shadowRoot && this.shadowRoot.getElementById("menu-toggle-btn");
+      if (menuBtn) {
+        menuBtn.style.display = isHidden ? "inline-flex" : "none";
+      }
+    }
+
     set hass(hass) {
       const isFirst = !this._hass;
+      const prevDocked = this._hass ? this._hass.dockedSidebar : null;
       this._hass = hass;
       if (isFirst) {
         this._initAudio();
         this._fetchData();
+      }
+      if (prevDocked !== (hass && hass.dockedSidebar)) {
+        this._updateSidebarVisibility();
       }
     }
 
@@ -564,6 +621,54 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.03);
             flex-shrink: 0;
             gap: 16px;
+          }
+
+          .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+
+          .menu-btn {
+            background: var(--card-background-color, #ffffff);
+            border: 1px solid var(--divider-color, #e2e8f0);
+            color: var(--primary-text-color, #0f172a);
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+          }
+
+          .menu-btn:hover {
+            background: var(--secondary-background-color, #f1f5f9);
+            border-color: #2563eb;
+            color: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
+          }
+
+          .menu-btn:active {
+            transform: translateY(0);
+          }
+
+          .menu-btn svg {
+            display: block;
+            pointer-events: none;
+          }
+
+          @media (max-width: 870px) {
+            .menu-btn {
+              display: inline-flex !important;
+            }
           }
 
           .brand {
@@ -1195,12 +1300,21 @@
 
         <!-- Top Header -->
         <header class="header">
-          <div class="brand">
-            <div class="brand-logo">✓</div>
-            <div>
-              <div class="brand-title">
-                ${this.t("appName")}
-                <span class="status-badge">${pendingCount} ${this.t("chores").toLowerCase()}</span>
+          <div class="header-left">
+            <button class="menu-btn" id="menu-toggle-btn" aria-label="${this.t("menuToggle")}" title="${this.t("menuToggle")}">
+              <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+              </svg>
+            </button>
+            <div class="brand">
+              <div class="brand-logo">✓</div>
+              <div>
+                <div class="brand-title">
+                  ${this.t("appName")}
+                  <span class="status-badge">${pendingCount} ${this.t("chores").toLowerCase()}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1250,6 +1364,7 @@
       `;
 
       this._attachEventListeners();
+      this._updateSidebarVisibility();
     }
 
     _renderUserSelector() {
@@ -2018,6 +2133,34 @@
     // ================= EVENT ATTACHMENT =================
     _attachEventListeners() {
       const root = this.shadowRoot;
+
+      // Hamburger Menu Toggle (opens/closes Home Assistant sidebar)
+      const menuToggleBtn = root.getElementById("menu-toggle-btn");
+      if (menuToggleBtn) {
+        menuToggleBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const event = new CustomEvent("hass-toggle-menu", {
+            bubbles: true,
+            composed: true,
+            detail: { open: true },
+          });
+          this.dispatchEvent(event);
+          window.dispatchEvent(event);
+          try {
+            const ha = document.querySelector("home-assistant");
+            const main = ha && ha.shadowRoot && ha.shadowRoot.querySelector("home-assistant-main");
+            if (main) {
+              main.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true, detail: { open: true } }));
+            }
+          } catch (err) {}
+          if (window.parent && window.parent !== window) {
+            try {
+              window.parent.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true, detail: { open: true } }));
+            } catch (err) {}
+          }
+        });
+      }
 
       // Nav Tabs
       root.querySelectorAll(".nav-tab").forEach(tab => {
