@@ -39,6 +39,27 @@ Track non-task household items and consumables that require maintenance over tim
 - **Celebration Effects**: Visual confetti burst and cheerful completion chimes (can be toggled in settings).
 - **Activity Feed**: Timeline of recently completed chores and awarded points.
 
+### 🔗 External Todo Providers & Sync
+- **Universal Provider Adapters**: Seamlessly link and sync tasks from external Home Assistant todo entities:
+  - **Google Tasks** (`google_tasks`)
+  - **Todoist** (`todoist`)
+  - **CalDAV / Nextcloud** (`caldav`)
+  - **Local To-do** (`local_todo`)
+  - **Bring! Shopping** (`bring`)
+  - **Shopping List** (`shopping_list`)
+  - Any generic Home Assistant `todo.*` entity
+- **Panel-Based Administration**: Add, link, unlink, and synchronize external providers directly from the **Settings** tab in the sidebar panel.
+- **List Filtering**: Filter chores by specific list / provider in the Tasks toolbar or view all tasks combined.
+- **Gamification & Overlays on External Tasks**: Assign points, rotation, members, subtasks, and linked Things to external tasks—stored locally without modifying your remote schema.
+
+### 📅 Home Assistant Calendar Integration (`calendar`)
+- **Native Calendar Entities**:
+  - `calendar.task_manager_chores`: Shared household calendar containing all scheduled tasks and chores.
+  - `calendar.task_manager_<user>`: Dedicated calendar for each household member.
+- **All-Day & Timed Events**: Tasks with a due date appear as all-day events; tasks with a specific time are rendered with precise timed durations.
+- **Recurrence Projection**: Recurring tasks automatically project future occurrences across your calendar view.
+- **Lovelace & Voice Compatible**: Inspect chores in Home Assistant's native Calendar dashboard and Lovelace Calendar cards, or ask Assist: *"What chores are on my calendar today?"*
+
 ### 🌐 Multi-Language Support (English & German)
 - **Automatic Localization**: Seamlessly detects and switches language according to your Home Assistant user profile or system language.
 - **Manual Language Preference**: Set language to Auto (Home Assistant), English, or Deutsch in Settings.
@@ -53,6 +74,8 @@ Track non-task household items and consumables that require maintenance over tim
   - `todo.task_manager_all_chores`: Main shared household list.
   - `todo.task_manager_<username>`: Individual list for each member.
   - Full compatibility with Home Assistant's built-in To-do dashboard, Lovelace To-do cards, and **Voice Assist** (*"Add clean filter to chores"* / *"Mark vacuuming done"*).
+- **Calendar Platform (`calendar`)**:
+  - `calendar.task_manager_chores` & `calendar.task_manager_<username>`.
 - **Sensors (`sensor`)**:
   - `sensor.task_manager_total_tasks`, `pending_tasks`, `overdue_tasks`, `completed_today`.
   - Member sensors: `sensor.task_manager_<user>_points` (includes streak and tasks due attributes).
@@ -212,6 +235,15 @@ Display your Task Manager chores directly in any dashboard:
 type: todo-list
 entity: todo.task_manager_all_chores
 title: Household Chores
+```
+
+### Calendar Card
+Display upcoming chores in the Home Assistant calendar card:
+```yaml
+type: calendar
+entities:
+  - calendar.task_manager_chores
+title: Chores Calendar
 ```
 
 ### Entity Summary Chips

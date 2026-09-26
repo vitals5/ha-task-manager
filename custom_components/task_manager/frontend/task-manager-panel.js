@@ -153,7 +153,25 @@
       colorTheme: "Color Theme",
       labelNameLabel: "Label Name *",
       labelNamePlaceholder: "e.g. Garden",
-      colorLabel: "Color"
+      colorLabel: "Color",
+      providers: "External Providers",
+      providersSubtitle: "Link external Home Assistant to-do lists (Google Tasks, Todoist, CalDAV, Local To-do, Bring, Shopping List) to sync tasks seamlessly into Task Manager.",
+      linkProvider: "Link Provider",
+      unlinkProvider: "Unlink",
+      syncProviders: "Sync Now",
+      syncSuccess: "Providers synchronized successfully!",
+      noProvidersLinked: "No external providers linked yet.",
+      selectTodoEntity: "Select Home Assistant To-do Entity",
+      providerName: "Provider Display Name",
+      filterProvider: "List",
+      allLists: "All Lists",
+      taskManagerList: "Task Manager (Native)",
+      destinationList: "Target List / Provider",
+      calendarSyncHint: "Task Manager chores are automatically available in your Home Assistant Calendar under 'Task Manager Chores'.",
+      externalTask: "External",
+      loadingEntities: "Loading available entities...",
+      noEntitiesFound: "No other to-do entities found in Home Assistant.",
+      optional: "optional"
     },
     de: {
       appName: "Task Manager",
@@ -294,7 +312,25 @@
       colorTheme: "Farbe",
       labelNameLabel: "Label-Name *",
       labelNamePlaceholder: "z. B. Garten",
-      colorLabel: "Farbe"
+      colorLabel: "Farbe",
+      providers: "Externe Provider",
+      providersSubtitle: "Verknüpfe externe Home Assistant To-do-Listen (Google Tasks, Todoist, CalDAV, Local To-do, Bring, Einkaufsliste), um Aufgaben nahtlos mit Task Manager zu synchronisieren.",
+      linkProvider: "Provider verknüpfen",
+      unlinkProvider: "Trennen",
+      syncProviders: "Jetzt synchronisieren",
+      syncSuccess: "Provider erfolgreich synchronisiert!",
+      noProvidersLinked: "Noch keine externen Provider verknüpft.",
+      selectTodoEntity: "Home Assistant To-do-Entität auswählen",
+      providerName: "Provider-Anzeigename",
+      filterProvider: "Liste",
+      allLists: "Alle Listen",
+      taskManagerList: "Task Manager (Nativ)",
+      destinationList: "Zielliste / Provider",
+      calendarSyncHint: "Task Manager Aufgaben stehen automatisch in deinem Home Assistant Kalender unter 'Task Manager Aufgaben' zur Verfügung.",
+      externalTask: "Extern",
+      loadingEntities: "Lade verfügbare Entitäten...",
+      noEntitiesFound: "Keine weiteren To-do-Entitäten in Home Assistant gefunden.",
+      optional: "optional"
     }
   };
 
@@ -309,13 +345,15 @@
         users: [],
         labels: [],
         settings: {},
-        activity_log: []
+        activity_log: [],
+        providers: []
       };
       this._currentTab = "chores";
       this._filterStatus = "all";
       this._filterAssignee = "all";
       this._filterLabel = "all";
       this._filterPriority = "all";
+      this._filterProvider = "all";
       this._searchQuery = "";
       this._activeUser = null;
       this._modalState = null;
@@ -323,6 +361,7 @@
       this._calendarSelectedDay = null;
       this._tabletMode = false;
       this._audioCtx = null;
+      this._availableTodoEntities = [];
     }
 
     connectedCallback() {
@@ -638,6 +677,51 @@
       this._render();
     }
 
+    async openLinkProviderModal() {
+      this._availableTodoEntities = [];
+      this._modalState = { type: "link_provider" };
+      this._render();
+      try {
+        const res = await this._hass.callWS({ type: "task_manager/get_ha_todo_entities" });
+        if (res && res.entities) {
+          this._availableTodoEntities = res.entities;
+          if (this._modalState && this._modalState.type === "link_provider") {
+            this._render();
+          }
+        }
+      } catch (err) {
+        console.error("Task Manager: Failed to load todo entities", err);
+      }
+    }
+
+    async linkProvider(entityId, name = "") {
+      if (!entityId) return;
+      const ent = (this._availableTodoEntities || []).find(e => e.entity_id === entityId);
+      const providerType = ent ? ent.provider_type : "generic";
+      const icon = ent ? ent.icon : "mdi:format-list-checks";
+      const displayName = name.trim() || (ent ? ent.name : entityId);
+
+      await this._callWS("task_manager/link_provider", {
+        entity_id: entityId,
+        name: displayName,
+        provider_type: providerType,
+        icon: icon
+      });
+      this.closeModal();
+    }
+
+    async unlinkProvider(entityId) {
+      if (confirm(this.t("confirmDelete"))) {
+        await this._callWS("task_manager/unlink_provider", { entity_id: entityId });
+      }
+    }
+
+    async syncProviders() {
+      await this._callWS("task_manager/sync_providers");
+      this._playSuccessSound();
+      alert(this.t("syncSuccess"));
+    }
+
     closeModal() {
       this._modalState = null;
       this._render();
@@ -741,6 +825,13 @@
       // Priority filter
       if (this._filterPriority !== "all") {
         tasks = tasks.filter(t => t.priority === this._filterPriority);
+      }
+
+      // Provider / List filter
+      if (this._filterProvider === "task_manager") {
+        tasks = tasks.filter(t => !t.is_external);
+      } else if (this._filterProvider && this._filterProvider !== "all") {
+        tasks = tasks.filter(t => t.provider_entity_id === this._filterProvider);
       }
 
       // Sort: overdue first, then by due date, then priority
@@ -1599,6 +1690,12 @@
               <option value="all">${this.t("label")}: ${this.t("all")}</option>
               ${this._data.labels.map(l => `<option value="${l.id}" ${this._filterLabel === l.id ? "selected" : ""}>${l.name}</option>`).join("")}
             </select>
+
+            <select class="select-input" id="filter-provider">
+              <option value="all">${this.t("filterProvider")}: ${this.t("allLists")}</option>
+              <option value="task_manager" ${this._filterProvider === "task_manager" ? "selected" : ""}>🏠 ${this.t("taskManagerList")}</option>
+              ${(this._data.providers || []).map(p => `<option value="${p.entity_id}" ${this._filterProvider === p.entity_id ? "selected" : ""}>🔗 ${this._escape(p.name || p.entity_id)}</option>`).join("")}
+            </select>
           </div>
         </div>
 
@@ -1637,6 +1734,12 @@
               ${task.description ? `<p class="task-desc">${this._escape(task.description)}</p>` : ""}
 
               <div class="task-meta">
+                ${task.is_external ? `
+                  <span class="meta-chip" style="background:#f1f5f9; color:#1e293b; border:1px solid #cbd5e1; font-weight:600;">
+                    🔗 ${this._escape(task.provider_name || this.t("externalTask"))}
+                  </span>
+                ` : ""}
+
                 ${task.due_date ? `
                   <span class="meta-chip ${isOverdue ? "overdue" : isToday ? "due-today" : ""}">
                     📅 ${task.due_date} ${task.due_time || ""}
@@ -1973,6 +2076,51 @@
             </div>
           </div>
 
+          <!-- External Providers Management -->
+          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+              <div>
+                <h3 style="margin:0 0 4px 0; font-size:16px;">🔗 ${this.t("providers")}</h3>
+                <p style="margin:0; font-size:12px; color:var(--secondary-text-color, #64748b); max-width:540px;">
+                  ${this.t("providersSubtitle")}
+                </p>
+                <div style="margin-top:6px; font-size:11px; color:#2563eb;">
+                  📅 ${this.t("calendarSyncHint")}
+                </div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-secondary" id="btn-sync-providers" title="${this.t("syncProviders")}">🔄 ${this.t("syncProviders")}</button>
+                <button class="btn btn-primary" id="btn-link-provider">+ ${this.t("linkProvider")}</button>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              ${(!this._data.providers || this._data.providers.length === 0) ? `
+                <div style="text-align:center; padding:24px; color:#64748b; font-size:13px; background:#f8fafc; border-radius:8px;">
+                  <div style="font-size:24px; margin-bottom:6px;">📋</div>
+                  <div>${this.t("noProvidersLinked")}</div>
+                </div>
+              ` : `
+                ${this._data.providers.map(p => `
+                  <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border-radius:8px; border:1px solid #edf2f7;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div style="width:36px; height:36px; border-radius:8px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; font-size:18px;">
+                        ${p.provider_type === "google_tasks" ? "🌐" : p.provider_type === "todoist" ? "☑️" : p.provider_type === "caldav" ? "📅" : p.provider_type === "bring" ? "🛒" : p.provider_type === "shopping_list" ? "🛍️" : "📝"}
+                      </div>
+                      <div>
+                        <div style="font-weight:700; font-size:14px;">${this._escape(p.name || p.entity_id)}</div>
+                        <div style="font-size:12px; color:#64748b;">${this._escape(p.entity_id)} <span style="display:inline-block; margin-left:6px; padding:1px 6px; border-radius:10px; background:#e2e8f0; font-size:10px; text-transform:uppercase;">${this._escape(p.provider_type || "generic")}</span></div>
+                      </div>
+                    </div>
+                    <button class="btn btn-secondary" style="padding:4px 10px; font-size:12px; color:#ef4444;" data-unlink-provider="${p.entity_id}">
+                      🗑️ ${this.t("unlinkProvider")}
+                    </button>
+                  </div>
+                `).join("")}
+              `}
+            </div>
+          </div>
+
           <!-- System Preferences -->
           <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
             <h3 style="margin:0 0 16px 0; font-size:16px;">⚙️ ${this.t("preferences")}</h3>
@@ -2037,7 +2185,61 @@
       if (type === "thing") return this._renderThingModal();
       if (type === "user") return this._renderUserModal();
       if (type === "label") return this._renderLabelModal();
+      if (type === "link_provider") return this._renderLinkProviderModal();
       return "";
+    }
+
+    _renderLinkProviderModal() {
+      const entities = this._availableTodoEntities || [];
+      const linkedIds = new Set((this._data.providers || []).map(p => p.entity_id));
+      const unlinked = entities.filter(e => !linkedIds.has(e.entity_id));
+
+      return `
+        <div class="modal-backdrop" id="modal-backdrop">
+          <div class="modal-window">
+            <h2 style="margin:0 0 12px 0; font-size:18px;">
+              🔗 ${this.t("linkProvider")}
+            </h2>
+
+            <p style="font-size:13px; color:#64748b; margin-top:0;">
+              ${this.t("providersSubtitle")}
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">${this.t("selectTodoEntity")}</label>
+              ${entities.length === 0 ? `
+                <div style="font-size:13px; color:#64748b; padding:8px 0;">
+                  ⌛ ${this.t("loadingEntities")}
+                </div>
+              ` : unlinked.length === 0 ? `
+                <div style="font-size:13px; color:#64748b; padding:8px 0;">
+                  ${this.t("noEntitiesFound")}
+                </div>
+              ` : `
+                <select class="select-input" id="m-provider-entity">
+                  ${unlinked.map(e => `
+                    <option value="${e.entity_id}">
+                      ${this._escape(e.name)} (${this._escape(e.provider_name || e.provider_type)}) - ${e.entity_id}
+                    </option>
+                  `).join("")}
+                </select>
+              `}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">${this.t("providerName")} (${this.t("optional")})</label>
+              <input type="text" class="text-input" id="m-provider-name" placeholder="e.g. Shopping List, Work Tasks">
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn btn-secondary" id="modal-cancel">${this.t("cancel")}</button>
+              <button class="btn btn-primary" id="modal-save-provider" ${unlinked.length === 0 ? "disabled" : ""}>
+                ${this.t("save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
     }
 
     _renderTaskModal() {
@@ -2051,6 +2253,24 @@
             <h2 style="margin:0 0 12px 0; font-size:18px;">
               ${task.id ? this.t("editTask") : this.t("addTask")}
             </h2>
+
+            ${task.is_external ? `
+              <div style="font-size:13px; padding:8px 12px; background:#eff6ff; border-radius:8px; color:#1e40af; border:1px solid #bfdbfe; margin-bottom:8px;">
+                🔗 <strong>${this.t("externalTask")}:</strong> ${this._escape(task.provider_name || task.provider_entity_id)}
+              </div>
+            ` : ""}
+
+            ${!task.id && this._data.providers && this._data.providers.length > 0 ? `
+              <div class="form-group">
+                <label class="form-label">${this.t("destinationList")}</label>
+                <select class="select-input" id="m-task-dest">
+                  <option value="task_manager">🏠 ${this.t("taskManagerList")}</option>
+                  ${this._data.providers.map(p => `
+                    <option value="${p.entity_id}">🔗 ${this._escape(p.name || p.entity_id)}</option>
+                  `).join("")}
+                </select>
+              </div>
+            ` : ""}
 
             <div class="form-group">
               <label class="form-label">${this.t("titleLabel")}</label>
@@ -2379,6 +2599,15 @@
         });
       }
 
+      // Provider / List Filter
+      const providerFilter = root.getElementById("filter-provider");
+      if (providerFilter) {
+        providerFilter.addEventListener("change", (e) => {
+          this._filterProvider = e.target.value;
+          this._render();
+        });
+      }
+
       // Active User Header Select
       const headerUserSelect = root.getElementById("header-user-select");
       if (headerUserSelect) {
@@ -2565,6 +2794,23 @@
         });
       }
 
+      // External Providers buttons
+      const btnSyncProv = root.getElementById("btn-sync-providers");
+      if (btnSyncProv) {
+        btnSyncProv.addEventListener("click", () => this.syncProviders());
+      }
+
+      const btnLinkProv = root.getElementById("btn-link-provider");
+      if (btnLinkProv) {
+        btnLinkProv.addEventListener("click", () => this.openLinkProviderModal());
+      }
+
+      root.querySelectorAll("[data-unlink-provider]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          this.unlinkProvider(btn.getAttribute("data-unlink-provider"));
+        });
+      });
+
       // Modal Events
       const modalCancel = root.getElementById("modal-cancel");
       if (modalCancel) modalCancel.addEventListener("click", () => this.closeModal());
@@ -2573,6 +2819,19 @@
       if (modalBackdrop) {
         modalBackdrop.addEventListener("click", (e) => {
           if (e.target === modalBackdrop) this.closeModal();
+        });
+      }
+
+      // Modal Save Provider
+      const btnSaveProvider = root.getElementById("modal-save-provider");
+      if (btnSaveProvider) {
+        btnSaveProvider.addEventListener("click", async () => {
+          const entitySelect = root.getElementById("m-provider-entity");
+          if (!entitySelect) return;
+          const entityId = entitySelect.value;
+          const nameInput = root.getElementById("m-provider-name");
+          const customName = nameInput ? nameInput.value.trim() : "";
+          await this.linkProvider(entityId, customName);
         });
       }
 
@@ -2590,6 +2849,8 @@
           const subtasks = Array.from(subtaskInputs).map(inp => inp.value.trim()).filter(Boolean);
 
           const assignee = root.getElementById("m-task-assignee").value;
+          const destSelect = root.getElementById("m-task-dest");
+          const destProvider = destSelect ? destSelect.value : undefined;
 
           const taskPayload = {
             id: this._modalState.task.id || undefined,
@@ -2602,6 +2863,7 @@
             assignees: assignee ? [assignee] : [],
             current_assignee: assignee || null,
             rotation_mode: root.getElementById("m-task-rotation").value,
+            destination_provider: destProvider,
             recurrence: {
               enabled: recEnabled,
               type: root.getElementById("m-task-rec-type") ? root.getElementById("m-task-rec-type").value : "none",

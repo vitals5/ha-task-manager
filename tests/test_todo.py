@@ -58,6 +58,11 @@ sys.modules["homeassistant.util.dt"] = dt_mock
 
 project_root = Path(__file__).parent.parent
 
+pkg_mock = MagicMock()
+pkg_mock.__path__ = [str(project_root / "custom_components" / "task_manager")]
+sys.modules["custom_components"] = MagicMock()
+sys.modules["custom_components.task_manager"] = pkg_mock
+
 const_spec = importlib.util.spec_from_file_location(
     "custom_components.task_manager.const",
     project_root / "custom_components" / "task_manager" / "const.py",
@@ -65,6 +70,14 @@ const_spec = importlib.util.spec_from_file_location(
 const_mod = importlib.util.module_from_spec(const_spec)
 sys.modules["custom_components.task_manager.const"] = const_mod
 const_spec.loader.exec_module(const_mod)
+
+providers_spec = importlib.util.spec_from_file_location(
+    "custom_components.task_manager.providers",
+    project_root / "custom_components" / "task_manager" / "providers.py",
+)
+providers_mod = importlib.util.module_from_spec(providers_spec)
+sys.modules["custom_components.task_manager.providers"] = providers_mod
+providers_spec.loader.exec_module(providers_mod)
 
 storage_spec = importlib.util.spec_from_file_location(
     "custom_components.task_manager.storage",

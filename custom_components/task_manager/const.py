@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 
 DOMAIN = "task_manager"
-PLATFORMS = ["sensor", "todo"]
+PLATFORMS = ["calendar", "sensor", "todo"]
 
 URL_BASE = "/task_manager_ui"
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")

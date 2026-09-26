@@ -10,6 +10,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN
+from .providers import async_get_available_todo_entities
 from .storage import TaskManagerStorage
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
     ) -> None:
         """Handle get_data command."""
-        connection.send_result(msg["id"], storage.data.to_dict())
+        connection.send_result(msg["id"], storage.get_view_data())
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/save_task",
@@ -36,15 +37,8 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
     ) -> None:
         """Handle save or update task command."""
         task_data = msg["task"]
-        task_id = task_data.get("id")
-
-        if task_id and storage.data.get_task(task_id):
-            result = storage.data.update_task(task_id, task_data)
-        else:
-            result = storage.data.create_task(task_data)
-
-        await storage.async_save()
-        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.data.to_dict()})
+        result = await storage.async_save_task(task_data)
+        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/complete_task",
@@ -56,12 +50,11 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
     ) -> None:
         """Handle complete task command."""
-        result = storage.data.complete_task(msg["task_id"], user_id=msg.get("user_id"))
+        result = await storage.async_complete_task(msg["task_id"], user_id=msg.get("user_id"))
         if not result:
             connection.send_error(msg["id"], "task_not_found", "Task not found")
             return
-        await storage.async_save()
-        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/reset_task",
@@ -72,12 +65,11 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
     ) -> None:
         """Handle reset task command."""
-        result = storage.data.reset_task(msg["task_id"])
+        result = await storage.async_reset_task(msg["task_id"])
         if not result:
             connection.send_error(msg["id"], "task_not_found", "Task not found")
             return
-        await storage.async_save()
-        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/delete_task",
@@ -88,10 +80,8 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
     ) -> None:
         """Handle delete task command."""
-        success = storage.data.delete_task(msg["task_id"])
-        if success:
-            await storage.async_save()
-        connection.send_result(msg["id"], {"success": success, "data": storage.data.to_dict()})
+        success = await storage.async_delete_task(msg["task_id"])
+        connection.send_result(msg["id"], {"success": success, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/update_subtask",
@@ -104,10 +94,24 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
     ) -> None:
         """Handle update subtask command."""
-        success = storage.data.update_subtask(msg["task_id"], msg["subtask_id"], msg["completed"])
-        if success:
+        task_id = msg["task_id"]
+        if task_id.startswith("ext:"):
+            parts = task_id.split(":", 2)
+            uid = parts[2]
+            overlay = storage.data.get_overlay(uid)
+            subtasks = overlay.get("subtasks", [])
+            for st in subtasks:
+                if st.get("id") == msg["subtask_id"]:
+                    st["completed"] = msg["completed"]
+                    break
+            storage.data.set_overlay(uid, overlay)
             await storage.async_save()
-        connection.send_result(msg["id"], {"success": success, "data": storage.data.to_dict()})
+            connection.send_result(msg["id"], {"success": True, "data": storage.get_view_data()})
+        else:
+            success = storage.data.update_subtask(task_id, msg["subtask_id"], msg["completed"])
+            if success:
+                await storage.async_save()
+            connection.send_result(msg["id"], {"success": success, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/save_thing",
@@ -127,7 +131,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
             result = storage.data.create_thing(thing_data)
 
         await storage.async_save()
-        connection.send_result(msg["id"], {"success": True, "thing": result, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": True, "thing": result, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/update_thing_value",
@@ -151,7 +155,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
             connection.send_error(msg["id"], "thing_not_found", "Thing not found")
             return
         await storage.async_save()
-        connection.send_result(msg["id"], {"success": True, "thing": result, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": True, "thing": result, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/delete_thing",
@@ -165,7 +169,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         success = storage.data.delete_thing(msg["thing_id"])
         if success:
             await storage.async_save()
-        connection.send_result(msg["id"], {"success": success, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": success, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/save_user",
@@ -185,7 +189,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
             result = storage.data.create_user(user_data)
 
         await storage.async_save()
-        connection.send_result(msg["id"], {"success": True, "user": result, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": True, "user": result, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/delete_user",
@@ -199,7 +203,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         success = storage.data.delete_user(msg["user_id"])
         if success:
             await storage.async_save()
-        connection.send_result(msg["id"], {"success": success, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": success, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/save_label",
@@ -219,7 +223,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
             result = storage.data.create_label(label_data)
 
         await storage.async_save()
-        connection.send_result(msg["id"], {"success": True, "label": result, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": True, "label": result, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/delete_label",
@@ -233,7 +237,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         success = storage.data.delete_label(msg["label_id"])
         if success:
             await storage.async_save()
-        connection.send_result(msg["id"], {"success": success, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": success, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/update_settings",
@@ -246,7 +250,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         """Handle update settings command."""
         result = storage.data.update_settings(msg["settings"])
         await storage.async_save()
-        connection.send_result(msg["id"], {"success": True, "settings": result, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": True, "settings": result, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/import_data",
@@ -260,7 +264,78 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         """Handle import backup data command."""
         storage.data.import_data(msg["data"], merge=msg.get("merge", False))
         await storage.async_save()
-        connection.send_result(msg["id"], {"success": True, "data": storage.data.to_dict()})
+        connection.send_result(msg["id"], {"success": True, "data": storage.get_view_data()})
+
+    # Provider management commands
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/get_ha_todo_entities",
+    })
+    @websocket_api.async_response
+    async def ws_get_ha_todo_entities(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Return available external todo entities in Home Assistant."""
+        entities = async_get_available_todo_entities(hass)
+        connection.send_result(msg["id"], {"entities": entities})
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/link_provider",
+        vol.Required("entity_id"): str,
+        vol.Optional("name", default=""): str,
+        vol.Optional("provider_type", default="generic"): str,
+        vol.Optional("icon", default="mdi:format-list-checks"): str,
+    })
+    @websocket_api.async_response
+    async def ws_link_provider(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Link an external todo provider."""
+        provider = storage.data.add_provider(
+            entity_id=msg["entity_id"],
+            name=msg.get("name", ""),
+            provider_type=msg.get("provider_type", "generic"),
+            icon=msg.get("icon", "mdi:format-list-checks"),
+        )
+        await storage.async_save()
+        await storage.async_sync_providers()
+        connection.send_result(msg["id"], {
+            "success": True,
+            "provider": provider,
+            "providers": storage.data.providers,
+            "data": storage.get_view_data(),
+        })
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/unlink_provider",
+        vol.Required("entity_id"): str,
+    })
+    @websocket_api.async_response
+    async def ws_unlink_provider(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Unlink an external todo provider."""
+        success = storage.data.remove_provider(msg["entity_id"])
+        if success:
+            await storage.async_save()
+        connection.send_result(msg["id"], {
+            "success": success,
+            "providers": storage.data.providers,
+            "data": storage.get_view_data(),
+        })
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/sync_providers",
+    })
+    @websocket_api.async_response
+    async def ws_sync_providers(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Trigger a sync of external todo providers."""
+        await storage.async_sync_providers()
+        connection.send_result(msg["id"], {
+            "success": True,
+            "data": storage.get_view_data(),
+        })
 
     websocket_api.async_register_command(hass, ws_get_data)
     websocket_api.async_register_command(hass, ws_save_task)
@@ -277,4 +352,8 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
     websocket_api.async_register_command(hass, ws_delete_label)
     websocket_api.async_register_command(hass, ws_update_settings)
     websocket_api.async_register_command(hass, ws_import_data)
+    websocket_api.async_register_command(hass, ws_get_ha_todo_entities)
+    websocket_api.async_register_command(hass, ws_link_provider)
+    websocket_api.async_register_command(hass, ws_unlink_provider)
+    websocket_api.async_register_command(hass, ws_sync_providers)
     _LOGGER.debug("Registered Task Manager WebSocket API commands")

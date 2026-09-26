@@ -23,6 +23,11 @@ sys.modules["homeassistant.util.dt"] = dt_mock
 
 project_root = Path(__file__).parent.parent
 
+pkg_mock = MagicMock()
+pkg_mock.__path__ = [str(project_root / "custom_components" / "task_manager")]
+sys.modules["custom_components"] = MagicMock()
+sys.modules["custom_components.task_manager"] = pkg_mock
+
 const_spec = importlib.util.spec_from_file_location(
     "custom_components.task_manager.const",
     project_root / "custom_components" / "task_manager" / "const.py",
@@ -30,6 +35,14 @@ const_spec = importlib.util.spec_from_file_location(
 const_mod = importlib.util.module_from_spec(const_spec)
 sys.modules["custom_components.task_manager.const"] = const_mod
 const_spec.loader.exec_module(const_mod)
+
+providers_spec = importlib.util.spec_from_file_location(
+    "custom_components.task_manager.providers",
+    project_root / "custom_components" / "task_manager" / "providers.py",
+)
+providers_mod = importlib.util.module_from_spec(providers_spec)
+sys.modules["custom_components.task_manager.providers"] = providers_mod
+providers_spec.loader.exec_module(providers_mod)
 
 storage_spec = importlib.util.spec_from_file_location(
     "custom_components.task_manager.storage",
@@ -233,6 +246,55 @@ class TestTaskManagerStorage(unittest.TestCase):
         new_data.import_data(exported)
         self.assertEqual(len(new_data.tasks), len(self.data.tasks))
         self.assertEqual(new_data.tasks[0]["title"], "Task A")
+
+    def test_provider_management(self):
+        """Test adding, listing, and removing external providers."""
+        prov = self.data.add_provider("todo.google_groceries", "Groceries", "google_tasks", "mdi:google")
+        self.assertEqual(prov["entity_id"], "todo.google_groceries")
+        self.assertEqual(prov["name"], "Groceries")
+        self.assertEqual(len(self.data.get_providers()), 1)
+
+        # Update existing
+        prov2 = self.data.add_provider("todo.google_groceries", "Updated Groceries")
+        self.assertEqual(prov2["name"], "Updated Groceries")
+        self.assertEqual(len(self.data.get_providers()), 1)
+
+        # Remove provider
+        ok = self.data.remove_provider("todo.google_groceries")
+        self.assertTrue(ok)
+        self.assertEqual(len(self.data.get_providers()), 0)
+
+    def test_external_tasks_merge_and_overlay(self):
+        """Test merging external tasks with local overlays."""
+        self.data.add_provider("todo.test_list", "Test Provider", "todoist")
+        self.data.external_tasks_cache["todo.test_list"] = [
+            {
+                "uid": "ext_item_123",
+                "title": "Buy Milk",
+                "description": "2% organic milk",
+                "status": "pending",
+                "due_date": "2026-09-30",
+                "due_time": "14:00",
+            }
+        ]
+
+        # Add overlay
+        self.data.set_overlay("ext_item_123", {
+            "points": 25,
+            "priority": "p1",
+            "assignees": ["user_household"],
+        })
+
+        all_tasks = self.data.get_all_tasks(include_external=True)
+        # Should include default tasks + the external task
+        ext_task = next((t for t in all_tasks if t.get("is_external")), None)
+        self.assertIsNotNone(ext_task)
+        self.assertEqual(ext_task["id"], "ext:todo.test_list:ext_item_123")
+        self.assertEqual(ext_task["title"], "Buy Milk")
+        self.assertEqual(ext_task["points"], 25)
+        self.assertEqual(ext_task["priority"], "p1")
+        self.assertEqual(ext_task["provider_name"], "Test Provider")
+        self.assertEqual(ext_task["provider_type"], "todoist")
 
 
 if __name__ == "__main__":

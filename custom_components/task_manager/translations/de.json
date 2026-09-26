@@ -11,6 +11,11 @@
     }
   },
   "entity": {
+    "calendar": {
+      "all": {
+        "name": "Task Manager Aufgaben"
+      }
+    },
     "sensor": {
       "total_tasks": {
         "name": "Aufgaben insgesamt"

@@ -28,8 +28,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async_register_websocket_api(hass, storage)
     async_register_services(hass, storage)
 
-    # Set up platforms (sensor, todo)
+    # Set up platforms (calendar, sensor, todo)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Sync external provider tasks
+    try:
+        await storage.async_sync_providers()
+    except Exception as err:
+        _LOGGER.warning("Could not initially sync providers: %s", err)
+
+    # Listen for state changes on external provider todo entities
+    @callback
+    def _async_on_state_change(event: Any) -> None:
+        """Handle state change of external provider todo entities."""
+        entity_id = event.data.get("entity_id", "")
+        if not entity_id.startswith("todo.") or entity_id.startswith(f"todo.{DOMAIN}"):
+            return
+        provider_ids = {p.get("entity_id") for p in storage.data.providers}
+        if entity_id in provider_ids:
+            hass.async_create_task(storage.async_sync_providers())
+
+    from homeassistant.const import EVENT_STATE_CHANGED
+    entry.async_on_unload(
+        hass.bus.async_listen(EVENT_STATE_CHANGED, _async_on_state_change)
+    )
 
     # Set up custom sidebar panel & static HTTP assets
     await _async_setup_frontend(hass)
@@ -49,7 +71,7 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
     else:
         hass.http.register_static_path(URL_BASE, FRONTEND_DIR, cache_headers=False)
 
-    version_str = "1.0.4"
+    version_str = "1.0.5"
     try:
         js_file = os.path.join(FRONTEND_DIR, "task-manager-panel.js")
         if os.path.exists(js_file):

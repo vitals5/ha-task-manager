@@ -38,6 +38,12 @@ from .const import (
     THING_ACTION_INCREMENT,
     THING_ACTION_RESET,
 )
+from .providers import (
+    async_create_external_task,
+    async_delete_external_task,
+    async_read_external_tasks,
+    async_update_external_task,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -143,6 +149,8 @@ class TaskManagerData:
             self.labels: list[dict[str, Any]] = list(DEFAULT_LABELS)
             self.settings: dict[str, Any] = dict(DEFAULT_SETTINGS)
             self.activity_log: list[dict[str, Any]] = []
+            self.providers: list[dict[str, Any]] = []
+            self.external_overlays: dict[str, dict[str, Any]] = {}
         else:
             self.tasks = raw.get("tasks", [])
             self.things = raw.get("things", list(DEFAULT_THINGS))
@@ -150,6 +158,10 @@ class TaskManagerData:
             self.labels = raw.get("labels", list(DEFAULT_LABELS))
             self.settings = {**DEFAULT_SETTINGS, **raw.get("settings", {})}
             self.activity_log = raw.get("activity_log", [])
+            self.providers = raw.get("providers", [])
+            self.external_overlays = raw.get("external_overlays", {})
+
+        self.external_tasks_cache: dict[str, list[dict[str, Any]]] = {}
 
     def to_dict(self) -> dict[str, Any]:
         """Convert all data to serializable dict."""
@@ -160,6 +172,8 @@ class TaskManagerData:
             "labels": self.labels,
             "settings": self.settings,
             "activity_log": self.activity_log[-100:],  # keep last 100 activity entries
+            "providers": self.providers,
+            "external_overlays": self.external_overlays,
         }
 
     def _log_activity(self, action: str, details: dict[str, Any]) -> None:
@@ -623,6 +637,111 @@ class TaskManagerData:
                 return True
         return False
 
+    # ================= PROVIDER OPERATIONS =================
+
+    def get_providers(self) -> list[dict[str, Any]]:
+        """Get all configured external providers."""
+        return list(self.providers)
+
+    def add_provider(
+        self,
+        entity_id: str,
+        name: str = "",
+        provider_type: str = "generic",
+        icon: str = "mdi:format-list-checks",
+    ) -> dict[str, Any]:
+        """Add or update an external provider."""
+        for p in self.providers:
+            if p.get("entity_id") == entity_id:
+                p["name"] = name or p.get("name", entity_id)
+                p["provider_type"] = provider_type or p.get("provider_type", "generic")
+                p["icon"] = icon or p.get("icon", "mdi:format-list-checks")
+                self._log_activity("provider_updated", {"entity_id": entity_id, "name": p["name"]})
+                return p
+
+        provider = {
+            "entity_id": entity_id,
+            "name": name or entity_id,
+            "provider_type": provider_type,
+            "icon": icon,
+        }
+        self.providers.append(provider)
+        self._log_activity("provider_added", {"entity_id": entity_id, "name": provider["name"]})
+        return provider
+
+    def remove_provider(self, entity_id: str) -> bool:
+        """Remove a linked provider."""
+        for i, p in enumerate(self.providers):
+            if p.get("entity_id") == entity_id:
+                self.providers.pop(i)
+                self.external_tasks_cache.pop(entity_id, None)
+                self._log_activity("provider_removed", {"entity_id": entity_id})
+                return True
+        return False
+
+    def get_overlay(self, uid: str) -> dict[str, Any]:
+        """Get local overlay data for an external task."""
+        return self.external_overlays.get(uid, {})
+
+    def set_overlay(self, uid: str, overlay: dict[str, Any]) -> None:
+        """Set or update overlay data for an external task."""
+        cur = self.external_overlays.setdefault(uid, {})
+        cur.update(overlay)
+
+    def delete_overlay(self, uid: str) -> None:
+        """Delete overlay for an external task."""
+        self.external_overlays.pop(uid, None)
+
+    def get_all_tasks(self, include_external: bool = True) -> list[dict[str, Any]]:
+        """Return all tasks, optionally merging external provider tasks."""
+        all_tasks = [dict(t) for t in self.tasks]
+        if not include_external:
+            return all_tasks
+
+        for provider in self.providers:
+            e_id = provider.get("entity_id", "")
+            raw_items = self.external_tasks_cache.get(e_id, [])
+            for item in raw_items:
+                uid = str(item.get("uid", ""))
+                overlay = self.external_overlays.get(uid, {})
+                merged = {
+                    "id": f"ext:{e_id}:{uid}",
+                    "external_uid": uid,
+                    "title": item.get("title", ""),
+                    "description": item.get("description", ""),
+                    "status": item.get("status", "pending"),
+                    "due_date": item.get("due_date"),
+                    "due_time": item.get("due_time"),
+                    "is_external": True,
+                    "provider_entity_id": e_id,
+                    "provider_name": provider.get("name", e_id),
+                    "provider_type": provider.get("provider_type", "generic"),
+                    "provider_icon": provider.get("icon", "mdi:format-list-checks"),
+                    "priority": overlay.get("priority", PRIORITY_NONE),
+                    "assignees": overlay.get("assignees", []),
+                    "current_assignee": overlay.get("current_assignee"),
+                    "rotation_mode": overlay.get("rotation_mode", ROTATION_NONE),
+                    "labels": overlay.get("labels", []),
+                    "subtasks": overlay.get("subtasks", []),
+                    "points": int(overlay.get("points", self.settings.get("default_points", 10))),
+                    "linked_thing_id": overlay.get("linked_thing_id"),
+                    "thing_action": overlay.get("thing_action", THING_ACTION_RESET),
+                    "recurrence": overlay.get("recurrence", {
+                        "enabled": False,
+                        "type": RECURRENCE_NONE,
+                        "interval": 1,
+                        "days_of_week": [],
+                        "based_on": RECURRENCE_BASED_DUE_DATE,
+                    }),
+                    "created_at": overlay.get("created_at", ""),
+                    "completed_at": overlay.get("completed_at"),
+                    "completed_by": overlay.get("completed_by"),
+                    "history": overlay.get("history", []),
+                }
+                all_tasks.append(merged)
+
+        return all_tasks
+
     # ================= SETTINGS & IMPORT =================
 
     def update_settings(self, new_settings: dict[str, Any]) -> dict[str, Any]:
@@ -639,6 +758,8 @@ class TaskManagerData:
             self.labels = data.get("labels", [])
             self.settings = {**DEFAULT_SETTINGS, **data.get("settings", {})}
             self.activity_log = data.get("activity_log", [])
+            self.providers = data.get("providers", [])
+            self.external_overlays = data.get("external_overlays", {})
         else:
             # Merge tasks by id
             existing_task_ids = {t["id"] for t in self.tasks}
@@ -667,7 +788,12 @@ class TaskManagerStorage:
             raw = await self._store.async_load()
             if raw:
                 self.data = TaskManagerData(raw)
-                _LOGGER.info("Task Manager storage loaded (%d tasks, %d things)", len(self.data.tasks), len(self.data.things))
+                _LOGGER.info(
+                    "Task Manager storage loaded (%d tasks, %d things, %d providers)",
+                    len(self.data.tasks),
+                    len(self.data.things),
+                    len(self.data.providers),
+                )
             else:
                 self.data = TaskManagerData()
                 await self.async_save()
@@ -683,3 +809,198 @@ class TaskManagerStorage:
             async_dispatcher_send(self.hass, SIGNAL_TASK_MANAGER_UPDATED)
         except Exception as err:
             _LOGGER.error("Failed to save Task Manager storage: %s", err)
+
+    def get_all_tasks(self, include_external: bool = True) -> list[dict[str, Any]]:
+        """Get all tasks, including external if requested."""
+        return self.data.get_all_tasks(include_external=include_external)
+
+    def get_view_data(self) -> dict[str, Any]:
+        """Return view data with merged external tasks for UI and WebSocket."""
+        data = self.data.to_dict()
+        data["tasks"] = self.data.get_all_tasks(include_external=True)
+        return data
+
+    async def async_sync_providers(self) -> None:
+        """Fetch items from all configured external providers."""
+        for provider in self.data.providers:
+            e_id = provider.get("entity_id")
+            if not e_id:
+                continue
+            try:
+                items = await async_read_external_tasks(self.hass, e_id)
+                self.data.external_tasks_cache[e_id] = items
+            except Exception as err:
+                _LOGGER.error("Error syncing provider %s: %s", e_id, err)
+        async_dispatcher_send(self.hass, SIGNAL_TASK_MANAGER_UPDATED)
+
+    async def async_complete_task(
+        self, task_id: str, user_id: str | None = None
+    ) -> dict[str, Any] | None:
+        """Complete an internal or external task."""
+        if task_id.startswith("ext:"):
+            parts = task_id.split(":", 2)
+            if len(parts) < 3:
+                return None
+            e_id, uid = parts[1], parts[2]
+            await async_update_external_task(self.hass, e_id, uid, status="completed")
+
+            cached_items = self.data.external_tasks_cache.get(e_id, [])
+            target_item = next((i for i in cached_items if str(i.get("uid")) == uid), None)
+            if target_item:
+                target_item["status"] = "completed"
+
+            overlay = self.data.get_overlay(uid)
+            effective_user = user_id or overlay.get("current_assignee")
+            points = int(overlay.get("points", self.data.settings.get("default_points", 10)))
+
+            if effective_user and self.data.settings.get("gamification_enabled", True):
+                u = self.data.get_user(effective_user)
+                if u:
+                    u["points"] = u.get("points", 0) + points
+                    u["completed_count"] = u.get("completed_count", 0) + 1
+
+            now_str = dt_util.now().isoformat()
+            overlay["completed_at"] = now_str
+            overlay["completed_by"] = effective_user
+            overlay.setdefault("history", []).append({
+                "completed_at": now_str,
+                "user_id": effective_user,
+                "points": points,
+            })
+            self.data.set_overlay(uid, overlay)
+
+            linked_thing_id = overlay.get("linked_thing_id")
+            thing_action = overlay.get("thing_action", THING_ACTION_RESET)
+            if linked_thing_id:
+                thing = self.data.get_thing(linked_thing_id)
+                if thing:
+                    if thing_action == THING_ACTION_RESET:
+                        thing["current_value"] = 0
+                        thing["last_reset"] = now_str
+                    elif thing_action == THING_ACTION_INCREMENT:
+                        thing["current_value"] = thing.get("current_value", 0) + 1
+                    elif thing_action == THING_ACTION_DECREMENT:
+                        thing["current_value"] = max(0, thing.get("current_value", 0) - 1)
+
+            await self.async_save()
+            for t in self.data.get_all_tasks(include_external=True):
+                if t.get("id") == task_id:
+                    return t
+            return None
+
+        # Internal task
+        task = self.data.complete_task(task_id, user_id=user_id)
+        if task:
+            await self.async_save()
+        return task
+
+    async def async_reset_task(self, task_id: str) -> dict[str, Any] | None:
+        """Reset an internal or external task."""
+        if task_id.startswith("ext:"):
+            parts = task_id.split(":", 2)
+            if len(parts) < 3:
+                return None
+            e_id, uid = parts[1], parts[2]
+            await async_update_external_task(self.hass, e_id, uid, status="needs_action")
+
+            cached_items = self.data.external_tasks_cache.get(e_id, [])
+            target_item = next((i for i in cached_items if str(i.get("uid")) == uid), None)
+            if target_item:
+                target_item["status"] = "pending"
+
+            overlay = self.data.get_overlay(uid)
+            overlay["completed_at"] = None
+            overlay["completed_by"] = None
+            self.data.set_overlay(uid, overlay)
+
+            await self.async_save()
+            for t in self.data.get_all_tasks(include_external=True):
+                if t.get("id") == task_id:
+                    return t
+            return None
+
+        task = self.data.reset_task(task_id)
+        if task:
+            await self.async_save()
+        return task
+
+    async def async_delete_task(self, task_id: str) -> bool:
+        """Delete an internal or external task."""
+        if task_id.startswith("ext:"):
+            parts = task_id.split(":", 2)
+            if len(parts) < 3:
+                return False
+            e_id, uid = parts[1], parts[2]
+            await async_delete_external_task(self.hass, e_id, uid)
+            self.data.delete_overlay(uid)
+            cached_items = self.data.external_tasks_cache.get(e_id, [])
+            self.data.external_tasks_cache[e_id] = [i for i in cached_items if str(i.get("uid")) != uid]
+            await self.async_save()
+            return True
+
+        ok = self.data.delete_task(task_id)
+        if ok:
+            await self.async_save()
+        return ok
+
+    async def async_save_task(self, task_data: dict[str, Any]) -> dict[str, Any]:
+        """Save (create or update) a task, routing to external provider if applicable."""
+        task_id = task_data.get("id", "")
+        dest_provider = task_data.get("destination_provider")
+
+        if task_id.startswith("ext:"):
+            parts = task_id.split(":", 2)
+            e_id, uid = parts[1], parts[2]
+            await async_update_external_task(
+                self.hass,
+                e_id,
+                uid,
+                title=task_data.get("title"),
+                due_date=task_data.get("due_date"),
+                due_time=task_data.get("due_time"),
+                description=task_data.get("description"),
+            )
+            overlay = {
+                "priority": task_data.get("priority", PRIORITY_NONE),
+                "assignees": task_data.get("assignees", []),
+                "current_assignee": task_data.get("current_assignee"),
+                "rotation_mode": task_data.get("rotation_mode", ROTATION_NONE),
+                "labels": task_data.get("labels", []),
+                "points": int(task_data.get("points", self.data.settings.get("default_points", 10))),
+                "linked_thing_id": task_data.get("linked_thing_id"),
+                "thing_action": task_data.get("thing_action", THING_ACTION_RESET),
+                "subtasks": task_data.get("subtasks", []),
+                "recurrence": task_data.get("recurrence", {
+                    "enabled": False,
+                    "type": RECURRENCE_NONE,
+                    "interval": 1,
+                    "days_of_week": [],
+                    "based_on": RECURRENCE_BASED_DUE_DATE,
+                }),
+            }
+            self.data.set_overlay(uid, overlay)
+            await self.async_save()
+            await self.async_sync_providers()
+            for t in self.data.get_all_tasks(include_external=True):
+                if t.get("id") == task_id:
+                    return t
+            return task_data
+
+        if dest_provider and dest_provider != "task_manager":
+            await async_create_external_task(
+                self.hass,
+                dest_provider,
+                title=task_data.get("title", "New Task"),
+                due_date=task_data.get("due_date"),
+                due_time=task_data.get("due_time"),
+                description=task_data.get("description"),
+            )
+            await self.async_sync_providers()
+            return {"title": task_data.get("title", ""), "is_external": True}
+
+        if task_id and self.data.get_task(task_id):
+            result = self.data.update_task(task_id, task_data)
+        else:
+            result = self.data.create_task(task_data)
+        await self.async_save()
+        return result or {}

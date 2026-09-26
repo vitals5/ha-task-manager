@@ -11,6 +11,11 @@
     }
   },
   "entity": {
+    "calendar": {
+      "all": {
+        "name": "Task Manager Chores"
+      }
+    },
     "sensor": {
       "total_tasks": {
         "name": "Total Tasks"
