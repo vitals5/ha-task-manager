@@ -223,6 +223,20 @@ class TestTaskManagerStorage(unittest.TestCase):
         self.assertEqual(auto_tasks[0]["priority"], "p1")
         self.assertEqual(auto_tasks[0]["linked_thing_id"], thing["id"])
 
+    def test_thing_update_value_with_none_arguments(self):
+        """Test updating thing value when value or delta is explicitly None."""
+        thing = self.data.create_thing({
+            "name": "Coffee Machine",
+            "current_value": 10,
+        })
+        # Delta update with value=None
+        res = self.data.update_thing_value(thing["id"], delta=1, value=None)
+        self.assertEqual(res["current_value"], 11)
+
+        # Value update with delta=None
+        res2 = self.data.update_thing_value(thing["id"], delta=None, value=25)
+        self.assertEqual(res2["current_value"], 25)
+
     def test_labels_management(self):
         """Test label creation and deletion."""
         label = self.data.create_label({"name": "Garage", "color": "#f59e0b"})

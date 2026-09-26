@@ -11,6 +11,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -29,7 +30,24 @@ async def async_setup_entry(
     """Set up Task Manager sensors."""
     storage: TaskManagerStorage = hass.data[DOMAIN][entry.entry_id]
 
-    created_ids: set[str] = set()
+    # Clean up orphaned sensors from entity registry on startup
+    try:
+        ent_reg = er.async_get(hass)
+        current_uids = {f"{DOMAIN}_user_{u['id']}_points" for u in storage.data.users}
+        current_tids = {f"{DOMAIN}_thing_{th['id']}" for th in storage.data.things}
+        valid_uids = {
+            f"{DOMAIN}_total_tasks",
+            f"{DOMAIN}_pending_tasks",
+            f"{DOMAIN}_overdue_tasks",
+            f"{DOMAIN}_completed_today_tasks",
+        } | current_uids | current_tids
+
+        for reg_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+            if reg_entry.domain == "sensor" and reg_entry.unique_id not in valid_uids:
+                _LOGGER.info("Removing orphaned sensor entity from registry: %s", reg_entry.entity_id)
+                ent_reg.async_remove(reg_entry.entity_id)
+    except Exception as err:
+        _LOGGER.debug("Could not cleanup orphaned sensor entities: %s", err)
 
     # Initial static summary sensors
     summary_sensors = [
@@ -38,28 +56,59 @@ async def async_setup_entry(
         TaskManagerSummarySensor(storage, "overdue", "Task Manager Overdue Tasks", "mdi:alert-circle-outline"),
         TaskManagerSummarySensor(storage, "completed_today", "Task Manager Completed Today", "mdi:check-circle-outline"),
     ]
-    for s in summary_sensors:
-        created_ids.add(s.unique_id)
     async_add_entities(summary_sensors)
+
+    active_user_sensors: dict[str, TaskManagerUserSensor] = {}
+    active_thing_sensors: dict[str, TaskManagerThingSensor] = {}
 
     @callback
     def update_dynamic_sensors() -> None:
-        """Add new sensors for newly added users or things."""
+        """Add new sensors or remove deleted sensors for users and things."""
         new_entities = []
+        current_user_ids = {u["id"] for u in storage.data.users}
+        current_thing_ids = {th["id"] for th in storage.data.things}
 
-        # User Sensors
+        # 1. Add new users
         for user in storage.data.users:
-            u_id = f"user_{user['id']}"
-            if u_id not in created_ids:
-                created_ids.add(u_id)
-                new_entities.append(TaskManagerUserSensor(storage, user["id"]))
+            uid = user["id"]
+            if uid not in active_user_sensors:
+                sensor = TaskManagerUserSensor(storage, uid)
+                active_user_sensors[uid] = sensor
+                new_entities.append(sensor)
 
-        # Thing Sensors
+        # 2. Remove deleted users
+        for uid in list(active_user_sensors.keys()):
+            if uid not in current_user_ids:
+                sensor = active_user_sensors.pop(uid)
+                hass.async_create_task(sensor.async_remove())
+                try:
+                    ent_reg = er.async_get(hass)
+                    reg_id = ent_reg.async_get_entity_id("sensor", DOMAIN, f"{DOMAIN}_user_{uid}_points")
+                    if reg_id:
+                        ent_reg.async_remove(reg_id)
+                except Exception as err:
+                    _LOGGER.debug("Error removing user sensor from registry: %s", err)
+
+        # 3. Add new things
         for thing in storage.data.things:
-            th_id = f"thing_{thing['id']}"
-            if th_id not in created_ids:
-                created_ids.add(th_id)
-                new_entities.append(TaskManagerThingSensor(storage, thing["id"]))
+            th_id = thing["id"]
+            if th_id not in active_thing_sensors:
+                sensor = TaskManagerThingSensor(storage, th_id)
+                active_thing_sensors[th_id] = sensor
+                new_entities.append(sensor)
+
+        # 4. Remove deleted things
+        for th_id in list(active_thing_sensors.keys()):
+            if th_id not in current_thing_ids:
+                sensor = active_thing_sensors.pop(th_id)
+                hass.async_create_task(sensor.async_remove())
+                try:
+                    ent_reg = er.async_get(hass)
+                    reg_id = ent_reg.async_get_entity_id("sensor", DOMAIN, f"{DOMAIN}_thing_{th_id}")
+                    if reg_id:
+                        ent_reg.async_remove(reg_id)
+                except Exception as err:
+                    _LOGGER.debug("Error removing thing sensor from registry: %s", err)
 
         if new_entities:
             async_add_entities(new_entities)

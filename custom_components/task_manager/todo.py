@@ -13,6 +13,7 @@ from homeassistant.components.todo import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -36,24 +37,53 @@ async def async_setup_entry(
     """Set up Task Manager todo entities."""
     storage: TaskManagerStorage = hass.data[DOMAIN][entry.entry_id]
 
-    created_entity_ids: set[str] = set()
+    # Clean up orphaned todo entities from registry on startup
+    try:
+        ent_reg = er.async_get(hass)
+        valid_uids = {f"{DOMAIN}_todo_shared"} | {f"{DOMAIN}_todo_{u['id']}" for u in storage.data.users}
+        for reg_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+            if reg_entry.domain == "todo" and reg_entry.unique_id not in valid_uids:
+                _LOGGER.info("Removing orphaned todo entity from registry: %s", reg_entry.entity_id)
+                ent_reg.async_remove(reg_entry.entity_id)
+    except Exception as err:
+        _LOGGER.debug("Could not cleanup orphaned todo entities: %s", err)
+
+    shared_todo_added = False
+    active_user_todos: dict[str, TaskManagerTodoListEntity] = {}
 
     @callback
     def update_entities() -> None:
-        """Dynamically add todo lists for new users if added."""
+        """Dynamically add or remove todo lists for users."""
+        nonlocal shared_todo_added
         new_entities = []
 
         # 1. Main Shared / All Chores List
-        if "shared" not in created_entity_ids:
-            created_entity_ids.add("shared")
+        if not shared_todo_added:
+            shared_todo_added = True
             new_entities.append(TaskManagerTodoListEntity(storage, user_id=None))
 
-        # 2. Per-User Lists
+        current_user_ids = {u["id"] for u in storage.data.users}
+
+        # 2. Add new user lists
         for user in storage.data.users:
             u_id = user["id"]
-            if u_id not in created_entity_ids:
-                created_entity_ids.add(u_id)
-                new_entities.append(TaskManagerTodoListEntity(storage, user_id=u_id))
+            if u_id not in active_user_todos:
+                entity = TaskManagerTodoListEntity(storage, user_id=u_id)
+                active_user_todos[u_id] = entity
+                new_entities.append(entity)
+
+        # 3. Remove deleted user lists
+        for u_id in list(active_user_todos.keys()):
+            if u_id not in current_user_ids:
+                entity = active_user_todos.pop(u_id)
+                hass.async_create_task(entity.async_remove())
+                try:
+                    ent_reg = er.async_get(hass)
+                    reg_id = ent_reg.async_get_entity_id("todo", DOMAIN, f"{DOMAIN}_todo_{u_id}")
+                    if reg_id:
+                        ent_reg.async_remove(reg_id)
+                except Exception as err:
+                    _LOGGER.debug("Error removing user todo from registry: %s", err)
 
         if new_entities:
             async_add_entities(new_entities)

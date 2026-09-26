@@ -613,12 +613,10 @@
     }
 
     async updateThingValue(thingId, delta = null, reset = false, value = null) {
-      await this._callWS("task_manager/update_thing_value", {
-        thing_id: thingId,
-        delta: delta,
-        reset: reset,
-        value: value
-      });
+      const payload = { thing_id: thingId, reset: Boolean(reset) };
+      if (delta !== null && delta !== undefined) payload.delta = delta;
+      if (value !== null && value !== undefined) payload.value = value;
+      await this._callWS("task_manager/update_thing_value", payload);
     }
 
     async deleteThing(thingId) {

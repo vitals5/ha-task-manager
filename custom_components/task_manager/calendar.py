@@ -8,6 +8,7 @@ from typing import Any
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -30,16 +31,61 @@ async def async_setup_entry(
     """Set up Task Manager calendar entities."""
     storage: TaskManagerStorage = hass.data[DOMAIN][entry.entry_id]
 
-    entities = [
-        TaskManagerCalendarEntity(storage, "all", "Task Manager Chores"),
-    ]
+    # Clean up orphaned calendar entities from registry on startup
+    try:
+        ent_reg = er.async_get(hass)
+        valid_uids = {f"{DOMAIN}_calendar_all"} | {f"{DOMAIN}_calendar_{u['id']}" for u in storage.data.users}
+        for reg_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+            if reg_entry.domain == "calendar" and reg_entry.unique_id not in valid_uids:
+                _LOGGER.info("Removing orphaned calendar entity from registry: %s", reg_entry.entity_id)
+                ent_reg.async_remove(reg_entry.entity_id)
+    except Exception as err:
+        _LOGGER.debug("Could not cleanup orphaned calendar entities: %s", err)
 
-    for user in storage.data.users:
-        entities.append(
-            TaskManagerCalendarEntity(storage, user["id"], f"Task Manager ({user['name']})")
-        )
+    all_cal_added = False
+    active_user_calendars: dict[str, TaskManagerCalendarEntity] = {}
 
-    async_add_entities(entities)
+    @callback
+    def update_calendar_entities() -> None:
+        """Dynamically add or remove calendar entities for users."""
+        nonlocal all_cal_added
+        new_entities = []
+
+        # 1. Main Shared Calendar
+        if not all_cal_added:
+            all_cal_added = True
+            new_entities.append(TaskManagerCalendarEntity(storage, "all", "Task Manager Chores"))
+
+        current_user_ids = {u["id"] for u in storage.data.users}
+
+        # 2. Add new user calendars
+        for user in storage.data.users:
+            u_id = user["id"]
+            if u_id not in active_user_calendars:
+                cal = TaskManagerCalendarEntity(storage, u_id, f"Task Manager ({user['name']})")
+                active_user_calendars[u_id] = cal
+                new_entities.append(cal)
+
+        # 3. Remove deleted user calendars
+        for u_id in list(active_user_calendars.keys()):
+            if u_id not in current_user_ids:
+                cal = active_user_calendars.pop(u_id)
+                hass.async_create_task(cal.async_remove())
+                try:
+                    ent_reg = er.async_get(hass)
+                    reg_id = ent_reg.async_get_entity_id("calendar", DOMAIN, f"{DOMAIN}_calendar_{u_id}")
+                    if reg_id:
+                        ent_reg.async_remove(reg_id)
+                except Exception as err:
+                    _LOGGER.debug("Error removing user calendar from registry: %s", err)
+
+        if new_entities:
+            async_add_entities(new_entities)
+
+    update_calendar_entities()
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, SIGNAL_TASK_MANAGER_UPDATED, update_calendar_entities)
+    )
 
 
 def _task_to_event(task: dict[str, Any], target_date: date | None = None) -> CalendarEvent | None:

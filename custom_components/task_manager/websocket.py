@@ -136,8 +136,8 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/update_thing_value",
         vol.Required("thing_id"): str,
-        vol.Optional("value"): vol.Any(int, float),
-        vol.Optional("delta"): vol.Any(int, float),
+        vol.Optional("value"): vol.Any(int, float, None),
+        vol.Optional("delta"): vol.Any(int, float, None),
         vol.Optional("reset", default=False): bool,
     })
     @websocket_api.async_response
@@ -166,8 +166,17 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
     ) -> None:
         """Handle delete thing command."""
-        success = storage.data.delete_thing(msg["thing_id"])
+        thing_id = msg["thing_id"]
+        success = storage.data.delete_thing(thing_id)
         if success:
+            try:
+                from homeassistant.helpers import entity_registry as er
+                ent_reg = er.async_get(hass)
+                reg_id = ent_reg.async_get_entity_id("sensor", DOMAIN, f"{DOMAIN}_thing_{thing_id}")
+                if reg_id:
+                    ent_reg.async_remove(reg_id)
+            except Exception as err:
+                _LOGGER.debug("Could not remove thing from entity registry: %s", err)
             await storage.async_save()
         connection.send_result(msg["id"], {"success": success, "data": storage.get_view_data()})
 
@@ -200,8 +209,22 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
     ) -> None:
         """Handle delete user command."""
-        success = storage.data.delete_user(msg["user_id"])
+        user_id = msg["user_id"]
+        success = storage.data.delete_user(user_id)
         if success:
+            try:
+                from homeassistant.helpers import entity_registry as er
+                ent_reg = er.async_get(hass)
+                for domain, uid in [
+                    ("sensor", f"{DOMAIN}_user_{user_id}_points"),
+                    ("todo", f"{DOMAIN}_todo_{user_id}"),
+                    ("calendar", f"{DOMAIN}_calendar_{user_id}"),
+                ]:
+                    reg_id = ent_reg.async_get_entity_id(domain, DOMAIN, uid)
+                    if reg_id:
+                        ent_reg.async_remove(reg_id)
+            except Exception as err:
+                _LOGGER.debug("Could not remove user entities from registry: %s", err)
             await storage.async_save()
         connection.send_result(msg["id"], {"success": success, "data": storage.get_view_data()})
 

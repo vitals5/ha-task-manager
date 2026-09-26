@@ -28,6 +28,16 @@ panel_custom_mock = MagicMock()
 panel_custom_mock.async_register_panel = AsyncMock()
 sys.modules.setdefault("homeassistant.components.panel_custom", panel_custom_mock)
 sys.modules.setdefault("homeassistant.components.http", MagicMock())
+ws_api_mock = MagicMock()
+ws_registered_handlers = {}
+def mock_ws_register_cmd(hass, handler):
+    name = getattr(handler, "__name__", "")
+    ws_registered_handlers[name] = handler
+ws_api_mock.async_register_command = mock_ws_register_cmd
+ws_api_mock.websocket_command = lambda schema: (lambda f: f)
+ws_api_mock.async_response = lambda f: f
+sys.modules["homeassistant.components.websocket_api"] = ws_api_mock
+sys.modules["homeassistant.components"].websocket_api = ws_api_mock
 sys.modules.setdefault("homeassistant.helpers", MagicMock())
 sys.modules.setdefault("homeassistant.helpers.storage", MagicMock())
 sys.modules.setdefault("homeassistant.util", MagicMock())

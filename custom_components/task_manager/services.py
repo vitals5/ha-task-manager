@@ -53,8 +53,8 @@ SCHEMA_DELETE_TASK = vol.Schema({
 
 SCHEMA_UPDATE_THING = vol.Schema({
     vol.Required("thing_id"): cv.string,
-    vol.Optional("value"): vol.Coerce(float),
-    vol.Optional("delta"): vol.Coerce(float),
+    vol.Optional("value"): vol.Any(vol.Coerce(float), None),
+    vol.Optional("delta"): vol.Any(vol.Coerce(float), None),
     vol.Optional("reset", default=False): cv.boolean,
 })
 
