@@ -160,4 +160,5 @@ DEFAULT_SETTINGS = {
     "tablet_mount_mode": False,
     "first_day_of_week": 1,  # 1 = Monday, 0 = Sunday
     "theme_mode": "auto",
+    "language": "auto",
 }

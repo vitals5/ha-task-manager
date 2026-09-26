@@ -10,30 +10,138 @@
       "already_configured": "Task Manager ist bereits eingerichtet."
     }
   },
+  "entity": {
+    "sensor": {
+      "total_tasks": {
+        "name": "Aufgaben insgesamt"
+      },
+      "pending_tasks": {
+        "name": "Offene Aufgaben"
+      },
+      "overdue_tasks": {
+        "name": "Überfällige Aufgaben"
+      },
+      "completed_today_tasks": {
+        "name": "Heute erledigt"
+      }
+    }
+  },
   "services": {
     "create_task": {
       "name": "Aufgabe erstellen",
-      "description": "Erstellt eine neue Aufgabe oder einen Haushalts-Task im Task Manager."
+      "description": "Erstellt eine neue Aufgabe oder einen Haushalts-Task im Task Manager.",
+      "fields": {
+        "title": {
+          "name": "Titel",
+          "description": "Der Titel bzw. Name der Aufgabe."
+        },
+        "description": {
+          "name": "Beschreibung",
+          "description": "Zusätzliche Notizen oder Anweisungen für die Aufgabe."
+        },
+        "due_date": {
+          "name": "Fälligkeitsdatum",
+          "description": "Fälligkeitsdatum im Format JJJJ-MM-TT (Standard: heute)."
+        },
+        "priority": {
+          "name": "Priorität",
+          "description": "Prioritätsstufe (p1=Dringend, p2=Hoch, p3=Mittel, p4=Niedrig, none=Keine)."
+        },
+        "assignee": {
+          "name": "Zuständige Benutzer-ID",
+          "description": "ID des Benutzers, dem diese Aufgabe zugewiesen wird."
+        },
+        "points": {
+          "name": "Punkte",
+          "description": "Belohnungspunkte bei Abschluss."
+        },
+        "linked_thing_id": {
+          "name": "Verknüpfte Thing-ID",
+          "description": "ID eines mit dieser Aufgabe verknüpften Things (z. B. thing_water_filter)."
+        }
+      }
     },
     "complete_task": {
       "name": "Aufgabe abschließen",
-      "description": "Schließt eine Aufgabe ab, vergibt Punkte, rotiert Zuständige und berechnet die Wiederholung."
+      "description": "Schließt eine Aufgabe ab, vergibt Punkte, rotiert Zuständige und berechnet die Wiederholung.",
+      "fields": {
+        "task_id": {
+          "name": "Aufgaben-ID",
+          "description": "Die eindeutige Kennung der Aufgabe."
+        },
+        "task_title": {
+          "name": "Aufgabentitel",
+          "description": "Sucht und erledigt die offene Aufgabe mit genau diesem Titel."
+        },
+        "user_id": {
+          "name": "Erledigt von Benutzer-ID",
+          "description": "Benutzer-ID, die Gutschrift und Punkte erhält (Standard: aktuell zugewiesenes Mitglied)."
+        }
+      }
     },
     "reset_task": {
       "name": "Aufgabe zurücksetzen",
-      "description": "Setzt eine erledigte Aufgabe auf ausstehend zurück."
+      "description": "Setzt eine erledigte Aufgabe auf ausstehend zurück.",
+      "fields": {
+        "task_id": {
+          "name": "Aufgaben-ID",
+          "description": "Die eindeutige Kennung der Aufgabe."
+        },
+        "task_title": {
+          "name": "Aufgabentitel",
+          "description": "Der Titel der zurückzusetzenden Aufgabe."
+        }
+      }
     },
     "delete_task": {
       "name": "Aufgabe löschen",
-      "description": "Löscht eine Aufgabe dauerhaft."
+      "description": "Löscht eine Aufgabe dauerhaft.",
+      "fields": {
+        "task_id": {
+          "name": "Aufgaben-ID",
+          "description": "Die eindeutige Kennung der zu löschenden Aufgabe."
+        }
+      }
     },
     "update_thing": {
       "name": "Thing aktualisieren",
-      "description": "Aktualisiert, erhöht oder setzt einen Zähler/Messwert eines Things zurück."
+      "description": "Aktualisiert, erhöht oder setzt einen Zähler/Messwert eines Things zurück.",
+      "fields": {
+        "thing_id": {
+          "name": "Thing-ID",
+          "description": "ID des zu aktualisierenden Things (z. B. thing_robot_dustbin)."
+        },
+        "value": {
+          "name": "Absoluten Wert setzen",
+          "description": "Setzt den aktuellen Wert direkt."
+        },
+        "delta": {
+          "name": "Delta-Änderung",
+          "description": "Erhöht oder verringert den aktuellen Wert um diesen Betrag."
+        },
+        "reset": {
+          "name": "Auf 0 zurücksetzen",
+          "description": "Setzt den aktuellen Wert auf 0 zurück."
+        }
+      }
     },
     "award_points": {
       "name": "Punkte vergeben",
-      "description": "Vergibt oder korrigiert Punkte für ein Haushaltsmitglied."
+      "description": "Vergibt oder korrigiert Gamification-Punkte für ein Haushaltsmitglied.",
+      "fields": {
+        "user_id": {
+          "name": "Benutzer-ID",
+          "description": "Ziel-Benutzer-ID."
+        },
+        "points": {
+          "name": "Punkte",
+          "description": "Anzahl der zu vergebenden Punkte."
+        },
+        "reason": {
+          "name": "Begründung",
+          "description": "Notiz oder Grund für die Punkteanpassung."
+        }
+      }
     }
   }
 }

@@ -39,6 +39,11 @@ Track non-task household items and consumables that require maintenance over tim
 - **Celebration Effects**: Visual confetti burst and cheerful completion chimes (can be toggled in settings).
 - **Activity Feed**: Timeline of recently completed chores and awarded points.
 
+### 🌐 Multi-Language Support (English & German)
+- **Automatic Localization**: Seamlessly detects and switches language according to your Home Assistant user profile or system language.
+- **Manual Language Preference**: Set language to Auto (Home Assistant), English, or Deutsch in Settings.
+- **100% Localized Experience**: All views, calendar months & weekdays, forms, modals, filter chips, badges, and alerts are fully translated with zero hardcoded strings.
+
 ### 📺 Wall Tablet & Mount Mode
 - Switch to **Tablet Mode** with a single click in the header for wall-mounted touchscreens (e.g. in the kitchen or hallway).
 - Features enlarged touch targets and a fast **Member Switcher** so any family member can walk up, select their avatar, and check off chores.
@@ -113,7 +118,7 @@ Everything is managed within the dedicated sidebar panel:
 5. **Settings Tab**:
    - **Members**: Add or edit household members (name, avatar, theme color, points).
    - **Labels**: Customize categories (Cleaning, Garden, Kitchen, Maintenance, Pets, etc.).
-   - **Preferences**: Toggle gamification, sounds, confetti, and default points.
+   - **Preferences**: Toggle gamification, sounds, confetti, default points, and select language (Auto, English, Deutsch).
    - **Backup & Restore**: Export and import complete JSON backups.
 
 ---

@@ -10,30 +10,138 @@
       "already_configured": "Task Manager is already configured."
     }
   },
+  "entity": {
+    "sensor": {
+      "total_tasks": {
+        "name": "Total Tasks"
+      },
+      "pending_tasks": {
+        "name": "Pending Tasks"
+      },
+      "overdue_tasks": {
+        "name": "Overdue Tasks"
+      },
+      "completed_today_tasks": {
+        "name": "Completed Today"
+      }
+    }
+  },
   "services": {
     "create_task": {
       "name": "Create Task",
-      "description": "Creates a new chore or task in Task Manager."
+      "description": "Creates a new chore or task in Task Manager.",
+      "fields": {
+        "title": {
+          "name": "Title",
+          "description": "The title or name of the task."
+        },
+        "description": {
+          "name": "Description",
+          "description": "Additional notes or instructions for the chore."
+        },
+        "due_date": {
+          "name": "Due Date",
+          "description": "Due date in YYYY-MM-DD format (defaults to today)."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "Priority level (p1=Urgent, p2=High, p3=Medium, p4=Low, none=None)."
+        },
+        "assignee": {
+          "name": "Assignee User ID",
+          "description": "ID of user to assign this chore to."
+        },
+        "points": {
+          "name": "Points",
+          "description": "Reward points on completion."
+        },
+        "linked_thing_id": {
+          "name": "Linked Thing ID",
+          "description": "ID of a Thing linked to this task (e.g. thing_water_filter)."
+        }
+      }
     },
     "complete_task": {
       "name": "Complete Task",
-      "description": "Completes a task, awards points, rotates assignees, and calculates recurrence."
+      "description": "Completes a task, awards points, rotates assignees, and calculates recurrence.",
+      "fields": {
+        "task_id": {
+          "name": "Task ID",
+          "description": "The unique identifier of the task."
+        },
+        "task_title": {
+          "name": "Task Title",
+          "description": "Find and complete the pending task matching this exact title."
+        },
+        "user_id": {
+          "name": "Completed by User ID",
+          "description": "User ID who gets credit and points (defaults to task's active assignee)."
+        }
+      }
     },
     "reset_task": {
       "name": "Reset Task",
-      "description": "Resets a completed task back to pending."
+      "description": "Resets a completed task back to pending.",
+      "fields": {
+        "task_id": {
+          "name": "Task ID",
+          "description": "The unique identifier of the task."
+        },
+        "task_title": {
+          "name": "Task Title",
+          "description": "The title of the task to reset."
+        }
+      }
     },
     "delete_task": {
       "name": "Delete Task",
-      "description": "Deletes a task permanently."
+      "description": "Deletes a task permanently.",
+      "fields": {
+        "task_id": {
+          "name": "Task ID",
+          "description": "The unique identifier of the task to delete."
+        }
+      }
     },
     "update_thing": {
       "name": "Update Thing",
-      "description": "Updates, increments, or resets a Thing counter or meter."
+      "description": "Updates, increments, or resets a Thing counter or meter.",
+      "fields": {
+        "thing_id": {
+          "name": "Thing ID",
+          "description": "ID of the thing to update (e.g. thing_robot_dustbin)."
+        },
+        "value": {
+          "name": "Set Absolute Value",
+          "description": "Set current value directly."
+        },
+        "delta": {
+          "name": "Delta Change",
+          "description": "Increment or decrement current value by this amount."
+        },
+        "reset": {
+          "name": "Reset to Zero",
+          "description": "Reset the current value back to 0."
+        }
+      }
     },
     "award_points": {
       "name": "Award Points",
-      "description": "Adjusts gamification points for a household member."
+      "description": "Adjusts gamification points for a household member.",
+      "fields": {
+        "user_id": {
+          "name": "User ID",
+          "description": "Target user ID."
+        },
+        "points": {
+          "name": "Points",
+          "description": "Number of points to award."
+        },
+        "reason": {
+          "name": "Reason",
+          "description": "Note or reason for points adjustment."
+        }
+      }
     }
   }
 }

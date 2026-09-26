@@ -17,6 +17,7 @@
     en: {
       appName: "Task Manager",
       chores: "Tasks & Chores",
+      openTasksCount: "{count} open tasks",
       calendar: "Calendar",
       things: "Things",
       leaderboard: "Leaderboard",
@@ -24,9 +25,13 @@
       mountMode: "Tablet Mode",
       exitMountMode: "Standard View",
       addTask: "New Chore",
+      editTask: "Edit Chore",
       addThing: "New Thing",
+      editThing: "Edit Thing",
       addUser: "New Member",
+      editUser: "Edit Member",
       addLabel: "New Label",
+      editLabel: "Edit Label",
       all: "All",
       today: "Today",
       upcoming: "Upcoming",
@@ -35,12 +40,26 @@
       searchPlaceholder: "Search tasks or chores...",
       noTasks: "No tasks found in this view.",
       noThings: "No tracked things yet. Add items like water filters, vacuum bins, or coffee machines!",
+      thingsSubtitle: "Track appliances, filter lifespans, and supplies. Connected chores auto-reset these meters!",
+      categoryGeneral: "General",
+      lastReset: "Last reset",
       priority: "Priority",
+      priorityNone: "None",
+      priorityP1: "P1 (Urgent - Red)",
+      priorityP2: "P2 (High - Orange)",
+      priorityP3: "P3 (Medium - Blue)",
+      priorityP4: "P4 (Low - Gray)",
       due: "Due",
+      dueDate: "Due Date",
+      dueTime: "Due Time",
       assignee: "Assignee",
+      label: "Label",
       rotation: "Rotation",
       subtasks: "Subtasks",
+      autoResets: "auto-resets",
       points: "Points",
+      pointsReward: "Points Reward",
+      pts: "pts",
       linkedThing: "Linked Thing",
       save: "Save",
       cancel: "Cancel",
@@ -48,13 +67,27 @@
       edit: "Edit",
       reset: "Reset",
       undo: "Undo",
+      done: "Done!",
       recurrence: "Recurrence",
+      recurrenceSchedule: "Recurrence (Smart Schedule)",
+      recurrenceCadence: "Recurrence Cadence",
+      cadenceDueDate: "From Scheduled Due Date (Fixed Cadence)",
+      cadenceCompletionDate: "From Actual Completion Date (Adaptive)",
+      type: "Type",
+      interval: "Interval",
       none: "None",
+      noneFixed: "None (Fixed)",
+      roundRobin: "Round-Robin",
+      leastCompleted: "Least Completed",
+      random: "Random",
+      round_robin: "Round-Robin",
+      least_completed: "Least Completed",
       daily: "Daily",
       weekly: "Weekly",
       monthly: "Monthly",
       yearly: "Yearly",
-      customDays: "Custom Days",
+      customDays: "Every X Days",
+      custom_days: "Every X Days",
       streak: "Streak",
       completedChores: "Completed",
       exportBackup: "Export Backup (JSON)",
@@ -68,15 +101,64 @@
       monday: "Monday",
       sunday: "Sunday",
       recentActivity: "Recent Activity",
+      by: "by",
+      noRecentActivity: "No recent activity yet.",
+      leaderboardAndStreaks: "Leaderboard & Streaks",
+      dayStreak: "day streak",
+      tasksDone: "tasks done",
       autoTask: "Auto-creates task when limit reached",
       statusNormal: "Normal",
       statusWarning: "Nearing limit",
       statusAlert: "Limit reached!",
       menuToggle: "Toggle sidebar",
+      activeMember: "Active Member",
+      months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      more: "more",
+      choresDueOn: "Chores due on",
+      noChoresDueOnDate: "No chores due on this date.",
+      householdMembers: "Household Members",
+      labelsAndCategories: "Labels & Categories",
+      preferences: "Preferences",
+      language: "Language",
+      langAuto: "Auto (Home Assistant)",
+      langEn: "English",
+      langDe: "Deutsch",
+      backupAndRestore: "Data Backup & Restore",
+      backupDescription: "Download a complete JSON export of all your tasks, things, users, and history, or restore from a backup.",
+      prefSaved: "Preferences saved!",
+      backupSuccess: "Backup imported successfully!",
+      backupError: "Failed to parse JSON backup file",
+      titleRequired: "Title is required!",
+      nameRequired: "Name is required!",
+      titleLabel: "Title *",
+      titlePlaceholder: "e.g. Clean kitchen counters",
+      descriptionLabel: "Description",
+      descriptionPlaceholder: "Optional notes...",
+      subtasksHint: "Subtasks (Automatically resets on completion!)",
+      newSubtaskPlaceholder: "New subtask step...",
+      addSubtaskStep: "+ Add Subtask Step",
+      thingNameLabel: "Name *",
+      thingNamePlaceholder: "e.g. Robot Vacuum Dustbin",
+      categoryLabel: "Category",
+      categoryPlaceholder: "Kitchen, Living room...",
+      unitLabel: "Unit of measurement",
+      unitPlaceholder: "days, runs, hours, L...",
+      currentValue: "Current Value",
+      targetValue: "Target / Max Limit",
+      autoTaskTitleLabel: "Auto-Generated Task Title",
+      autoTaskTitlePlaceholder: "e.g. Empty Robot Vacuum Dustbin",
+      memberNameLabel: "Member Name *",
+      memberNamePlaceholder: "e.g. Alex",
+      colorTheme: "Color Theme",
+      labelNameLabel: "Label Name *",
+      labelNamePlaceholder: "e.g. Garden",
+      colorLabel: "Color"
     },
     de: {
       appName: "Task Manager",
       chores: "Aufgaben & Chores",
+      openTasksCount: "{count} offene Aufgaben",
       calendar: "Kalender",
       things: "Things",
       leaderboard: "Bestenliste",
@@ -84,9 +166,13 @@
       mountMode: "Tablet-Modus",
       exitMountMode: "Standardansicht",
       addTask: "Neue Aufgabe",
+      editTask: "Aufgabe bearbeiten",
       addThing: "Neues Thing",
+      editThing: "Thing bearbeiten",
       addUser: "Neues Mitglied",
+      editUser: "Mitglied bearbeiten",
       addLabel: "Neues Label",
+      editLabel: "Label bearbeiten",
       all: "Alle",
       today: "Heute",
       upcoming: "Demnächst",
@@ -95,12 +181,26 @@
       searchPlaceholder: "Aufgaben durchsuchen...",
       noTasks: "Keine Aufgaben in dieser Ansicht.",
       noThings: "Noch keine Things hinterlegt. Erfasse Haushaltsgeräte wie Wasserfilter, Staubsauger oder Kaffeemaschine!",
+      thingsSubtitle: "Verfolge Haushaltsgeräte, Filter-Lebensdauern und Verbrauchsgüter. Verknüpfte Aufgaben setzen diese Zähler automatisch zurück!",
+      categoryGeneral: "Allgemein",
+      lastReset: "Zuletzt zurückgesetzt",
       priority: "Priorität",
+      priorityNone: "Keine",
+      priorityP1: "P1 (Dringend - Rot)",
+      priorityP2: "P2 (Hoch - Orange)",
+      priorityP3: "P3 (Mittel - Blau)",
+      priorityP4: "P4 (Niedrig - Grau)",
       due: "Fällig",
+      dueDate: "Fälligkeitsdatum",
+      dueTime: "Fälligkeitszeit",
       assignee: "Zuständig",
+      label: "Label",
       rotation: "Rotation",
       subtasks: "Teilaufgaben",
+      autoResets: "automatisch zurückgesetzt",
       points: "Punkte",
+      pointsReward: "Punkte-Belohnung",
+      pts: "Pkt.",
       linkedThing: "Verknüpftes Thing",
       save: "Speichern",
       cancel: "Abbrechen",
@@ -108,13 +208,27 @@
       edit: "Bearbeiten",
       reset: "Zurücksetzen",
       undo: "Wiederherstellen",
+      done: "Erledigt!",
       recurrence: "Wiederholung",
+      recurrenceSchedule: "Wiederholung (Intelligenter Zeitplan)",
+      recurrenceCadence: "Wiederholungs-Basis",
+      cadenceDueDate: "Ab geplantem Fälligkeitsdatum (Fester Takt)",
+      cadenceCompletionDate: "Ab tatsächlichem Erledigungsdatum (Adaptiv)",
+      type: "Intervall-Typ",
+      interval: "Intervall",
       none: "Keine",
+      noneFixed: "Keine (Fest)",
+      roundRobin: "Reihum (Round-Robin)",
+      leastCompleted: "Wenigste Erledigungen",
+      random: "Zufällig",
+      round_robin: "Reihum (Round-Robin)",
+      least_completed: "Wenigste Erledigungen",
       daily: "Täglich",
       weekly: "Wöchentlich",
       monthly: "Monatlich",
       yearly: "Jährlich",
-      customDays: "Benutzerdefiniert",
+      customDays: "Alle X Tage",
+      custom_days: "Alle X Tage",
       streak: "Serie",
       completedChores: "Erledigt",
       exportBackup: "Backup exportieren (JSON)",
@@ -128,11 +242,59 @@
       monday: "Montag",
       sunday: "Sonntag",
       recentActivity: "Letzte Aktivitäten",
+      by: "von",
+      noRecentActivity: "Noch keine Aktivitäten vorhanden.",
+      leaderboardAndStreaks: "Bestenliste & Serien",
+      dayStreak: "Tage Serie",
+      tasksDone: "Aufgaben erledigt",
       autoTask: "Erstellt automatisch Aufgabe bei Erreichen",
       statusNormal: "Normal",
       statusWarning: "Bald fällig",
       statusAlert: "Limit erreicht!",
       menuToggle: "Seitenleiste ein-/ausblenden",
+      activeMember: "Aktives Mitglied",
+      months: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+      weekdays: ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+      more: "weitere",
+      choresDueOn: "Fällige Aufgaben am",
+      noChoresDueOnDate: "Keine Aufgaben an diesem Tag fällig.",
+      householdMembers: "Haushaltsmitglieder",
+      labelsAndCategories: "Labels & Kategorien",
+      preferences: "Einstellungen",
+      language: "Sprache",
+      langAuto: "Automatisch (Home Assistant)",
+      langEn: "English",
+      langDe: "Deutsch",
+      backupAndRestore: "Datensicherung & Wiederherstellung",
+      backupDescription: "Lade einen vollständigen JSON-Export aller Aufgaben, Things, Mitglieder und Verläufe herunter oder stelle ein Backup wieder her.",
+      prefSaved: "Einstellungen gespeichert!",
+      backupSuccess: "Backup erfolgreich importiert!",
+      backupError: "Fehler beim Parsen der Backup-Datei",
+      titleRequired: "Titel ist erforderlich!",
+      nameRequired: "Name ist erforderlich!",
+      titleLabel: "Titel *",
+      titlePlaceholder: "z. B. Küchenarbeitsplatte reinigen",
+      descriptionLabel: "Beschreibung",
+      descriptionPlaceholder: "Optionale Notizen...",
+      subtasksHint: "Teilaufgaben (Werden bei Wiederholung automatisch zurückgesetzt!)",
+      newSubtaskPlaceholder: "Neuer Unterschritt...",
+      addSubtaskStep: "+ Teilaufgabe hinzufügen",
+      thingNameLabel: "Name *",
+      thingNamePlaceholder: "z. B. Staubsauger-Staubbehälter",
+      categoryLabel: "Kategorie",
+      categoryPlaceholder: "Küche, Wohnzimmer...",
+      unitLabel: "Maßeinheit",
+      unitPlaceholder: "Tage, Durchläufe, Stunden, L...",
+      currentValue: "Aktueller Wert",
+      targetValue: "Ziel / Maximalwert",
+      autoTaskTitleLabel: "Titel der automatisch erstellten Aufgabe",
+      autoTaskTitlePlaceholder: "z. B. Staubsauger-Staubbehälter leeren",
+      memberNameLabel: "Name des Mitglieds *",
+      memberNamePlaceholder: "z. B. Alex",
+      colorTheme: "Farbe",
+      labelNameLabel: "Label-Name *",
+      labelNamePlaceholder: "z. B. Garten",
+      colorLabel: "Farbe"
     }
   };
 
@@ -228,12 +390,21 @@
     }
 
     get lang() {
+      const savedLang = this._data && this._data.settings && this._data.settings.language;
+      if (savedLang === "de" || savedLang === "en") return savedLang;
       const l = (this._hass && (this._hass.language || (this._hass.locale && this._hass.locale.language))) || "en";
       return l.startsWith("de") ? "de" : "en";
     }
 
-    t(key) {
-      return (I18N[this.lang] && I18N[this.lang][key]) || I18N.en[key] || key;
+    t(key, params = null) {
+      const langDict = I18N[this.lang] || I18N.en;
+      let val = langDict[key] !== undefined ? langDict[key] : (I18N.en[key] !== undefined ? I18N.en[key] : key);
+      if (typeof val === "string" && params && typeof params === "object") {
+        for (const [k, v] of Object.entries(params)) {
+          val = val.replace(new RegExp(`{${k}}`, "g"), v);
+        }
+      }
+      return val;
     }
 
     _initAudio() {
@@ -438,9 +609,9 @@
         try {
           const parsed = JSON.parse(e.target.result);
           await this._callWS("task_manager/import_data", { data: parsed });
-          alert("Backup imported successfully!");
+          alert(this.t("backupSuccess"));
         } catch (err) {
-          alert("Failed to parse JSON backup file: " + err);
+          alert(this.t("backupError") + ": " + err);
         }
       };
       reader.readAsText(file);
@@ -1312,7 +1483,7 @@
               <div>
                 <div class="brand-title">
                   ${this.t("appName")}
-                  <span class="status-badge">${pendingCount} ${this.t("chores").toLowerCase()}</span>
+                  <span class="status-badge">${this.t("openTasksCount", { count: pendingCount })}</span>
                 </div>
               </div>
             </div>
@@ -1371,10 +1542,10 @@
       const currentUser = this._data.users.find(u => u.id === this._activeUser) || this._data.users[0];
 
       return `
-        <select class="user-select" id="header-user-select" title="Active Member">
+        <select class="user-select" id="header-user-select" title="${this.t("activeMember")}">
           ${this._data.users.map(u => `
             <option value="${u.id}" ${u.id === this._activeUser ? "selected" : ""}>
-              👤 ${u.name} (${u.points || 0} pts)
+              👤 ${u.name} (${u.points || 0} ${this.t("pts")})
             </option>
           `).join("")}
         </select>
@@ -1425,7 +1596,7 @@
             </select>
 
             <select class="select-input" id="filter-label">
-              <option value="all">Label: ${this.t("all")}</option>
+              <option value="all">${this.t("label")}: ${this.t("all")}</option>
               ${this._data.labels.map(l => `<option value="${l.id}" ${this._filterLabel === l.id ? "selected" : ""}>${l.name}</option>`).join("")}
             </select>
           </div>
@@ -1458,7 +1629,7 @@
       return `
         <div class="task-card priority-${task.priority} ${isCompleted ? "completed-task" : ""}">
           <div class="task-top">
-            <button class="check-btn" data-complete-task="${task.id}" title="${isCompleted ? this.t("reset") : "Done!"}">
+            <button class="check-btn" data-complete-task="${task.id}" title="${isCompleted ? this.t("reset") : this.t("done")}">
               ✓
             </button>
             <div class="task-info">
@@ -1486,7 +1657,7 @@
 
                 ${task.points ? `
                   <span class="meta-chip" style="background: #fef3c7; color: #b45309;">
-                    ⭐ +${task.points} pts
+                    ⭐ +${task.points} ${this.t("pts")}
                   </span>
                 ` : ""}
 
@@ -1508,7 +1679,7 @@
             <div class="subtasks-box">
               <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px; display:flex; justify-content:space-between;">
                 <span>${this.t("subtasks")} (${completedSubtasks}/${subtasks.length})</span>
-                ${task.recurrence && task.recurrence.enabled ? `<span>🔄 auto-resets</span>` : ""}
+                ${task.recurrence && task.recurrence.enabled ? `<span>🔄 ${this.t("autoResets")}</span>` : ""}
               </div>
               ${subtasks.map(st => `
                 <label class="subtask-item">
@@ -1526,13 +1697,13 @@
                   ${assigneeUser.name.slice(0, 1).toUpperCase()}
                 </div>
                 <span>${this._escape(assigneeUser.name)}</span>
-                ${task.rotation_mode && task.rotation_mode !== "none" ? `<span title="Rotation: ${task.rotation_mode}">🔄</span>` : ""}
+                ${task.rotation_mode && task.rotation_mode !== "none" ? `<span title="${this.t("rotation")}: ${this.t(task.rotation_mode)}">🔄</span>` : ""}
               ` : `<span style="color:#94a3b8;">${this.t("none")}</span>`}
             </div>
 
             <div style="display:flex; gap:6px;">
-              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-edit-task="${task.id}">✏️</button>
-              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ef4444;" data-delete-task="${task.id}">🗑️</button>
+              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-edit-task="${task.id}" title="${this.t("edit")}">✏️</button>
+              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ef4444;" data-delete-task="${task.id}" title="${this.t("delete")}">🗑️</button>
             </div>
           </div>
         </div>
@@ -1543,7 +1714,8 @@
     _renderCalendarView() {
       const year = this._calendarDate.getFullYear();
       const month = this._calendarDate.getMonth();
-      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const monthNames = this.t("months");
+      const weekdays = this.t("weekdays");
 
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
@@ -1584,7 +1756,7 @@
                   ${this._escape(t.title)}
                 </div>
               `).join("")}
-              ${dayTasks.length > 3 ? `<div style="font-size:9px; color:#64748b;">+${dayTasks.length - 3} more</div>` : ""}
+              ${dayTasks.length > 3 ? `<div style="font-size:9px; color:#64748b;">+${dayTasks.length - 3} ${this.t("more")}</div>` : ""}
             </div>
           </div>
         `);
@@ -1602,22 +1774,16 @@
           </div>
 
           <div class="calendar-grid">
-            <div class="cal-day-header">Mon</div>
-            <div class="cal-day-header">Tue</div>
-            <div class="cal-day-header">Wed</div>
-            <div class="cal-day-header">Thu</div>
-            <div class="cal-day-header">Fri</div>
-            <div class="cal-day-header">Sat</div>
-            <div class="cal-day-header">Sun</div>
+            ${weekdays.map(w => `<div class="cal-day-header">${w}</div>`).join("")}
             ${dayCells.join("")}
           </div>
 
           ${this._calendarSelectedDay ? `
             <div style="margin-top:20px; border-top:1px solid #e2e8f0; padding-top:16px;">
-              <h3 style="margin:0 0 12px 0;">Chores due on ${this._calendarSelectedDay}:</h3>
+              <h3 style="margin:0 0 12px 0;">${this.t("choresDueOn")} ${this._calendarSelectedDay}:</h3>
               <div class="task-grid">
                 ${(taskMap[this._calendarSelectedDay] || []).map(t => this._renderTaskCard(t, todayStr)).join("")}
-                ${(taskMap[this._calendarSelectedDay] || []).length === 0 ? `<p style="color:#64748b;">No chores due on this date.</p>` : ""}
+                ${(taskMap[this._calendarSelectedDay] || []).length === 0 ? `<p style="color:#64748b;">${this.t("noChoresDueOnDate")}</p>` : ""}
               </div>
             </div>
           ` : ""}
@@ -1632,7 +1798,7 @@
           <div>
             <h2 style="margin:0 0 4px 0; font-size:20px;">${this.t("things")}</h2>
             <p style="margin:0; font-size:13px; color:var(--secondary-text-color, #64748b);">
-              Track appliances, filter lifespans, and supplies. Connected chores auto-reset these meters!
+              ${this.t("thingsSubtitle")}
             </p>
           </div>
           <button class="btn btn-primary" id="btn-add-thing">+ ${this.t("addThing")}</button>
@@ -1673,12 +1839,12 @@
               <div class="thing-icon">⚙️</div>
               <div>
                 <div style="font-weight:700; font-size:15px;">${this._escape(thing.name)}</div>
-                <div style="font-size:12px; color:#64748b;">${this._escape(thing.category || "General")}</div>
+                <div style="font-size:12px; color:#64748b;">${this._escape(thing.category || this.t("categoryGeneral"))}</div>
               </div>
             </div>
             <div style="display:flex; gap:4px;">
-              <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px;" data-edit-thing="${thing.id}">✏️</button>
-              <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px; color:#ef4444;" data-delete-thing="${thing.id}">🗑️</button>
+              <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px;" data-edit-thing="${thing.id}" title="${this.t("edit")}">✏️</button>
+              <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px; color:#ef4444;" data-delete-thing="${thing.id}" title="${this.t("delete")}">🗑️</button>
             </div>
           </div>
 
@@ -1692,7 +1858,7 @@
             </div>
             <div style="display:flex; justify-content:space-between; font-size:11px; color:#64748b; margin-top:2px;">
               <span>${statusText}</span>
-              ${thing.last_reset ? `<span>Last reset: ${thing.last_reset.slice(0, 10)}</span>` : ""}
+              ${thing.last_reset ? `<span>${this.t("lastReset")}: ${thing.last_reset.slice(0, 10)}</span>` : ""}
             </div>
           </div>
 
@@ -1711,7 +1877,7 @@
 
       return `
         <div style="max-width: 900px; margin: 0 auto;">
-          <h2 style="margin: 0 0 18px 0; font-size: 20px;">🏆 ${this.t("leaderboard")} & Streaks</h2>
+          <h2 style="margin: 0 0 18px 0; font-size: 20px;">🏆 ${this.t("leaderboardAndStreaks")}</h2>
 
           <div class="leaderboard-cards">
             ${sortedUsers.map((u, index) => `
@@ -1721,10 +1887,10 @@
                   ${u.name.slice(0, 1).toUpperCase()}
                 </div>
                 <div style="font-weight:700; font-size:16px;">${this._escape(u.name)}</div>
-                <div class="points-huge">${u.points || 0} <span style="font-size:14px; font-weight:500;">pts</span></div>
+                <div class="points-huge">${u.points || 0} <span style="font-size:14px; font-weight:500;">${this.t("pts")}</span></div>
                 <div style="display:flex; gap:12px; font-size:12px; color:#64748b;">
-                  <span>🔥 ${u.streak || 0} day streak</span>
-                  <span>✓ ${u.completed_count || 0} tasks done</span>
+                  <span>🔥 ${u.streak || 0} ${this.t("dayStreak")}</span>
+                  <span>✓ ${u.completed_count || 0} ${this.t("tasksDone")}</span>
                 </div>
               </div>
             `).join("")}
@@ -1740,15 +1906,15 @@
                   </div>
                   <div style="flex:1;">
                     <strong>${this._escape(act.title || act.name || act.action)}</strong>
-                    ${act.user_id ? `<span> by ${this._getUserName(act.user_id)}</span>` : ""}
-                    ${act.points ? `<span style="color:#d97706; font-weight:600;"> (+${act.points} pts)</span>` : ""}
+                    ${act.user_id ? `<span> ${this.t("by")} ${this._getUserName(act.user_id)}</span>` : ""}
+                    ${act.points ? `<span style="color:#d97706; font-weight:600;"> (+${act.points} ${this.t("pts")})</span>` : ""}
                   </div>
                   <div style="font-size:11px; color:#64748b;">
                     ${act.timestamp ? act.timestamp.slice(11, 16) : ""}
                   </div>
                 </div>
               `).join("")
-            ) : `<p style="color:#64748b; font-size:13px;">No recent activity yet.</p>`}
+            ) : `<p style="color:#64748b; font-size:13px;">${this.t("noRecentActivity")}</p>`}
           </div>
         </div>
       `;
@@ -1768,7 +1934,7 @@
           <!-- Members Management -->
           <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-              <h3 style="margin:0; font-size:16px;">👥 Household Members</h3>
+              <h3 style="margin:0; font-size:16px;">👥 ${this.t("householdMembers")}</h3>
               <button class="btn btn-secondary" id="btn-add-user">+ ${this.t("addUser")}</button>
             </div>
             <div style="display:flex; flex-direction:column; gap:8px;">
@@ -1779,11 +1945,11 @@
                       ${u.name.slice(0, 1).toUpperCase()}
                     </div>
                     <strong>${this._escape(u.name)}</strong>
-                    <span style="font-size:12px; color:#64748b;">(${u.points || 0} pts)</span>
+                    <span style="font-size:12px; color:#64748b;">(${u.points || 0} ${this.t("pts")})</span>
                   </div>
                   <div style="display:flex; gap:6px;">
-                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" data-edit-user="${u.id}">✏️</button>
-                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px; color:#ef4444;" data-delete-user="${u.id}">🗑️</button>
+                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" data-edit-user="${u.id}" title="${this.t("edit")}">✏️</button>
+                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px; color:#ef4444;" data-delete-user="${u.id}" title="${this.t("delete")}">🗑️</button>
                   </div>
                 </div>
               `).join("")}
@@ -1793,15 +1959,15 @@
           <!-- Labels Management -->
           <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-              <h3 style="margin:0; font-size:16px;">🏷️ Labels & Categories</h3>
+              <h3 style="margin:0; font-size:16px;">🏷️ ${this.t("labelsAndCategories")}</h3>
               <button class="btn btn-secondary" id="btn-add-label">+ ${this.t("addLabel")}</button>
             </div>
             <div style="display:flex; flex-wrap:wrap; gap:8px;">
               ${this._data.labels.map(l => `
                 <div style="display:flex; align-items:center; gap:6px; padding:4px 10px; border-radius:20px; background:${l.color}18; color:${l.color}; font-size:13px; font-weight:600;">
                   <span>${this._escape(l.name)}</span>
-                  <button style="border:none; background:transparent; cursor:pointer; color:inherit; font-size:12px;" data-edit-label="${l.id}">✏️</button>
-                  <button style="border:none; background:transparent; cursor:pointer; color:inherit; font-size:12px;" data-delete-label="${l.id}">×</button>
+                  <button style="border:none; background:transparent; cursor:pointer; color:inherit; font-size:12px;" data-edit-label="${l.id}" title="${this.t("edit")}">✏️</button>
+                  <button style="border:none; background:transparent; cursor:pointer; color:inherit; font-size:12px;" data-delete-label="${l.id}" title="${this.t("delete")}">×</button>
                 </div>
               `).join("")}
             </div>
@@ -1809,7 +1975,7 @@
 
           <!-- System Preferences -->
           <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
-            <h3 style="margin:0 0 16px 0; font-size:16px;">⚙️ Preferences</h3>
+            <h3 style="margin:0 0 16px 0; font-size:16px;">⚙️ ${this.t("preferences")}</h3>
             <div style="display:flex; flex-direction:column; gap:12px;">
               <label style="display:flex; align-items:center; gap:10px; font-size:14px; cursor:pointer;">
                 <input type="checkbox" id="pref-gamification" ${s.gamification_enabled ? "checked" : ""}>
@@ -1831,6 +1997,15 @@
                 <input type="number" class="text-input" id="pref-default-points" value="${s.default_points || 10}">
               </div>
 
+              <div class="form-group" style="max-width:240px; margin-top:8px;">
+                <label class="form-label">${this.t("language")}</label>
+                <select class="select-input" id="pref-language">
+                  <option value="auto" ${(!s.language || s.language === "auto") ? "selected" : ""}>${this.t("langAuto")}</option>
+                  <option value="en" ${s.language === "en" ? "selected" : ""}>${this.t("langEn")}</option>
+                  <option value="de" ${s.language === "de" ? "selected" : ""}>${this.t("langDe")}</option>
+                </select>
+              </div>
+
               <button class="btn btn-primary" style="align-self:flex-start; margin-top:10px;" id="btn-save-prefs">
                 ${this.t("save")}
               </button>
@@ -1839,8 +2014,8 @@
 
           <!-- Backup & Restore -->
           <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
-            <h3 style="margin:0 0 12px 0; font-size:16px;">💾 Data Backup & Restore</h3>
-            <p style="font-size:13px; color:#64748b; margin-top:0;">Download a complete JSON export of all your tasks, things, users, and history, or restore from a backup.</p>
+            <h3 style="margin:0 0 12px 0; font-size:16px;">💾 ${this.t("backupAndRestore")}</h3>
+            <p style="font-size:13px; color:#64748b; margin-top:0;">${this.t("backupDescription")}</p>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
               <button class="btn btn-secondary" id="btn-export-backup">📥 ${this.t("exportBackup")}</button>
               <label class="btn btn-secondary" style="cursor:pointer;">
@@ -1874,26 +2049,26 @@
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
             <h2 style="margin:0 0 12px 0; font-size:18px;">
-              ${task.id ? this.t("edit") : this.t("addTask")}
+              ${task.id ? this.t("editTask") : this.t("addTask")}
             </h2>
 
             <div class="form-group">
-              <label class="form-label">Title *</label>
-              <input type="text" class="text-input" id="m-task-title" value="${this._escape(task.title)}" placeholder="e.g. Clean kitchen counters">
+              <label class="form-label">${this.t("titleLabel")}</label>
+              <input type="text" class="text-input" id="m-task-title" value="${this._escape(task.title)}" placeholder="${this.t("titlePlaceholder")}">
             </div>
 
             <div class="form-group">
-              <label class="form-label">Description</label>
-              <textarea class="text-input" id="m-task-desc" rows="2" placeholder="Optional notes...">${this._escape(task.description)}</textarea>
+              <label class="form-label">${this.t("descriptionLabel")}</label>
+              <textarea class="text-input" id="m-task-desc" rows="2" placeholder="${this.t("descriptionPlaceholder")}">${this._escape(task.description)}</textarea>
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
               <div class="form-group">
-                <label class="form-label">${this.t("due")} Date</label>
+                <label class="form-label">${this.t("dueDate")}</label>
                 <input type="date" class="text-input" id="m-task-date" value="${task.due_date || ""}">
               </div>
               <div class="form-group">
-                <label class="form-label">${this.t("due")} Time</label>
+                <label class="form-label">${this.t("dueTime")}</label>
                 <input type="time" class="text-input" id="m-task-time" value="${task.due_time || ""}">
               </div>
             </div>
@@ -1902,16 +2077,16 @@
               <div class="form-group">
                 <label class="form-label">${this.t("priority")}</label>
                 <select class="select-input" id="m-task-priority">
-                  <option value="none" ${task.priority === "none" ? "selected" : ""}>None</option>
-                  <option value="p1" ${task.priority === "p1" ? "selected" : ""}>P1 (Urgent - Red)</option>
-                  <option value="p2" ${task.priority === "p2" ? "selected" : ""}>P2 (High - Orange)</option>
-                  <option value="p3" ${task.priority === "p3" ? "selected" : ""}>P3 (Medium - Blue)</option>
-                  <option value="p4" ${task.priority === "p4" ? "selected" : ""}>P4 (Low - Gray)</option>
+                  <option value="none" ${task.priority === "none" ? "selected" : ""}>${this.t("priorityNone")}</option>
+                  <option value="p1" ${task.priority === "p1" ? "selected" : ""}>${this.t("priorityP1")}</option>
+                  <option value="p2" ${task.priority === "p2" ? "selected" : ""}>${this.t("priorityP2")}</option>
+                  <option value="p3" ${task.priority === "p3" ? "selected" : ""}>${this.t("priorityP3")}</option>
+                  <option value="p4" ${task.priority === "p4" ? "selected" : ""}>${this.t("priorityP4")}</option>
                 </select>
               </div>
 
               <div class="form-group">
-                <label class="form-label">${this.t("points")} Reward</label>
+                <label class="form-label">${this.t("pointsReward")}</label>
                 <input type="number" class="text-input" id="m-task-points" value="${task.points || 10}">
               </div>
             </div>
@@ -1921,7 +2096,7 @@
               <div class="form-group">
                 <label class="form-label">${this.t("assignee")}</label>
                 <select class="select-input" id="m-task-assignee">
-                  <option value="">None</option>
+                  <option value="">${this.t("none")}</option>
                   ${this._data.users.map(u => `
                     <option value="${u.id}" ${u.id === task.current_assignee ? "selected" : ""}>${u.name}</option>
                   `).join("")}
@@ -1931,10 +2106,10 @@
               <div class="form-group">
                 <label class="form-label">${this.t("rotation")}</label>
                 <select class="select-input" id="m-task-rotation">
-                  <option value="none" ${task.rotation_mode === "none" ? "selected" : ""}>None (Fixed)</option>
-                  <option value="round_robin" ${task.rotation_mode === "round_robin" ? "selected" : ""}>Round-Robin</option>
-                  <option value="least_completed" ${task.rotation_mode === "least_completed" ? "selected" : ""}>Least Completed</option>
-                  <option value="random" ${task.rotation_mode === "random" ? "selected" : ""}>Random</option>
+                  <option value="none" ${task.rotation_mode === "none" ? "selected" : ""}>${this.t("noneFixed")}</option>
+                  <option value="round_robin" ${task.rotation_mode === "round_robin" ? "selected" : ""}>${this.t("roundRobin")}</option>
+                  <option value="least_completed" ${task.rotation_mode === "least_completed" ? "selected" : ""}>${this.t("leastCompleted")}</option>
+                  <option value="random" ${task.rotation_mode === "random" ? "selected" : ""}>${this.t("random")}</option>
                 </select>
               </div>
             </div>
@@ -1943,31 +2118,31 @@
             <div style="border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
               <label style="display:flex; align-items:center; gap:8px; font-weight:600; font-size:14px; cursor:pointer;">
                 <input type="checkbox" id="m-task-rec-enable" ${rec.enabled ? "checked" : ""}>
-                <span>${this.t("recurrence")} (Smart Schedule)</span>
+                <span>${this.t("recurrenceSchedule")}</span>
               </label>
 
               <div id="m-rec-fields" style="display:${rec.enabled ? "grid" : "none"}; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
                 <div class="form-group">
-                  <label class="form-label">Type</label>
+                  <label class="form-label">${this.t("type")}</label>
                   <select class="select-input" id="m-task-rec-type">
-                    <option value="daily" ${rec.type === "daily" ? "selected" : ""}>Daily</option>
-                    <option value="weekly" ${rec.type === "weekly" ? "selected" : ""}>Weekly</option>
-                    <option value="monthly" ${rec.type === "monthly" ? "selected" : ""}>Monthly</option>
-                    <option value="yearly" ${rec.type === "yearly" ? "selected" : ""}>Yearly</option>
-                    <option value="custom_days" ${rec.type === "custom_days" ? "selected" : ""}>Every X Days</option>
+                    <option value="daily" ${rec.type === "daily" ? "selected" : ""}>${this.t("daily")}</option>
+                    <option value="weekly" ${rec.type === "weekly" ? "selected" : ""}>${this.t("weekly")}</option>
+                    <option value="monthly" ${rec.type === "monthly" ? "selected" : ""}>${this.t("monthly")}</option>
+                    <option value="yearly" ${rec.type === "yearly" ? "selected" : ""}>${this.t("yearly")}</option>
+                    <option value="custom_days" ${rec.type === "custom_days" ? "selected" : ""}>${this.t("customDays")}</option>
                   </select>
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">Interval</label>
+                  <label class="form-label">${this.t("interval")}</label>
                   <input type="number" class="text-input" id="m-task-rec-interval" value="${rec.interval || 1}" min="1">
                 </div>
 
                 <div class="form-group" style="grid-column: span 2;">
-                  <label class="form-label">Recurrence Cadence</label>
+                  <label class="form-label">${this.t("recurrenceCadence")}</label>
                   <select class="select-input" id="m-task-rec-based">
-                    <option value="due_date" ${rec.based_on === "due_date" ? "selected" : ""}>From Scheduled Due Date (Fixed Cadence)</option>
-                    <option value="completion_date" ${rec.based_on === "completion_date" ? "selected" : ""}>From Actual Completion Date (Adaptive)</option>
+                    <option value="due_date" ${rec.based_on === "due_date" ? "selected" : ""}>${this.t("cadenceDueDate")}</option>
+                    <option value="completion_date" ${rec.based_on === "completion_date" ? "selected" : ""}>${this.t("cadenceCompletionDate")}</option>
                   </select>
                 </div>
               </div>
@@ -1975,17 +2150,17 @@
 
             <!-- Subtasks Checklist -->
             <div class="form-group">
-              <label class="form-label">${this.t("subtasks")} (Automatically resets on completion!)</label>
+              <label class="form-label">${this.t("subtasksHint")}</label>
               <div id="subtasks-container" style="display:flex; flex-direction:column; gap:6px;">
                 ${subtasks.map((st, i) => `
                   <div style="display:flex; gap:6px;">
-                    <input type="text" class="text-input m-subtask-input" value="${this._escape(st.title)}" style="flex:1;">
+                    <input type="text" class="text-input m-subtask-input" value="${this._escape(st.title)}" placeholder="${this.t("newSubtaskPlaceholder")}" style="flex:1;">
                     <button class="btn btn-secondary btn-del-subtask" data-index="${i}">×</button>
                   </div>
                 `).join("")}
               </div>
               <button class="btn btn-secondary" style="align-self:flex-start; margin-top:6px; font-size:12px;" id="btn-add-subtask-row">
-                + Add Subtask Step
+                ${this.t("addSubtaskStep")}
               </button>
             </div>
 
@@ -1993,7 +2168,7 @@
             <div class="form-group">
               <label class="form-label">${this.t("linkedThing")}</label>
               <select class="select-input" id="m-task-linked-thing">
-                <option value="">None</option>
+                <option value="">${this.t("none")}</option>
                 ${this._data.things.map(th => `
                   <option value="${th.id}" ${th.id === task.linked_thing_id ? "selected" : ""}>
                     ${th.name} (${th.current_value}/${th.target_value} ${th.unit})
@@ -2017,32 +2192,32 @@
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
             <h2 style="margin:0 0 12px 0; font-size:18px;">
-              ${thing.id ? this.t("edit") : this.t("addThing")}
+              ${thing.id ? this.t("editThing") : this.t("addThing")}
             </h2>
 
             <div class="form-group">
-              <label class="form-label">Name *</label>
-              <input type="text" class="text-input" id="m-thing-name" value="${this._escape(thing.name)}" placeholder="e.g. Robot Vacuum Dustbin">
+              <label class="form-label">${this.t("thingNameLabel")}</label>
+              <input type="text" class="text-input" id="m-thing-name" value="${this._escape(thing.name)}" placeholder="${this.t("thingNamePlaceholder")}">
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
               <div class="form-group">
-                <label class="form-label">Category</label>
-                <input type="text" class="text-input" id="m-thing-category" value="${this._escape(thing.category)}" placeholder="Kitchen, Living room...">
+                <label class="form-label">${this.t("categoryLabel")}</label>
+                <input type="text" class="text-input" id="m-thing-category" value="${this._escape(thing.category)}" placeholder="${this.t("categoryPlaceholder")}">
               </div>
               <div class="form-group">
-                <label class="form-label">Unit of measurement</label>
-                <input type="text" class="text-input" id="m-thing-unit" value="${this._escape(thing.unit)}" placeholder="days, runs, hours, L...">
+                <label class="form-label">${this.t("unitLabel")}</label>
+                <input type="text" class="text-input" id="m-thing-unit" value="${this._escape(thing.unit)}" placeholder="${this.t("unitPlaceholder")}">
               </div>
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
               <div class="form-group">
-                <label class="form-label">Current Value</label>
+                <label class="form-label">${this.t("currentValue")}</label>
                 <input type="number" class="text-input" id="m-thing-current" value="${thing.current_value || 0}">
               </div>
               <div class="form-group">
-                <label class="form-label">Target / Max Limit</label>
+                <label class="form-label">${this.t("targetValue")}</label>
                 <input type="number" class="text-input" id="m-thing-target" value="${thing.target_value || 30}">
               </div>
             </div>
@@ -2055,8 +2230,8 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Auto-Generated Task Title</label>
-              <input type="text" class="text-input" id="m-thing-task-title" value="${this._escape(thing.auto_task_title || "")}" placeholder="e.g. Empty Robot Vacuum Dustbin">
+              <label class="form-label">${this.t("autoTaskTitleLabel")}</label>
+              <input type="text" class="text-input" id="m-thing-task-title" value="${this._escape(thing.auto_task_title || "")}" placeholder="${this.t("autoTaskTitlePlaceholder")}">
             </div>
 
             <div class="modal-footer">
@@ -2074,21 +2249,21 @@
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
             <h2 style="margin:0 0 12px 0; font-size:18px;">
-              ${user.id ? this.t("edit") : this.t("addUser")}
+              ${user.id ? this.t("editUser") : this.t("addUser")}
             </h2>
 
             <div class="form-group">
-              <label class="form-label">Member Name *</label>
-              <input type="text" class="text-input" id="m-user-name" value="${this._escape(user.name)}" placeholder="e.g. Alex">
+              <label class="form-label">${this.t("memberNameLabel")}</label>
+              <input type="text" class="text-input" id="m-user-name" value="${this._escape(user.name)}" placeholder="${this.t("memberNamePlaceholder")}">
             </div>
 
             <div class="form-group">
-              <label class="form-label">Color Theme</label>
+              <label class="form-label">${this.t("colorTheme")}</label>
               <input type="color" id="m-user-color" value="${user.color || "#3b82f6"}" style="width:60px; height:36px; border:none; border-radius:6px; cursor:pointer;">
             </div>
 
             <div class="form-group">
-              <label class="form-label">Points</label>
+              <label class="form-label">${this.t("points")}</label>
               <input type="number" class="text-input" id="m-user-points" value="${user.points || 0}">
             </div>
 
@@ -2107,16 +2282,16 @@
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
             <h2 style="margin:0 0 12px 0; font-size:18px;">
-              ${label.id ? this.t("edit") : this.t("addLabel")}
+              ${label.id ? this.t("editLabel") : this.t("addLabel")}
             </h2>
 
             <div class="form-group">
-              <label class="form-label">Label Name *</label>
-              <input type="text" class="text-input" id="m-label-name" value="${this._escape(label.name)}" placeholder="e.g. Garden">
+              <label class="form-label">${this.t("labelNameLabel")}</label>
+              <input type="text" class="text-input" id="m-label-name" value="${this._escape(label.name)}" placeholder="${this.t("labelNamePlaceholder")}">
             </div>
 
             <div class="form-group">
-              <label class="form-label">Color</label>
+              <label class="form-label">${this.t("colorLabel")}</label>
               <input type="color" id="m-label-color" value="${label.color || "#10b981"}" style="width:60px; height:36px; border:none; border-radius:6px; cursor:pointer;">
             </div>
 
@@ -2382,10 +2557,11 @@
             gamification_enabled: root.getElementById("pref-gamification").checked,
             sound_enabled: root.getElementById("pref-sounds").checked,
             confetti_enabled: root.getElementById("pref-confetti").checked,
-            default_points: parseInt(root.getElementById("pref-default-points").value, 10) || 10
+            default_points: parseInt(root.getElementById("pref-default-points").value, 10) || 10,
+            language: root.getElementById("pref-language") ? root.getElementById("pref-language").value : "auto"
           };
           await this._callWS("task_manager/update_settings", { settings: newPrefs });
-          alert("Preferences saved!");
+          alert(this.t("prefSaved"));
         });
       }
 
@@ -2406,7 +2582,7 @@
         btnSaveTask.addEventListener("click", async () => {
           const title = root.getElementById("m-task-title").value.trim();
           if (!title) {
-            alert("Title is required!");
+            alert(this.t("titleRequired"));
             return;
           }
           const recEnabled = root.getElementById("m-task-rec-enable").checked;
@@ -2459,7 +2635,7 @@
           const div = document.createElement("div");
           div.style.cssText = "display:flex; gap:6px;";
           div.innerHTML = `
-            <input type="text" class="text-input m-subtask-input" placeholder="New subtask step..." style="flex:1;">
+            <input type="text" class="text-input m-subtask-input" placeholder="${this.t("newSubtaskPlaceholder")}" style="flex:1;">
             <button class="btn btn-secondary btn-del-subtask">×</button>
           `;
           div.querySelector(".btn-del-subtask").addEventListener("click", () => div.remove());
@@ -2479,7 +2655,7 @@
         btnSaveThing.addEventListener("click", async () => {
           const name = root.getElementById("m-thing-name").value.trim();
           if (!name) {
-            alert("Name is required!");
+            alert(this.t("nameRequired"));
             return;
           }
           const thingPayload = {
@@ -2504,7 +2680,7 @@
         btnSaveUser.addEventListener("click", async () => {
           const name = root.getElementById("m-user-name").value.trim();
           if (!name) {
-            alert("Name is required!");
+            alert(this.t("nameRequired"));
             return;
           }
           const userPayload = {
@@ -2525,7 +2701,7 @@
         btnSaveLabel.addEventListener("click", async () => {
           const name = root.getElementById("m-label-name").value.trim();
           if (!name) {
-            alert("Name is required!");
+            alert(this.t("nameRequired"));
             return;
           }
           const labelPayload = {
