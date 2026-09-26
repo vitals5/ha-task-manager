@@ -72,9 +72,13 @@ class TaskManagerTodoListEntity(TodoListEntity):
         TodoListEntityFeature.CREATE_TODO_ITEM
         | TodoListEntityFeature.UPDATE_TODO_ITEM
         | TodoListEntityFeature.DELETE_TODO_ITEM
-        | TodoListEntityFeature.SET_DUE_DATE
-        | TodoListEntityFeature.SET_DESCRIPTION
     )
+    if hasattr(TodoListEntityFeature, "SET_DUE_DATE_ON_ITEM"):
+        _attr_supported_features |= TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+    if hasattr(TodoListEntityFeature, "SET_DUE_DATETIME_ON_ITEM"):
+        _attr_supported_features |= TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
+    if hasattr(TodoListEntityFeature, "SET_DESCRIPTION_ON_ITEM"):
+        _attr_supported_features |= TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
 
     def __init__(self, storage: TaskManagerStorage, user_id: str | None = None) -> None:
         """Initialize the todo list."""
@@ -117,9 +121,13 @@ class TaskManagerTodoListEntity(TodoListEntity):
 
             due: date | datetime | None = None
             due_date_str = task.get("due_date")
+            due_time_str = task.get("due_time")
             if due_date_str:
                 try:
-                    due = datetime.strptime(due_date_str[:10], "%Y-%m-%d").date()
+                    if due_time_str:
+                        due = datetime.strptime(f"{due_date_str[:10]} {due_time_str[:5]}", "%Y-%m-%d %H:%M")
+                    else:
+                        due = datetime.strptime(due_date_str[:10], "%Y-%m-%d").date()
                 except ValueError:
                     due = None
 
@@ -142,13 +150,22 @@ class TaskManagerTodoListEntity(TodoListEntity):
 
     async def async_create_todo_item(self, item: TodoItem) -> None:
         """Create a new task in Task Manager."""
-        due_str = item.due.strftime("%Y-%m-%d") if item.due else dt_util.now().date().strftime("%Y-%m-%d")
+        due_str = dt_util.now().date().strftime("%Y-%m-%d")
+        due_time = ""
+        if item.due:
+            if isinstance(item.due, datetime):
+                due_str = item.due.strftime("%Y-%m-%d")
+                due_time = item.due.strftime("%H:%M")
+            else:
+                due_str = item.due.strftime("%Y-%m-%d")
+
         assignees = [self._user_id] if self._user_id else []
 
         task_data = {
             "title": item.summary,
             "description": item.description or "",
             "due_date": due_str,
+            "due_time": due_time,
             "priority": PRIORITY_NONE,
             "assignees": assignees,
             "current_assignee": self._user_id,
@@ -168,7 +185,11 @@ class TaskManagerTodoListEntity(TodoListEntity):
         if item.description is not None:
             updates["description"] = item.description
         if item.due:
-            updates["due_date"] = item.due.strftime("%Y-%m-%d")
+            if isinstance(item.due, datetime):
+                updates["due_date"] = item.due.strftime("%Y-%m-%d")
+                updates["due_time"] = item.due.strftime("%H:%M")
+            else:
+                updates["due_date"] = item.due.strftime("%Y-%m-%d")
 
         # Check status transition
         if item.status == TodoItemStatus.COMPLETED and task.get("status") != "completed":
