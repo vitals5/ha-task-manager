@@ -20,9 +20,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run Storage Tests
+      - name: Run All Tests
         run: |
-          python3 -m unittest tests/test_storage.py -v
+          python3 -m unittest discover -s tests -v
 
   validate-hacs:
     name: HACS Action Validation
