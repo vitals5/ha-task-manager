@@ -1830,6 +1830,370 @@
             width: 36px;
             height: 36px;
           }
+
+          /* Floating Action Button (FAB) for Mobile */
+          .mobile-fab {
+            display: none;
+            position: fixed;
+            bottom: 24px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: #ffffff;
+            border: none;
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4), 0 2px 6px rgba(0, 0, 0, 0.12);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 999;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+          }
+
+          .mobile-fab:active {
+            transform: scale(0.92);
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+          }
+
+          /* Two-column responsive form grid */
+          .form-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+          }
+
+          /* Modal Bottom-Sheet Handle for Mobile */
+          .modal-handle {
+            display: none;
+            width: 40px;
+            height: 4px;
+            background: var(--divider-color, #cbd5e1);
+            border-radius: 2px;
+            margin: -4px auto 12px auto;
+          }
+
+          .btn-text-short {
+            display: none;
+          }
+
+          /* Responsive & Mobile Phone (9:16 portrait) Optimizations */
+          @media (max-width: 768px) {
+            .mobile-fab {
+              display: flex;
+            }
+
+            .header {
+              padding: 10px 14px;
+              gap: 8px;
+            }
+
+            .header-left {
+              gap: 8px;
+              min-width: 0;
+              flex: 1 1 auto;
+            }
+
+            .menu-btn {
+              width: 36px;
+              height: 36px;
+              min-width: 36px;
+              border-radius: 8px;
+            }
+
+            .brand {
+              gap: 8px;
+              min-width: 0;
+            }
+
+            .brand-logo {
+              width: 32px;
+              height: 32px;
+              min-width: 32px;
+              font-size: 16px;
+              border-radius: 8px;
+            }
+
+            .brand-title {
+              font-size: 16px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+
+            .status-badge {
+              display: none !important;
+            }
+
+            .header-actions {
+              gap: 6px;
+              flex-shrink: 0;
+            }
+
+            #btn-toggle-mount {
+              display: none !important;
+            }
+
+            .user-select {
+              max-width: 105px;
+              padding: 5px 8px;
+              font-size: 12px;
+            }
+
+            #btn-add-task {
+              padding: 6px 12px;
+              font-size: 13px;
+              font-weight: 700;
+              border-radius: 8px;
+              white-space: nowrap;
+              flex-shrink: 0;
+            }
+
+            .nav-tabs {
+              padding: 6px 10px;
+              gap: 4px;
+              scrollbar-width: none;
+              -webkit-overflow-scrolling: touch;
+            }
+
+            .nav-tabs::-webkit-scrollbar {
+              display: none;
+            }
+
+            .nav-tab {
+              padding: 6px 10px;
+              font-size: 13px;
+              border-radius: 8px;
+            }
+
+            .badge-pill {
+              font-size: 10px;
+              padding: 1px 5px;
+            }
+
+            .content-area {
+              padding: 12px 10px;
+              padding-bottom: 90px;
+            }
+
+            .toolbar {
+              flex-direction: column;
+              align-items: stretch;
+              gap: 10px;
+              margin-bottom: 12px;
+            }
+
+            .filter-pills {
+              padding-bottom: 2px;
+              scrollbar-width: none;
+              -webkit-overflow-scrolling: touch;
+            }
+
+            .filter-pills::-webkit-scrollbar {
+              display: none;
+            }
+
+            .filter-pill {
+              padding: 6px 12px;
+              font-size: 12px;
+              white-space: nowrap;
+              flex-shrink: 0;
+            }
+
+            .filter-selects {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 6px;
+            }
+
+            #search-input {
+              grid-column: 1 / -1;
+              width: 100%;
+              font-size: 16px;
+              padding: 8px 12px;
+            }
+
+            .filter-selects .select-input {
+              width: 100%;
+              min-width: 0;
+              padding: 6px 4px;
+              font-size: 11px;
+            }
+
+            .task-grid {
+              grid-template-columns: 1fr;
+              gap: 10px;
+            }
+
+            .task-card {
+              padding: 14px;
+              border-radius: 12px;
+              gap: 10px;
+            }
+
+            .check-btn {
+              width: 32px;
+              height: 32px;
+              font-size: 14px;
+            }
+
+            .task-title {
+              font-size: 14px;
+            }
+
+            .meta-chip {
+              font-size: 10.5px;
+              padding: 2px 6px;
+            }
+
+            .things-grid {
+              grid-template-columns: 1fr;
+              gap: 12px;
+            }
+
+            .thing-card {
+              padding: 14px;
+              border-radius: 12px;
+            }
+
+            .thing-actions .btn {
+              padding: 8px;
+              font-size: 12px;
+            }
+
+            .calendar-box {
+              padding: 12px 6px;
+              border-radius: 12px;
+            }
+
+            .calendar-header h2 {
+              font-size: 15px !important;
+            }
+
+            .calendar-header .btn {
+              padding: 5px 8px;
+              font-size: 12px;
+            }
+
+            .calendar-grid {
+              gap: 2px;
+            }
+
+            .cal-day-header {
+              font-size: 10px;
+              padding: 3px 0;
+            }
+
+            .cal-cell {
+              min-height: 48px;
+              padding: 3px 2px;
+              border-radius: 6px;
+            }
+
+            .cal-cell div {
+              font-size: 10px;
+            }
+
+            .leaderboard-cards {
+              grid-template-columns: 1fr;
+              gap: 10px;
+              margin-bottom: 16px;
+            }
+
+            .leaderboard-card {
+              padding: 14px;
+              border-radius: 12px;
+            }
+
+            .points-huge {
+              font-size: 26px;
+            }
+
+            .activity-timeline {
+              padding: 12px;
+              border-radius: 12px;
+            }
+
+            .provider-row {
+              flex-direction: column;
+              align-items: stretch !important;
+              gap: 10px;
+            }
+
+            .provider-row .btn {
+              align-self: flex-end;
+            }
+
+            .modal-backdrop {
+              padding: 0;
+              align-items: flex-end;
+            }
+
+            .modal-window {
+              border-radius: 20px 20px 0 0;
+              max-height: 94vh;
+              padding: 18px 16px;
+              padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+              gap: 12px;
+              width: 100%;
+              max-width: 100%;
+            }
+
+            .modal-handle {
+              display: block;
+            }
+
+            .form-grid-2 {
+              grid-template-columns: 1fr !important;
+              gap: 10px !important;
+            }
+
+            .modal-window .text-input,
+            .modal-window .select-input {
+              font-size: 16px;
+            }
+
+            .modal-footer {
+              display: flex;
+              gap: 8px;
+              margin-top: 8px;
+            }
+
+            .modal-footer .btn {
+              flex: 1;
+              justify-content: center;
+              padding: 10px 14px;
+              font-size: 14px;
+            }
+          }
+
+          @media (max-width: 380px) {
+            .header {
+              padding: 8px 10px;
+            }
+            .brand-title {
+              font-size: 14px;
+            }
+            .user-select {
+              max-width: 80px;
+              padding: 4px 6px;
+              font-size: 11px;
+            }
+            #btn-add-task {
+              padding: 6px 8px;
+              font-size: 12px;
+            }
+            .btn-text-full {
+              display: none;
+            }
+            .btn-text-short {
+              display: inline;
+              font-size: 16px;
+              font-weight: 700;
+            }
+          }
         </style>
 
         <canvas id="confetti-canvas"></canvas>
@@ -1866,7 +2230,8 @@
 
             <!-- Add Task CTA -->
             <button class="btn btn-primary" id="btn-add-task">
-              + ${this.t("addTask")}
+              <span class="btn-text-full">+ ${this.t("addTask")}</span>
+              <span class="btn-text-short">+</span>
             </button>
           </div>
         </header>
@@ -1894,6 +2259,16 @@
         <main class="content-area">
           ${this._renderTabContent()}
         </main>
+
+        <!-- Floating Action Button for Mobile (Always accessible in 9:16 portrait) -->
+        ${!this._modalState ? `
+        <button class="mobile-fab" id="fab-add-btn" aria-label="${this._currentTab === "things" ? this.t("addThing") : this.t("addTask")}" title="${this._currentTab === "things" ? this.t("addThing") : this.t("addTask")}">
+          <svg viewBox="0 0 24 24" width="26" height="26" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+        ` : ""}
 
         <!-- Modals -->
         ${this._renderModal()}
@@ -1975,9 +2350,10 @@
         </div>
 
         ${tasks.length === 0 ? `
-          <div style="text-align: center; padding: 48px; color: var(--secondary-text-color, #64748b);">
-            <div style="font-size: 40px; margin-bottom: 12px;">🎉</div>
-            <div style="font-size: 16px; font-weight: 600;">${this.t("noTasks")}</div>
+          <div style="text-align: center; padding: 48px 16px; color: var(--secondary-text-color, #64748b);">
+            <div style="font-size: 44px; margin-bottom: 12px;">🎉</div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 14px;">${this.t("noTasks")}</div>
+            <button class="btn btn-primary" id="btn-empty-add-task">+ ${this.t("addTask")}</button>
           </div>
         ` : `
           <div class="task-grid">
@@ -2172,20 +2548,21 @@
     // ================= VIEW: THINGS =================
     _renderThingsView() {
       return `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div class="view-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:12px;">
           <div>
             <h2 style="margin:0 0 4px 0; font-size:20px;">${this.t("things")}</h2>
             <p style="margin:0; font-size:13px; color:var(--secondary-text-color, #64748b);">
               ${this.t("thingsSubtitle")}
             </p>
           </div>
-          <button class="btn btn-primary" id="btn-add-thing">+ ${this.t("addThing")}</button>
+          <button class="btn btn-primary" id="btn-add-thing" style="flex-shrink:0;">+ ${this.t("addThing")}</button>
         </div>
 
         ${this._data.things.length === 0 ? `
-          <div style="text-align: center; padding: 48px; color: #64748b;">
-            <div style="font-size: 40px; margin-bottom: 12px;">⚙️</div>
-            <div>${this.t("noThings")}</div>
+          <div style="text-align: center; padding: 48px 16px; color: #64748b;">
+            <div style="font-size: 44px; margin-bottom: 12px;">⚙️</div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 14px;">${this.t("noThings")}</div>
+            <button class="btn btn-primary" id="btn-empty-add-thing">+ ${this.t("addThing")}</button>
           </div>
         ` : `
           <div class="things-grid">
@@ -2404,7 +2781,7 @@
                 </div>
               ` : `
                 ${this._data.providers.map(p => `
-                  <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border-radius:8px; border:1px solid #edf2f7;">
+                  <div class="provider-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border-radius:8px; border:1px solid #edf2f7;">
                     <div style="display:flex; align-items:center; gap:12px;">
                       <div style="width:36px; height:36px; border-radius:8px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; font-size:18px;">
                         ${p.provider_type === "google_tasks" ? "🌐" : p.provider_type === "todoist" ? "☑️" : p.provider_type === "caldav" ? "📅" : p.provider_type === "bring" ? "🛒" : p.provider_type === "shopping_list" ? "🛍️" : "📝"}
@@ -2501,6 +2878,7 @@
       return `
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
+            <div class="modal-handle"></div>
             <h2 style="margin:0 0 12px 0; font-size:18px;">
               🔗 ${this.t("linkProvider")}
             </h2>
@@ -2575,6 +2953,7 @@
       return `
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
+            <div class="modal-handle"></div>
             <h2 style="margin:0 0 12px 0; font-size:18px;">
               ${task.id ? this.t("editTask") : this.t("addTask")}
             </h2>
@@ -2607,7 +2986,7 @@
               <textarea class="text-input" id="m-task-desc" rows="2" placeholder="${this.t("descriptionPlaceholder")}">${this._escape(task.description)}</textarea>
             </div>
 
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-grid-2">
               <div class="form-group">
                 <label class="form-label">${this.t("dueDate")}</label>
                 <input type="date" class="text-input" id="m-task-date" value="${task.due_date || ""}">
@@ -2618,7 +2997,7 @@
               </div>
             </div>
 
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-grid-2">
               <div class="form-group">
                 <label class="form-label">${this.t("priority")}</label>
                 <select class="select-input" id="m-task-priority">
@@ -2637,7 +3016,7 @@
             </div>
 
             <!-- Assignee & Rotation -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-grid-2">
               <div class="form-group">
                 <label class="form-label">${this.t("assignee")}</label>
                 <select class="select-input" id="m-task-assignee">
@@ -2666,7 +3045,7 @@
                 <span>${this.t("recurrenceSchedule")}</span>
               </label>
 
-              <div id="m-rec-fields" style="display:${rec.enabled ? "grid" : "none"}; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+              <div id="m-rec-fields" class="form-grid-2" style="display:${rec.enabled ? "grid" : "none"}; margin-top:10px;">
                 <div class="form-group">
                   <label class="form-label">${this.t("type")}</label>
                   <select class="select-input" id="m-task-rec-type">
@@ -2739,6 +3118,7 @@
       return `
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
+            <div class="modal-handle"></div>
             <h2 style="margin:0 0 12px 0; font-size:18px;">
               ${thing.id ? this.t("editThing") : this.t("addThing")}
             </h2>
@@ -2766,7 +3146,7 @@
               <div style="font-size:11px; color:#64748b; margin-top:3px;">${this.t("linkedEntityHint")}</div>
             </div>
 
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-grid-2">
               <div class="form-group">
                 <label class="form-label">${this.t("categoryLabel")}</label>
                 <input type="text" class="text-input" id="m-thing-category" value="${this._escape(thing.category)}" placeholder="${this.t("categoryPlaceholder")}">
@@ -2777,7 +3157,7 @@
               </div>
             </div>
 
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-grid-2">
               <div class="form-group">
                 <label class="form-label">${this.t("thresholdCondition")}</label>
                 <select class="select-input" id="m-thing-operator">
@@ -2828,6 +3208,7 @@
       return `
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
+            <div class="modal-handle"></div>
             <h2 style="margin:0 0 12px 0; font-size:18px;">
               ${user.id ? this.t("editUser") : this.t("addUser")}
             </h2>
@@ -2861,6 +3242,7 @@
       return `
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
+            <div class="modal-handle"></div>
             <h2 style="margin:0 0 12px 0; font-size:18px;">
               ${label.id ? this.t("editLabel") : this.t("addLabel")}
             </h2>
@@ -2997,10 +3379,34 @@
         btnAddTask.addEventListener("click", () => this.openTaskModal());
       }
 
+      // Empty State Add Task Button
+      const btnEmptyAddTask = root.getElementById("btn-empty-add-task");
+      if (btnEmptyAddTask) {
+        btnEmptyAddTask.addEventListener("click", () => this.openTaskModal());
+      }
+
       // Add Thing Button
       const btnAddThing = root.getElementById("btn-add-thing");
       if (btnAddThing) {
         btnAddThing.addEventListener("click", () => this.openThingModal());
+      }
+
+      // Empty State Add Thing Button
+      const btnEmptyAddThing = root.getElementById("btn-empty-add-thing");
+      if (btnEmptyAddThing) {
+        btnEmptyAddThing.addEventListener("click", () => this.openThingModal());
+      }
+
+      // Mobile FAB
+      const fabAddBtn = root.getElementById("fab-add-btn");
+      if (fabAddBtn) {
+        fabAddBtn.addEventListener("click", () => {
+          if (this._currentTab === "things") {
+            this.openThingModal();
+          } else {
+            this.openTaskModal();
+          }
+        });
       }
 
       // Add User Button
