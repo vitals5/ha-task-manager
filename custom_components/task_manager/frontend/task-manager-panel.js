@@ -96,6 +96,8 @@
       soundEnabled: "Completion Sounds",
       confettiEnabled: "Celebration Confetti",
       gamificationEnabled: "Gamification & Points",
+      gamificationDisabledTitle: "Gamification is Disabled",
+      gamificationDisabledDesc: "Points, streaks, and leaderboards are currently switched off in settings.",
       defaultPoints: "Default Points per Task",
       firstDayOfWeek: "First Day of Week",
       monday: "Monday",
@@ -277,6 +279,8 @@
       soundEnabled: "Erledigungs-Sounds",
       confettiEnabled: "Konfetti-Effekt",
       gamificationEnabled: "Gamification & Punkte",
+      gamificationDisabledTitle: "Gamification ist deaktiviert",
+      gamificationDisabledDesc: "Punkte, Serien und Bestenlisten sind derzeit in den Einstellungen ausgeschaltet.",
       defaultPoints: "Standard-Punkte pro Aufgabe",
       firstDayOfWeek: "Erster Wochentag",
       monday: "Montag",
@@ -1014,6 +1018,11 @@
     }
 
     _render() {
+      const isGamification = this._data.settings && this._data.settings.gamification_enabled !== false;
+      if (!isGamification && this._currentTab === "leaderboard") {
+        this._currentTab = "chores";
+      }
+
       const todayStr = new Date().toISOString().slice(0, 10);
       const pendingCount = this._data.tasks.filter(t => t.status === "pending").length;
       const todayCount = this._data.tasks.filter(t => t.status === "pending" && t.due_date === todayStr).length;
@@ -1028,10 +1037,12 @@
             width: 100%;
             background-color: var(--primary-background-color, #f8fafc);
             color: var(--primary-text-color, #0f172a);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color-scheme: light dark;
+            font-family: var(--paper-font-body1_-_font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
             box-sizing: border-box;
             overflow: hidden;
             position: relative;
+            accent-color: var(--primary-color, #2563eb);
           }
 
           * {
@@ -1045,8 +1056,8 @@
             justify-content: space-between;
             padding: 14px 24px;
             background: var(--card-background-color, #ffffff);
-            border-bottom: 1px solid var(--divider-color, #e2e8f0);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            border-bottom: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.2)));
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
             flex-shrink: 0;
             gap: 16px;
           }
@@ -1059,8 +1070,8 @@
 
           .menu-btn {
             background: var(--card-background-color, #ffffff);
-            border: 1px solid var(--divider-color, #e2e8f0);
-            color: var(--primary-text-color, #0f172a);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.25)));
+            color: var(--primary-text-color, inherit);
             width: 38px;
             height: 38px;
             min-width: 38px;
@@ -1077,11 +1088,10 @@
           }
 
           .menu-btn:hover {
-            background: var(--secondary-background-color, #f1f5f9);
-            border-color: #2563eb;
-            color: #2563eb;
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.1));
+            border-color: var(--primary-color, #2563eb);
+            color: var(--primary-color, #2563eb);
             transform: translateY(-1px);
-            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
           }
 
           .menu-btn:active {
@@ -1111,14 +1121,14 @@
             width: 36px;
             height: 36px;
             border-radius: 10px;
-            background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+            background: var(--primary-color, #2563eb);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #ffffff;
+            color: var(--text-primary-color, #ffffff);
             font-weight: 700;
             font-size: 20px;
-            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
           }
 
           .brand-title {
@@ -1128,6 +1138,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            color: var(--primary-text-color, inherit);
           }
 
           .status-badge {
@@ -1135,8 +1146,9 @@
             font-weight: 600;
             padding: 3px 8px;
             border-radius: 9999px;
-            background: #dbeafe;
-            color: #1d4ed8;
+            background: rgba(37, 99, 235, 0.15);
+            color: var(--primary-color, #2563eb);
+            border: 1px solid rgba(37, 99, 235, 0.25);
           }
 
           .header-actions {
@@ -1150,12 +1162,18 @@
             align-items: center;
             gap: 8px;
             padding: 6px 12px;
-            background: var(--secondary-background-color, #f1f5f9);
-            border: 1px solid var(--divider-color, #e2e8f0);
+            background: var(--card-background-color, #ffffff);
+            color: var(--primary-text-color, inherit);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.25)));
             border-radius: 20px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
+          }
+
+          .user-select option {
+            background: var(--card-background-color, #ffffff);
+            color: var(--primary-text-color, inherit);
           }
 
           .user-avatar {
@@ -1184,24 +1202,24 @@
           }
 
           .btn-primary {
-            background: #2563eb;
-            color: #ffffff;
-            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+            background: var(--primary-color, #2563eb);
+            color: var(--text-primary-color, #ffffff);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
           }
 
           .btn-primary:hover {
-            background: #1d4ed8;
+            filter: brightness(1.1);
             transform: translateY(-1px);
           }
 
           .btn-secondary {
-            background: var(--secondary-background-color, #f1f5f9);
-            color: var(--primary-text-color, #334155);
-            border: 1px solid var(--divider-color, #cbd5e1);
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.1));
+            color: var(--primary-text-color, inherit);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.25)));
           }
 
           .btn-secondary:hover {
-            background: #e2e8f0;
+            background: var(--divider-color, rgba(127, 127, 127, 0.2));
           }
 
           /* Tab navigation */
@@ -1210,7 +1228,7 @@
             gap: 6px;
             padding: 10px 24px;
             background: var(--card-background-color, #ffffff);
-            border-bottom: 1px solid var(--divider-color, #e2e8f0);
+            border-bottom: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.2)));
             overflow-x: auto;
           }
 
@@ -1229,13 +1247,13 @@
           }
 
           .nav-tab:hover {
-            background: var(--secondary-background-color, #f8fafc);
-            color: var(--primary-text-color, #0f172a);
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.1));
+            color: var(--primary-text-color, inherit);
           }
 
           .nav-tab.active {
-            background: #eff6ff;
-            color: #2563eb;
+            background: rgba(37, 99, 235, 0.15);
+            color: var(--primary-color, #2563eb);
           }
 
           .badge-pill {
@@ -1243,13 +1261,13 @@
             font-weight: 700;
             padding: 2px 6px;
             border-radius: 999px;
-            background: #e2e8f0;
-            color: #475569;
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.15));
+            color: var(--secondary-text-color, inherit);
           }
 
           .nav-tab.active .badge-pill {
-            background: #2563eb;
-            color: #ffffff;
+            background: var(--primary-color, #2563eb);
+            color: var(--text-primary-color, #ffffff);
           }
 
           /* Main body */
@@ -1281,15 +1299,15 @@
             font-size: 13px;
             font-weight: 600;
             background: var(--card-background-color, #ffffff);
-            border: 1px solid var(--divider-color, #e2e8f0);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.25)));
             color: var(--secondary-text-color, #64748b);
             cursor: pointer;
           }
 
           .filter-pill.active {
-            background: #2563eb;
-            color: #ffffff;
-            border-color: #2563eb;
+            background: var(--primary-color, #2563eb);
+            color: var(--text-primary-color, #ffffff);
+            border-color: var(--primary-color, #2563eb);
           }
 
           .filter-selects {
@@ -1298,13 +1316,23 @@
           }
 
           .select-input, .text-input {
-            padding: 6px 12px;
+            padding: 8px 12px;
             border-radius: 8px;
-            border: 1px solid var(--divider-color, #cbd5e1);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.3)));
             background: var(--card-background-color, #ffffff);
-            color: inherit;
+            color: var(--primary-text-color, inherit);
             font-size: 13px;
             outline: none;
+          }
+
+          .select-input option {
+            background: var(--card-background-color, #ffffff);
+            color: var(--primary-text-color, inherit);
+          }
+
+          .select-input:focus, .text-input:focus {
+            border-color: var(--primary-color, #2563eb);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
           }
 
           /* Tasks list */
@@ -1317,26 +1345,27 @@
           .task-card {
             background: var(--card-background-color, #ffffff);
             border-radius: 14px;
-            border: 1px solid var(--divider-color, #e2e8f0);
-            box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.2)));
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
             padding: 16px;
             display: flex;
             flex-direction: column;
             gap: 12px;
             transition: transform 0.15s ease, box-shadow 0.15s ease;
             position: relative;
+            color: var(--primary-text-color, inherit);
           }
 
           .task-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
           }
 
-          .task-card.priority-p1 { border-left: 5px solid #ef4444; }
+          .task-card.priority-p1 { border-left: 5px solid var(--error-color, #ef4444); }
           .task-card.priority-p2 { border-left: 5px solid #f97316; }
-          .task-card.priority-p3 { border-left: 5px solid #3b82f6; }
-          .task-card.priority-p4 { border-left: 5px solid #94a3b8; }
-          .task-card.completed-task { opacity: 0.7; }
+          .task-card.priority-p3 { border-left: 5px solid var(--primary-color, #3b82f6); }
+          .task-card.priority-p4 { border-left: 5px solid var(--divider-color, #94a3b8); }
+          .task-card.completed-task { opacity: 0.65; }
 
           .task-top {
             display: flex;
@@ -1348,7 +1377,7 @@
             width: 28px;
             height: 28px;
             border-radius: 50%;
-            border: 2px solid #cbd5e1;
+            border: 2px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.4)));
             background: transparent;
             cursor: pointer;
             display: flex;
@@ -1361,14 +1390,14 @@
           }
 
           .check-btn:hover {
-            border-color: #10b981;
-            background: #ecfdf5;
-            color: #10b981;
+            border-color: var(--success-color, #10b981);
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success-color, #10b981);
           }
 
           .completed-task .check-btn {
-            background: #10b981;
-            border-color: #10b981;
+            background: var(--success-color, #10b981);
+            border-color: var(--success-color, #10b981);
             color: #ffffff;
           }
 
@@ -1383,11 +1412,12 @@
             line-height: 1.3;
             margin: 0 0 4px 0;
             word-break: break-word;
+            color: var(--primary-text-color, inherit);
           }
 
           .completed-task .task-title {
             text-decoration: line-through;
-            color: #94a3b8;
+            color: var(--disabled-text-color, #94a3b8);
           }
 
           .task-desc {
@@ -1413,19 +1443,21 @@
             font-weight: 600;
             padding: 3px 8px;
             border-radius: 6px;
-            background: var(--secondary-background-color, #f1f5f9);
-            color: var(--secondary-text-color, #475569);
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.12));
+            color: var(--secondary-text-color, inherit);
           }
 
-          .meta-chip.overdue { background: #fee2e2; color: #dc2626; }
-          .meta-chip.due-today { background: #fef3c7; color: #d97706; }
-          .meta-chip.priority-p1 { background: #fee2e2; color: #b91c1c; }
-          .meta-chip.priority-p2 { background: #ffedd5; color: #c2410c; }
-          .meta-chip.priority-p3 { background: #dbeafe; color: #1d4ed8; }
+          .meta-chip.overdue { background: rgba(239, 68, 68, 0.15); color: var(--error-color, #ef4444); }
+          .meta-chip.due-today { background: rgba(245, 158, 11, 0.15); color: var(--warning-color, #f59e0b); }
+          .meta-chip.priority-p1 { background: rgba(239, 68, 68, 0.15); color: var(--error-color, #ef4444); }
+          .meta-chip.priority-p2 { background: rgba(249, 115, 22, 0.15); color: #f97316; }
+          .meta-chip.priority-p3 { background: rgba(59, 130, 246, 0.15); color: var(--primary-color, #3b82f6); }
+          .meta-chip.chip-points { background: rgba(245, 158, 11, 0.15); color: #d97706; }
 
           /* Subtasks checklist */
           .subtasks-box {
-            background: var(--secondary-background-color, #f8fafc);
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.08));
+            border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.12));
             border-radius: 8px;
             padding: 8px 12px;
             margin-top: 4px;
@@ -1437,6 +1469,7 @@
             gap: 8px;
             font-size: 12px;
             padding: 3px 0;
+            color: var(--primary-text-color, inherit);
           }
 
           .subtask-item input {
@@ -1445,14 +1478,14 @@
 
           .subtask-title.done {
             text-decoration: line-through;
-            color: #94a3b8;
+            color: var(--disabled-text-color, #94a3b8);
           }
 
           .task-bottom {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-top: 1px solid var(--divider-color, #f1f5f9);
+            border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.12));
             padding-top: 8px;
             margin-top: 4px;
           }
@@ -1463,6 +1496,7 @@
             gap: 6px;
             font-size: 12px;
             font-weight: 500;
+            color: var(--primary-text-color, inherit);
           }
 
           /* Things grid */
@@ -1475,12 +1509,13 @@
           .thing-card {
             background: var(--card-background-color, #ffffff);
             border-radius: 14px;
-            border: 1px solid var(--divider-color, #e2e8f0);
-            box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.2)));
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
             padding: 18px;
             display: flex;
             flex-direction: column;
             gap: 14px;
+            color: var(--primary-text-color, inherit);
           }
 
           .thing-header {
@@ -1499,8 +1534,8 @@
             width: 38px;
             height: 38px;
             border-radius: 10px;
-            background: #eff6ff;
-            color: #2563eb;
+            background: rgba(37, 99, 235, 0.12);
+            color: var(--primary-color, #2563eb);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1511,7 +1546,7 @@
           .progress-bar-bg {
             width: 100%;
             height: 10px;
-            background: #e2e8f0;
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.2));
             border-radius: 999px;
             overflow: hidden;
             margin: 6px 0;
@@ -1523,9 +1558,9 @@
             transition: width 0.3s ease;
           }
 
-          .fill-green { background: #10b981; }
-          .fill-amber { background: #f59e0b; }
-          .fill-red { background: #ef4444; }
+          .fill-green { background: var(--success-color, #10b981); }
+          .fill-amber { background: var(--warning-color, #f59e0b); }
+          .fill-red { background: var(--error-color, #ef4444); }
 
           .thing-actions {
             display: flex;
@@ -1543,13 +1578,14 @@
           .leaderboard-card {
             background: var(--card-background-color, #ffffff);
             border-radius: 14px;
-            border: 1px solid var(--divider-color, #e2e8f0);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.2)));
             padding: 20px;
             text-align: center;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 8px;
+            color: var(--primary-text-color, inherit);
           }
 
           .rank-badge {
@@ -1559,7 +1595,7 @@
           .points-huge {
             font-size: 32px;
             font-weight: 800;
-            color: #2563eb;
+            color: var(--primary-color, #2563eb);
             margin: 4px 0;
           }
 
@@ -1567,8 +1603,9 @@
           .activity-timeline {
             background: var(--card-background-color, #ffffff);
             border-radius: 14px;
-            border: 1px solid var(--divider-color, #e2e8f0);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.2)));
             padding: 16px;
+            color: var(--primary-text-color, inherit);
           }
 
           .activity-row {
@@ -1576,7 +1613,7 @@
             align-items: center;
             gap: 12px;
             padding: 10px 0;
-            border-bottom: 1px solid var(--divider-color, #f1f5f9);
+            border-bottom: 1px solid var(--divider-color, rgba(127, 127, 127, 0.12));
             font-size: 13px;
           }
 
@@ -1584,10 +1621,11 @@
           .calendar-box {
             background: var(--card-background-color, #ffffff);
             border-radius: 14px;
-            border: 1px solid var(--divider-color, #e2e8f0);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.2)));
             padding: 20px;
             max-width: 900px;
             margin: 0 auto;
+            color: var(--primary-text-color, inherit);
           }
 
           .calendar-header {
@@ -1613,28 +1651,29 @@
 
           .cal-cell {
             min-height: 80px;
-            background: var(--secondary-background-color, #f8fafc);
+            background: var(--card-background-color, #ffffff);
             border-radius: 8px;
             padding: 6px;
             cursor: pointer;
             display: flex;
             flex-direction: column;
             gap: 4px;
-            border: 1px solid transparent;
+            border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.15));
+            color: var(--primary-text-color, inherit);
           }
 
           .cal-cell:hover {
-            border-color: #2563eb;
+            border-color: var(--primary-color, #2563eb);
           }
 
           .cal-cell.today {
-            background: #eff6ff;
-            border-color: #93c5fd;
+            background: rgba(37, 99, 235, 0.1);
+            border-color: var(--primary-color, #3b82f6);
           }
 
           .cal-cell.selected {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 2px #2563eb;
+            border-color: var(--primary-color, #2563eb);
+            box-shadow: 0 0 0 2px var(--primary-color, #2563eb);
           }
 
           .cal-dot {
@@ -1651,7 +1690,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(15, 23, 42, 0.6);
+            background: rgba(0, 0, 0, 0.65);
             backdrop-filter: blur(4px);
             display: flex;
             align-items: center;
@@ -1662,12 +1701,14 @@
 
           .modal-window {
             background: var(--card-background-color, #ffffff);
+            color: var(--primary-text-color, inherit);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.2)));
             border-radius: 16px;
             max-width: 580px;
             width: 100%;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
             padding: 24px;
             display: flex;
             flex-direction: column;
@@ -1708,7 +1749,7 @@
             height: 20px;
             border-radius: 50%;
             border: none;
-            background: var(--divider-color, #cbd5e1);
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.2));
             color: var(--secondary-text-color, #64748b);
             font-size: 11px;
             font-weight: bold;
@@ -1722,7 +1763,7 @@
           }
 
           .entity-picker-clear-btn:hover {
-            background: #ef4444;
+            background: var(--error-color, #ef4444);
             color: #ffffff;
           }
 
@@ -1734,9 +1775,10 @@
             max-height: 220px;
             overflow-y: auto;
             background: var(--card-background-color, #ffffff);
-            border: 1px solid var(--divider-color, #cbd5e1);
+            color: var(--primary-text-color, inherit);
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.3)));
             border-radius: 8px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
             z-index: 1050;
           }
 
@@ -1747,7 +1789,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 8px;
-            border-bottom: 1px solid var(--divider-color, #f1f5f9);
+            border-bottom: 1px solid var(--divider-color, rgba(127, 127, 127, 0.12));
             transition: background 0.1s ease;
           }
 
@@ -1756,13 +1798,13 @@
           }
 
           .entity-dropdown-item:hover, .entity-dropdown-item.selected {
-            background: var(--secondary-background-color, #f1f5f9);
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.15));
           }
 
           .entity-dropdown-name {
             font-weight: 600;
             font-size: 13px;
-            color: var(--primary-text-color, #0f172a);
+            color: var(--primary-text-color, inherit);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1781,8 +1823,8 @@
             font-weight: 600;
             padding: 2px 6px;
             border-radius: 6px;
-            background: var(--secondary-background-color, #e2e8f0);
-            color: var(--secondary-text-color, #475569);
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.15));
+            color: var(--secondary-text-color, inherit);
             white-space: nowrap;
             flex-shrink: 0;
           }
@@ -1840,10 +1882,10 @@
             width: 56px;
             height: 56px;
             border-radius: 28px;
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-            color: #ffffff;
+            background: var(--primary-color, #2563eb);
+            color: var(--text-primary-color, #ffffff);
             border: none;
-            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4), 0 2px 6px rgba(0, 0, 0, 0.12);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
             align-items: center;
             justify-content: center;
             cursor: pointer;
@@ -1855,7 +1897,6 @@
 
           .mobile-fab:active {
             transform: scale(0.92);
-            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
           }
 
           /* Two-column responsive form grid */
@@ -1870,7 +1911,7 @@
             display: none;
             width: 40px;
             height: 4px;
-            background: var(--divider-color, #cbd5e1);
+            background: var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.4)));
             border-radius: 2px;
             margin: -4px auto 12px auto;
           }
@@ -1886,14 +1927,15 @@
             }
 
             .header {
+              flex-wrap: wrap;
               padding: 10px 14px;
               gap: 8px;
             }
 
             .header-left {
-              gap: 8px;
-              min-width: 0;
-              flex: 1 1 auto;
+              flex: 1 1 100%;
+              width: 100%;
+              gap: 10px;
             }
 
             .menu-btn {
@@ -1904,8 +1946,9 @@
             }
 
             .brand {
-              gap: 8px;
+              gap: 10px;
               min-width: 0;
+              flex: 1;
             }
 
             .brand-logo {
@@ -1917,19 +1960,30 @@
             }
 
             .brand-title {
-              font-size: 16px;
+              font-size: 18px;
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
+              display: flex;
+              align-items: center;
+              gap: 8px;
             }
 
             .status-badge {
-              display: none !important;
+              display: inline-block !important;
+              font-size: 11px;
+              padding: 2px 7px;
+              white-space: nowrap;
             }
 
             .header-actions {
-              gap: 6px;
-              flex-shrink: 0;
+              flex: 1 1 100%;
+              width: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 8px;
+              margin-top: 2px;
             }
 
             #btn-toggle-mount {
@@ -1937,18 +1991,29 @@
             }
 
             .user-select {
-              max-width: 105px;
-              padding: 5px 8px;
-              font-size: 12px;
+              flex: 1 1 auto;
+              min-width: 0;
+              max-width: none;
+              padding: 7px 10px;
+              font-size: 13px;
+              text-overflow: ellipsis;
             }
 
             #btn-add-task {
-              padding: 6px 12px;
+              flex-shrink: 0;
+              padding: 7px 14px;
               font-size: 13px;
               font-weight: 700;
               border-radius: 8px;
               white-space: nowrap;
-              flex-shrink: 0;
+            }
+
+            .btn-text-full {
+              display: inline !important;
+            }
+
+            .btn-text-short {
+              display: none !important;
             }
 
             .nav-tabs {
@@ -2174,24 +2239,19 @@
               padding: 8px 10px;
             }
             .brand-title {
-              font-size: 14px;
+              font-size: 16px;
+            }
+            .status-badge {
+              font-size: 10px;
+              padding: 1px 5px;
             }
             .user-select {
-              max-width: 80px;
-              padding: 4px 6px;
-              font-size: 11px;
-            }
-            #btn-add-task {
               padding: 6px 8px;
               font-size: 12px;
             }
-            .btn-text-full {
-              display: none;
-            }
-            .btn-text-short {
-              display: inline;
-              font-size: 16px;
-              font-weight: 700;
+            #btn-add-task {
+              padding: 6px 10px;
+              font-size: 12px;
             }
           }
         </style>
@@ -2210,11 +2270,9 @@
             </button>
             <div class="brand">
               <div class="brand-logo">✓</div>
-              <div>
-                <div class="brand-title">
-                  ${this.t("appName")}
-                  <span class="status-badge">${this.t("openTasksCount", { count: pendingCount })}</span>
-                </div>
+              <div class="brand-title">
+                <span>${this.t("appName")}</span>
+                <span class="status-badge">${this.t("openTasksCount", { count: pendingCount })}</span>
               </div>
             </div>
           </div>
@@ -2247,9 +2305,11 @@
           <div class="nav-tab ${this._currentTab === "things" ? "active" : ""}" data-tab="things">
             ⚙️ ${this.t("things")} <span class="badge-pill">${this._data.things.length}</span>
           </div>
-          <div class="nav-tab ${this._currentTab === "leaderboard" ? "active" : ""}" data-tab="leaderboard">
-            🏆 ${this.t("leaderboard")}
-          </div>
+          ${isGamification ? `
+            <div class="nav-tab ${this._currentTab === "leaderboard" ? "active" : ""}" data-tab="leaderboard">
+              🏆 ${this.t("leaderboard")}
+            </div>
+          ` : ""}
           <div class="nav-tab ${this._currentTab === "settings" ? "active" : ""}" data-tab="settings">
             🛠️ ${this.t("settings")}
           </div>
@@ -2280,13 +2340,13 @@
 
     _renderUserSelector() {
       if (!this._data.users || this._data.users.length === 0) return "";
-      const currentUser = this._data.users.find(u => u.id === this._activeUser) || this._data.users[0];
+      const isGamification = this._data.settings && this._data.settings.gamification_enabled !== false;
 
       return `
         <select class="user-select" id="header-user-select" title="${this.t("activeMember")}">
           ${this._data.users.map(u => `
             <option value="${u.id}" ${u.id === this._activeUser ? "selected" : ""}>
-              👤 ${u.name} (${u.points || 0} ${this.t("pts")})
+              👤 ${this._escape(u.name)}${isGamification ? ` (${u.points || 0} ${this.t("pts")})` : ""}
             </option>
           `).join("")}
         </select>
@@ -2364,6 +2424,7 @@
     }
 
     _renderTaskCard(task, todayStr) {
+      const isGamification = this._data.settings && this._data.settings.gamification_enabled !== false;
       const isCompleted = task.status === "completed";
       const isOverdue = !isCompleted && task.due_date && task.due_date < todayStr;
       const isToday = !isCompleted && task.due_date === todayStr;
@@ -2386,7 +2447,7 @@
 
               <div class="task-meta">
                 ${task.is_external ? `
-                  <span class="meta-chip" style="background:#f1f5f9; color:#1e293b; border:1px solid #cbd5e1; font-weight:600;">
+                  <span class="meta-chip" style="background:var(--secondary-background-color, rgba(127,127,127,0.12)); color:var(--primary-text-color, inherit); border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); font-weight:600;">
                     🔗 ${this._escape(task.provider_name || this.t("externalTask"))}
                   </span>
                 ` : ""}
@@ -2409,14 +2470,14 @@
                   </span>
                 ` : ""}
 
-                ${task.points ? `
-                  <span class="meta-chip" style="background: #fef3c7; color: #b45309;">
+                ${(isGamification && task.points) ? `
+                  <span class="meta-chip chip-points" style="background: rgba(245, 158, 11, 0.15); color: #d97706;">
                     ⭐ +${task.points} ${this.t("pts")}
                   </span>
                 ` : ""}
 
                 ${linkedThing ? `
-                  <span class="meta-chip" style="background: #e0f2fe; color: #0369a1;">
+                  <span class="meta-chip" style="background: rgba(2, 132, 199, 0.15); color: #0284c7;">
                     ⚙️ ${this._escape(linkedThing.name)}
                   </span>
                 ` : ""}
@@ -2431,7 +2492,7 @@
 
           ${subtasks.length > 0 ? `
             <div class="subtasks-box">
-              <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px; display:flex; justify-content:space-between;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--secondary-text-color, #64748b); margin-bottom: 4px; display:flex; justify-content:space-between;">
                 <span>${this.t("subtasks")} (${completedSubtasks}/${subtasks.length})</span>
                 ${task.recurrence && task.recurrence.enabled ? `<span>🔄 ${this.t("autoResets")}</span>` : ""}
               </div>
@@ -2452,12 +2513,12 @@
                 </div>
                 <span>${this._escape(assigneeUser.name)}</span>
                 ${task.rotation_mode && task.rotation_mode !== "none" ? `<span title="${this.t("rotation")}: ${this.t(task.rotation_mode)}">🔄</span>` : ""}
-              ` : `<span style="color:#94a3b8;">${this.t("none")}</span>`}
+              ` : `<span style="color:var(--secondary-text-color, #94a3b8);">${this.t("none")}</span>`}
             </div>
 
             <div style="display:flex; gap:6px;">
               <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-edit-task="${task.id}" title="${this.t("edit")}">✏️</button>
-              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ef4444;" data-delete-task="${task.id}" title="${this.t("delete")}">🗑️</button>
+              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--error-color, #ef4444);" data-delete-task="${task.id}" title="${this.t("delete")}">🗑️</button>
             </div>
           </div>
         </div>
@@ -2506,11 +2567,11 @@
             <div style="font-size:12px; font-weight:700;">${d}</div>
             <div style="display:flex; flex-direction:column; gap:2px;">
               ${dayTasks.slice(0, 3).map(t => `
-                <div style="font-size:10px; padding:2px 4px; border-radius:3px; background:#eff6ff; color:#1d4ed8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                <div style="font-size:10px; padding:2px 4px; border-radius:3px; background:var(--primary-color-light, rgba(37, 99, 235, 0.15)); color:var(--primary-color, #2563eb); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                   ${this._escape(t.title)}
                 </div>
               `).join("")}
-              ${dayTasks.length > 3 ? `<div style="font-size:9px; color:#64748b;">+${dayTasks.length - 3} ${this.t("more")}</div>` : ""}
+              ${dayTasks.length > 3 ? `<div style="font-size:9px; color:var(--secondary-text-color, #64748b);">+${dayTasks.length - 3} ${this.t("more")}</div>` : ""}
             </div>
           </div>
         `);
@@ -2533,11 +2594,11 @@
           </div>
 
           ${this._calendarSelectedDay ? `
-            <div style="margin-top:20px; border-top:1px solid #e2e8f0; padding-top:16px;">
+            <div style="margin-top:20px; border-top:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); padding-top:16px;">
               <h3 style="margin:0 0 12px 0;">${this.t("choresDueOn")} ${this._calendarSelectedDay}:</h3>
               <div class="task-grid">
                 ${(taskMap[this._calendarSelectedDay] || []).map(t => this._renderTaskCard(t, todayStr)).join("")}
-                ${(taskMap[this._calendarSelectedDay] || []).length === 0 ? `<p style="color:#64748b;">${this.t("noChoresDueOnDate")}</p>` : ""}
+                ${(taskMap[this._calendarSelectedDay] || []).length === 0 ? `<p style="color:var(--secondary-text-color, #64748b);">${this.t("noChoresDueOnDate")}</p>` : ""}
               </div>
             </div>
           ` : ""}
@@ -2559,7 +2620,7 @@
         </div>
 
         ${this._data.things.length === 0 ? `
-          <div style="text-align: center; padding: 48px 16px; color: #64748b;">
+          <div style="text-align: center; padding: 48px 16px; color: var(--secondary-text-color, #64748b);">
             <div style="font-size: 44px; margin-bottom: 12px;">⚙️</div>
             <div style="font-size: 16px; font-weight: 600; margin-bottom: 14px;">${this.t("noThings")}</div>
             <button class="btn btn-primary" id="btn-empty-add-thing">+ ${this.t("addThing")}</button>
@@ -2609,35 +2670,35 @@
               <div class="thing-icon">⚙️</div>
               <div>
                 <div style="font-weight:700; font-size:15px;">${this._escape(thing.name)}</div>
-                <div style="font-size:12px; color:#64748b;">${this._escape(thing.category || this.t("categoryGeneral"))}</div>
+                <div style="font-size:12px; color:var(--secondary-text-color, #64748b);">${this._escape(thing.category || this.t("categoryGeneral"))}</div>
               </div>
             </div>
             <div style="display:flex; gap:4px;">
               <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px;" data-edit-thing="${thing.id}" title="${this.t("edit")}">✏️</button>
-              <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px; color:#ef4444;" data-delete-thing="${thing.id}" title="${this.t("delete")}">🗑️</button>
+              <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px; color:var(--error-color, #ef4444);" data-delete-thing="${thing.id}" title="${this.t("delete")}">🗑️</button>
             </div>
           </div>
 
           <div>
             <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600;">
-              <span>${cur} ${this._escape(thing.unit || "")} <span style="font-size:11px; color:#64748b; font-weight:normal;">(${operator} ${target})</span></span>
+              <span>${cur} ${this._escape(thing.unit || "")} <span style="font-size:11px; color:var(--secondary-text-color, #64748b); font-weight:normal;">(${operator} ${target})</span></span>
               <span>${pct}%</span>
             </div>
             <div class="progress-bar-bg">
               <div class="progress-bar-fill ${fillColor}" style="width: ${pct}%;"></div>
             </div>
-            <div style="display:flex; justify-content:space-between; font-size:11px; color:#64748b; margin-top:2px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--secondary-text-color, #64748b); margin-top:2px;">
               <span>${statusText}</span>
               ${thing.last_reset ? `<span>${this.t("lastReset")}: ${thing.last_reset.slice(0, 10)}</span>` : ""}
             </div>
             ${thing.external_entity_id ? `
-              <div style="font-size:11px; color:#0284c7; margin-top:4px; display:flex; align-items:center; gap:4px; background:#f0f9ff; padding:2px 6px; border-radius:4px;">
+              <div style="font-size:11px; color:#0284c7; margin-top:4px; display:flex; align-items:center; gap:4px; background:rgba(2, 132, 199, 0.12); padding:2px 6px; border-radius:4px;">
                 <span>🔗</span>
                 <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${this._escape(thing.external_entity_id)}">${this._escape(thing.external_entity_id)}</span>
               </div>
             ` : ""}
             ${thing.script_entity_id ? `
-              <div style="font-size:11px; color:#7c3aed; margin-top:4px; display:flex; align-items:center; gap:4px; background:#f5f3ff; padding:2px 6px; border-radius:4px;">
+              <div style="font-size:11px; color:#a78bfa; margin-top:4px; display:flex; align-items:center; gap:4px; background:rgba(124, 58, 237, 0.12); padding:2px 6px; border-radius:4px;">
                 <span>📜</span>
                 <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${this._escape(thing.script_entity_id)}">${this._escape(thing.script_entity_id)}</span>
               </div>
@@ -2655,6 +2716,20 @@
 
     // ================= VIEW: LEADERBOARD =================
     _renderLeaderboardView() {
+      const isGamification = this._data.settings && this._data.settings.gamification_enabled !== false;
+      if (!isGamification) {
+        return `
+          <div style="max-width: 600px; margin: 40px auto; text-align: center; padding: 40px 20px; background: var(--card-background-color, #ffffff); border-radius: 14px; border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2)));">
+            <div style="font-size: 48px; margin-bottom: 12px;">🏆</div>
+            <h3 style="margin: 0 0 8px 0; font-size: 18px; color: var(--primary-text-color, inherit);">${this.t("gamificationDisabledTitle")}</h3>
+            <p style="color: var(--secondary-text-color, #64748b); font-size: 14px; margin: 0 0 20px 0;">
+              ${this.t("gamificationDisabledDesc")}
+            </p>
+            <button class="btn btn-primary" id="btn-goto-settings-from-leaderboard">${this.t("settings")}</button>
+          </div>
+        `;
+      }
+
       const sortedUsers = [...this._data.users].sort((a, b) => (b.points || 0) - (a.points || 0));
 
       return `
@@ -2670,7 +2745,7 @@
                 </div>
                 <div style="font-weight:700; font-size:16px;">${this._escape(u.name)}</div>
                 <div class="points-huge">${u.points || 0} <span style="font-size:14px; font-weight:500;">${this.t("pts")}</span></div>
-                <div style="display:flex; gap:12px; font-size:12px; color:#64748b;">
+                <div style="display:flex; gap:12px; font-size:12px; color:var(--secondary-text-color, #64748b);">
                   <span>🔥 ${u.streak || 0} ${this.t("dayStreak")}</span>
                   <span>✓ ${u.completed_count || 0} ${this.t("tasksDone")}</span>
                 </div>
@@ -2691,12 +2766,12 @@
                     ${act.user_id ? `<span> ${this.t("by")} ${this._getUserName(act.user_id)}</span>` : ""}
                     ${act.points ? `<span style="color:#d97706; font-weight:600;"> (+${act.points} ${this.t("pts")})</span>` : ""}
                   </div>
-                  <div style="font-size:11px; color:#64748b;">
+                  <div style="font-size:11px; color:var(--secondary-text-color, #64748b);">
                     ${act.timestamp ? act.timestamp.slice(11, 16) : ""}
                   </div>
                 </div>
               `).join("")
-            ) : `<p style="color:#64748b; font-size:13px;">${this.t("noRecentActivity")}</p>`}
+            ) : `<p style="color:var(--secondary-text-color, #64748b); font-size:13px;">${this.t("noRecentActivity")}</p>`}
           </div>
         </div>
       `;
@@ -2710,28 +2785,29 @@
     // ================= VIEW: SETTINGS =================
     _renderSettingsView() {
       const s = this._data.settings || {};
+      const isGamification = s.gamification_enabled !== false;
 
       return `
         <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
           <!-- Members Management -->
-          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
+          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); padding:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
               <h3 style="margin:0; font-size:16px;">👥 ${this.t("householdMembers")}</h3>
               <button class="btn btn-secondary" id="btn-add-user">+ ${this.t("addUser")}</button>
             </div>
             <div style="display:flex; flex-direction:column; gap:8px;">
               ${this._data.users.map(u => `
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#f8fafc; border-radius:8px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px;">
                   <div style="display:flex; align-items:center; gap:10px;">
                     <div class="user-avatar" style="background:${u.color}; width:28px; height:28px;">
                       ${u.name.slice(0, 1).toUpperCase()}
                     </div>
                     <strong>${this._escape(u.name)}</strong>
-                    <span style="font-size:12px; color:#64748b;">(${u.points || 0} ${this.t("pts")})</span>
+                    ${isGamification ? `<span style="font-size:12px; color:var(--secondary-text-color, #64748b);">(${u.points || 0} ${this.t("pts")})</span>` : ""}
                   </div>
                   <div style="display:flex; gap:6px;">
                     <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" data-edit-user="${u.id}" title="${this.t("edit")}">✏️</button>
-                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px; color:#ef4444;" data-delete-user="${u.id}" title="${this.t("delete")}">🗑️</button>
+                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px; color:var(--error-color, #ef4444);" data-delete-user="${u.id}" title="${this.t("delete")}">🗑️</button>
                   </div>
                 </div>
               `).join("")}
@@ -2739,7 +2815,7 @@
           </div>
 
           <!-- Labels Management -->
-          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
+          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); padding:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
               <h3 style="margin:0; font-size:16px;">🏷️ ${this.t("labelsAndCategories")}</h3>
               <button class="btn btn-secondary" id="btn-add-label">+ ${this.t("addLabel")}</button>
@@ -2756,14 +2832,14 @@
           </div>
 
           <!-- External Providers Management -->
-          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
+          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); padding:20px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
               <div>
                 <h3 style="margin:0 0 4px 0; font-size:16px;">🔗 ${this.t("providers")}</h3>
                 <p style="margin:0; font-size:12px; color:var(--secondary-text-color, #64748b); max-width:540px;">
                   ${this.t("providersSubtitle")}
                 </p>
-                <div style="margin-top:6px; font-size:11px; color:#2563eb;">
+                <div style="margin-top:6px; font-size:11px; color:var(--primary-color, #2563eb);">
                   📅 ${this.t("calendarSyncHint")}
                 </div>
               </div>
@@ -2775,23 +2851,23 @@
 
             <div style="display:flex; flex-direction:column; gap:8px;">
               ${(!this._data.providers || this._data.providers.length === 0) ? `
-                <div style="text-align:center; padding:24px; color:#64748b; font-size:13px; background:#f8fafc; border-radius:8px;">
+                <div style="text-align:center; padding:24px; color:var(--secondary-text-color, #64748b); font-size:13px; background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px;">
                   <div style="font-size:24px; margin-bottom:6px;">📋</div>
                   <div>${this.t("noProvidersLinked")}</div>
                 </div>
               ` : `
                 ${this._data.providers.map(p => `
-                  <div class="provider-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border-radius:8px; border:1px solid #edf2f7;">
+                  <div class="provider-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.12)));">
                     <div style="display:flex; align-items:center; gap:12px;">
-                      <div style="width:36px; height:36px; border-radius:8px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; font-size:18px;">
+                      <div style="width:36px; height:36px; border-radius:8px; background:var(--card-background-color, rgba(127,127,127,0.15)); display:flex; align-items:center; justify-content:center; font-size:18px;">
                         ${p.provider_type === "google_tasks" ? "🌐" : p.provider_type === "todoist" ? "☑️" : p.provider_type === "caldav" ? "📅" : p.provider_type === "bring" ? "🛒" : p.provider_type === "shopping_list" ? "🛍️" : "📝"}
                       </div>
                       <div>
                         <div style="font-weight:700; font-size:14px;">${this._escape(p.name || p.entity_id)}</div>
-                        <div style="font-size:12px; color:#64748b;">${this._escape(p.entity_id)} <span style="display:inline-block; margin-left:6px; padding:1px 6px; border-radius:10px; background:#e2e8f0; font-size:10px; text-transform:uppercase;">${this._escape(p.provider_type || "generic")}</span></div>
+                        <div style="font-size:12px; color:var(--secondary-text-color, #64748b);">${this._escape(p.entity_id)} <span style="display:inline-block; margin-left:6px; padding:1px 6px; border-radius:10px; background:var(--divider-color, rgba(127,127,127,0.2)); font-size:10px; text-transform:uppercase;">${this._escape(p.provider_type || "generic")}</span></div>
                       </div>
                     </div>
-                    <button class="btn btn-secondary" style="padding:4px 10px; font-size:12px; color:#ef4444;" data-unlink-provider="${p.entity_id}">
+                    <button class="btn btn-secondary" style="padding:4px 10px; font-size:12px; color:var(--error-color, #ef4444);" data-unlink-provider="${p.entity_id}">
                       🗑️ ${this.t("unlinkProvider")}
                     </button>
                   </div>
@@ -2801,11 +2877,11 @@
           </div>
 
           <!-- System Preferences -->
-          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
+          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); padding:20px;">
             <h3 style="margin:0 0 16px 0; font-size:16px;">⚙️ ${this.t("preferences")}</h3>
             <div style="display:flex; flex-direction:column; gap:12px;">
               <label style="display:flex; align-items:center; gap:10px; font-size:14px; cursor:pointer;">
-                <input type="checkbox" id="pref-gamification" ${s.gamification_enabled ? "checked" : ""}>
+                <input type="checkbox" id="pref-gamification" ${s.gamification_enabled !== false ? "checked" : ""}>
                 <span>${this.t("gamificationEnabled")}</span>
               </label>
 
@@ -2819,7 +2895,7 @@
                 <span>${this.t("confettiEnabled")}</span>
               </label>
 
-              <div class="form-group" style="max-width:240px; margin-top:8px;">
+              <div class="form-group" id="pref-default-points-group" style="max-width:240px; margin-top:8px; display:${isGamification ? "flex" : "none"}; flex-direction:column;">
                 <label class="form-label">${this.t("defaultPoints")}</label>
                 <input type="number" class="text-input" id="pref-default-points" value="${s.default_points || 10}">
               </div>
@@ -2840,9 +2916,9 @@
           </div>
 
           <!-- Backup & Restore -->
-          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid #e2e8f0; padding:20px;">
+          <div style="background:var(--card-background-color, #ffffff); border-radius:14px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); padding:20px;">
             <h3 style="margin:0 0 12px 0; font-size:16px;">💾 ${this.t("backupAndRestore")}</h3>
-            <p style="font-size:13px; color:#64748b; margin-top:0;">${this.t("backupDescription")}</p>
+            <p style="font-size:13px; color:var(--secondary-text-color, #64748b); margin-top:0;">${this.t("backupDescription")}</p>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
               <button class="btn btn-secondary" id="btn-export-backup">📥 ${this.t("exportBackup")}</button>
               <label class="btn btn-secondary" style="cursor:pointer;">
@@ -2883,14 +2959,14 @@
               🔗 ${this.t("linkProvider")}
             </h2>
 
-            <p style="font-size:13px; color:#64748b; margin-top:0;">
+            <p style="font-size:13px; color:var(--secondary-text-color, #64748b); margin-top:0;">
               ${this.t("providersSubtitle")}
             </p>
 
             ${isLoading ? `
               <div class="form-group">
                 <label class="form-label">${this.t("selectTodoEntity")}</label>
-                <div style="font-size:13px; color:#64748b; padding:8px 0;">
+                <div style="font-size:13px; color:var(--secondary-text-color, #64748b); padding:8px 0;">
                   ⌛ ${this.t("loadingEntities")}
                 </div>
               </div>
@@ -2898,7 +2974,7 @@
               <div class="form-group">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                   <label class="form-label" style="margin:0;">${this.t("selectTodoEntity")}</label>
-                  <a href="#" id="btn-toggle-manual-provider" style="font-size:12px; color:#2563eb; text-decoration:none; cursor:pointer;">
+                  <a href="#" id="btn-toggle-manual-provider" style="font-size:12px; color:var(--primary-color, #2563eb); text-decoration:none; cursor:pointer;">
                     ✏️ ${this.t("enterManually")}
                   </a>
                 </div>
@@ -2915,12 +2991,12 @@
                 ${unlinked.length > 0 ? `
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                     <label class="form-label" style="margin:0;">${this.t("manualEntityId")}</label>
-                    <a href="#" id="btn-toggle-manual-provider" style="font-size:12px; color:#2563eb; text-decoration:none; cursor:pointer;">
+                    <a href="#" id="btn-toggle-manual-provider" style="font-size:12px; color:var(--primary-color, #2563eb); text-decoration:none; cursor:pointer;">
                       📋 ${this.t("chooseFromList")}
                     </a>
                   </div>
                 ` : `
-                  <div style="font-size:13px; color:#64748b; padding:8px 12px; background:rgba(0,0,0,0.03); border-radius:8px; margin-bottom:12px; border:1px solid rgba(0,0,0,0.06);">
+                  <div style="font-size:13px; color:var(--secondary-text-color, #64748b); padding:8px 12px; background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px; margin-bottom:12px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2)));">
                     ℹ️ ${this.t("noEntitiesFound")} ${this.t("enterManuallyHint")}
                   </div>
                   <label class="form-label">${this.t("manualEntityId")}</label>
@@ -2946,6 +3022,7 @@
     }
 
     _renderTaskModal() {
+      const isGamification = this._data.settings && this._data.settings.gamification_enabled !== false;
       const task = this._modalState.task;
       const rec = task.recurrence || {};
       const subtasks = task.subtasks || [];
@@ -2959,7 +3036,7 @@
             </h2>
 
             ${task.is_external ? `
-              <div style="font-size:13px; padding:8px 12px; background:#eff6ff; border-radius:8px; color:#1e40af; border:1px solid #bfdbfe; margin-bottom:8px;">
+              <div style="font-size:13px; padding:8px 12px; background:rgba(2, 132, 199, 0.12); border-radius:8px; color:var(--primary-color, #0284c7); border:1px solid rgba(2, 132, 199, 0.25); margin-bottom:8px;">
                 🔗 <strong>${this.t("externalTask")}:</strong> ${this._escape(task.provider_name || task.provider_entity_id)}
               </div>
             ` : ""}
@@ -2997,7 +3074,25 @@
               </div>
             </div>
 
-            <div class="form-grid-2">
+            ${isGamification ? `
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">${this.t("priority")}</label>
+                  <select class="select-input" id="m-task-priority">
+                    <option value="none" ${task.priority === "none" ? "selected" : ""}>${this.t("priorityNone")}</option>
+                    <option value="p1" ${task.priority === "p1" ? "selected" : ""}>${this.t("priorityP1")}</option>
+                    <option value="p2" ${task.priority === "p2" ? "selected" : ""}>${this.t("priorityP2")}</option>
+                    <option value="p3" ${task.priority === "p3" ? "selected" : ""}>${this.t("priorityP3")}</option>
+                    <option value="p4" ${task.priority === "p4" ? "selected" : ""}>${this.t("priorityP4")}</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">${this.t("pointsReward")}</label>
+                  <input type="number" class="text-input" id="m-task-points" value="${task.points !== undefined ? task.points : 10}">
+                </div>
+              </div>
+            ` : `
               <div class="form-group">
                 <label class="form-label">${this.t("priority")}</label>
                 <select class="select-input" id="m-task-priority">
@@ -3007,13 +3102,9 @@
                   <option value="p3" ${task.priority === "p3" ? "selected" : ""}>${this.t("priorityP3")}</option>
                   <option value="p4" ${task.priority === "p4" ? "selected" : ""}>${this.t("priorityP4")}</option>
                 </select>
+                <input type="hidden" id="m-task-points" value="${task.points !== undefined ? task.points : 10}">
               </div>
-
-              <div class="form-group">
-                <label class="form-label">${this.t("pointsReward")}</label>
-                <input type="number" class="text-input" id="m-task-points" value="${task.points || 10}">
-              </div>
-            </div>
+            `}
 
             <!-- Assignee & Rotation -->
             <div class="form-grid-2">
@@ -3039,7 +3130,7 @@
             </div>
 
             <!-- Recurrence -->
-            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+            <div style="border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); border-radius:10px; padding:12px; background:var(--secondary-background-color, rgba(127,127,127,0.04));">
               <label style="display:flex; align-items:center; gap:8px; font-weight:600; font-size:14px; cursor:pointer;">
                 <input type="checkbox" id="m-task-rec-enable" ${rec.enabled ? "checked" : ""}>
                 <span>${this.t("recurrenceSchedule")}</span>
@@ -3099,7 +3190,7 @@
                   </option>
                 `).join("")}
               </select>
-              <div id="m-task-thing-hint" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 12px; font-size:12px; color:#1e40af; margin-top:6px; display:${task.linked_thing_id ? "block" : "none"};">
+              <div id="m-task-thing-hint" style="background:rgba(2, 132, 199, 0.12); border:1px solid rgba(2, 132, 199, 0.25); border-radius:6px; padding:8px 12px; font-size:12px; color:var(--primary-color, #0284c7); margin-top:6px; display:${task.linked_thing_id ? "block" : "none"};">
                 ${this.t("taskLinkedThingHint")}
               </div>
             </div>
@@ -3143,7 +3234,7 @@
                 <button type="button" class="entity-picker-clear-btn" id="m-thing-external-entity-clear" title="${this.t("clearSelection")}" style="${thing.external_entity_id ? "display:flex;" : "display:none;"}">✕</button>
               </div>
               <div class="entity-dropdown-list" id="m-thing-external-entity-dropdown" style="display:none;"></div>
-              <div style="font-size:11px; color:#64748b; margin-top:3px;">${this.t("linkedEntityHint")}</div>
+              <div style="font-size:11px; color:var(--secondary-text-color, #64748b); margin-top:3px;">${this.t("linkedEntityHint")}</div>
             </div>
 
             <div class="form-grid-2">
@@ -3191,7 +3282,7 @@
                 <button type="button" class="entity-picker-clear-btn" id="m-thing-script-clear" title="${this.t("clearSelection")}" style="${thing.script_entity_id ? "display:flex;" : "display:none;"}">✕</button>
               </div>
               <div class="entity-dropdown-list" id="m-thing-script-dropdown" style="display:none;"></div>
-              <div style="font-size:11px; color:#64748b; margin-top:3px;">${this.t("completionScriptHint")}</div>
+              <div style="font-size:11px; color:var(--secondary-text-color, #64748b); margin-top:3px;">${this.t("completionScriptHint")}</div>
             </div>
 
             <div class="modal-footer">
@@ -3204,6 +3295,7 @@
     }
 
     _renderUserModal() {
+      const isGamification = this._data.settings && this._data.settings.gamification_enabled !== false;
       const user = this._modalState.user;
       return `
         <div class="modal-backdrop" id="modal-backdrop">
@@ -3223,10 +3315,14 @@
               <input type="color" id="m-user-color" value="${user.color || "#3b82f6"}" style="width:60px; height:36px; border:none; border-radius:6px; cursor:pointer;">
             </div>
 
-            <div class="form-group">
-              <label class="form-label">${this.t("points")}</label>
-              <input type="number" class="text-input" id="m-user-points" value="${user.points || 0}">
-            </div>
+            ${isGamification ? `
+              <div class="form-group">
+                <label class="form-label">${this.t("points")}</label>
+                <input type="number" class="text-input" id="m-user-points" value="${user.points || 0}">
+              </div>
+            ` : `
+              <input type="hidden" id="m-user-points" value="${user.points || 0}">
+            `}
 
             <div class="modal-footer">
               <button class="btn btn-secondary" id="modal-cancel">${this.t("cancel")}</button>
@@ -3305,6 +3401,14 @@
           this._render();
         });
       });
+
+      const btnGotoSettings = root.getElementById("btn-goto-settings-from-leaderboard");
+      if (btnGotoSettings) {
+        btnGotoSettings.addEventListener("click", () => {
+          this._currentTab = "settings";
+          this._render();
+        });
+      }
 
       // Filter pills
       root.querySelectorAll(".filter-pill").forEach(pill => {
@@ -3543,6 +3647,14 @@
       const inputImport = root.getElementById("input-import-backup");
       if (inputImport) {
         inputImport.addEventListener("change", (e) => this._importBackup(e.target));
+      }
+
+      const prefGamification = root.getElementById("pref-gamification");
+      if (prefGamification) {
+        prefGamification.addEventListener("change", (e) => {
+          const group = root.getElementById("pref-default-points-group");
+          if (group) group.style.display = e.target.checked ? "flex" : "none";
+        });
       }
 
       const btnSavePrefs = root.getElementById("btn-save-prefs");
