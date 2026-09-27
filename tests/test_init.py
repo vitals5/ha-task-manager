@@ -148,6 +148,47 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
         for call in hass.async_create_task.call_args_list:
             call[0][0].close()
 
+    async def test_ws_get_ha_numeric_entities_and_scripts(self):
+        """Test ws_get_ha_numeric_entities and ws_get_ha_scripts return valid entities."""
+        hass = MagicMock()
+        mock_states = [
+            MagicMock(entity_id="sensor.vacuum_brush", state="42.5", attributes={"unit_of_measurement": "%", "friendly_name": "Main Brush"}),
+            MagicMock(entity_id="number.fan_speed", state="unavailable", attributes={"friendly_name": "Fan Speed"}),
+            MagicMock(entity_id="counter.water_filter_cycles", state="12", attributes={"friendly_name": "Cycles"}),
+            MagicMock(entity_id="script.clean_now", state="off", attributes={"friendly_name": "Clean Now"}),
+            MagicMock(entity_id="switch.kitchen_light", state="on", attributes={"friendly_name": "Kitchen Light"}),
+            MagicMock(entity_id="sensor.task_manager_user_1_points", state="100", attributes={}),
+        ]
+        hass.states.async_all.return_value = mock_states
+
+        connection = MagicMock()
+        connection.send_result = MagicMock()
+
+        handler_num = ws_registered_handlers.get("ws_get_ha_numeric_entities")
+        self.assertIsNotNone(handler_num)
+        await handler_num(hass, connection, {"id": 1, "type": "task_manager/get_ha_numeric_entities"})
+
+        connection.send_result.assert_called_once()
+        res_num = connection.send_result.call_args[0][1]
+        num_eids = [e["entity_id"] for e in res_num["entities"]]
+        self.assertIn("sensor.vacuum_brush", num_eids)
+        self.assertIn("number.fan_speed", num_eids)
+        self.assertIn("counter.water_filter_cycles", num_eids)
+        self.assertNotIn("switch.kitchen_light", num_eids)
+        self.assertNotIn("sensor.task_manager_user_1_points", num_eids)
+
+        connection.send_result.reset_mock()
+        handler_script = ws_registered_handlers.get("ws_get_ha_scripts")
+        self.assertIsNotNone(handler_script)
+        await handler_script(hass, connection, {"id": 2, "type": "task_manager/get_ha_scripts"})
+
+        connection.send_result.assert_called_once()
+        res_scripts = connection.send_result.call_args[0][1]
+        script_eids = [s["entity_id"] for s in res_scripts["scripts"]]
+        self.assertIn("script.clean_now", script_eids)
+        self.assertNotIn("switch.kitchen_light", script_eids)
+
 
 if __name__ == "__main__":
     unittest.main()
+

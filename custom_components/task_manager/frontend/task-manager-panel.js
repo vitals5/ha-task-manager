@@ -179,7 +179,7 @@
       mustStartWithTodo: "Entity ID must start with 'todo.' (e.g. todo.shopping_list)",
       optional: "optional",
       linkedEntity: "Linked Home Assistant Entity (optional)",
-      linkedEntityPlaceholder: "e.g. sensor.p50_pro_ultra_main_brush_left",
+      linkedEntityPlaceholder: "Search or enter entity (e.g. sensor.vacuum_filter)",
       linkedEntityHint: "Automatically syncs this Thing's value with an external numeric sensor.",
       thresholdCondition: "Trigger Condition",
       thresholdOperatorGte: "≥ Greater than or equal (counts up, e.g. filter days)",
@@ -189,8 +189,11 @@
       waitingForThreshold: "Waiting for threshold",
       thresholdTriggered: "Threshold reached",
       completionScript: "Completion Script (optional)",
-      completionScriptPlaceholder: "e.g. script.reset_vacuum_brush",
-      completionScriptHint: "Home Assistant script automatically executed when a linked task is completed (e.g. to reset counters)."
+      completionScriptPlaceholder: "Search or enter script (e.g. script.reset_vacuum)",
+      completionScriptHint: "Home Assistant script automatically executed when a linked task is completed (e.g. to reset counters).",
+      searchEntityPlaceholder: "Search entity by name or ID...",
+      noMatchingEntities: "No matching entities found",
+      clearSelection: "Clear"
     },
     de: {
       appName: "Task Manager",
@@ -357,7 +360,7 @@
       mustStartWithTodo: "Die Entitäts-ID muss mit 'todo.' beginnen (z. B. todo.einkaufsliste)",
       optional: "optional",
       linkedEntity: "Verknüpfte Home Assistant Entität (optional)",
-      linkedEntityPlaceholder: "z. B. sensor.p50_pro_ultra_main_brush_left",
+      linkedEntityPlaceholder: "Entität suchen oder eingeben (z. B. sensor.vacuum_filter)",
       linkedEntityHint: "Synchronisiert den Wert dieses Things automatisch mit einem externen numerischen Sensor.",
       thresholdCondition: "Trigger-Bedingung",
       thresholdOperatorGte: "≥ Größer oder gleich (Zähler zählt hoch, z. B. Filter-Tage)",
@@ -367,8 +370,11 @@
       waitingForThreshold: "Wartet auf Schwellwert",
       thresholdTriggered: "Schwellwert erreicht",
       completionScript: "Ausführungsskript bei Erledigung (optional)",
-      completionScriptPlaceholder: "z. B. script.reset_vacuum_brush",
-      completionScriptHint: "Home Assistant Skript, das automatisch ausgeführt wird, sobald eine verknüpfte Aufgabe erledigt wird (z. B. zum Zurücksetzen von Zählern)."
+      completionScriptPlaceholder: "Skript suchen oder eingeben (z. B. script.reset_vacuum)",
+      completionScriptHint: "Home Assistant Skript, das automatisch ausgeführt wird, sobald eine verknüpfte Aufgabe erledigt wird (z. B. zum Zurücksetzen von Zählern).",
+      searchEntityPlaceholder: "Entität nach Name oder ID suchen...",
+      noMatchingEntities: "Keine passenden Entitäten gefunden",
+      clearSelection: "Löschen"
     }
   };
 
@@ -698,9 +704,32 @@
       this._render();
     }
 
-    openThingModal(thing = null) {
+    async openThingModal(thing = null) {
       this._modalState = { type: "thing", thing: thing || this._getNewThingTemplate() };
+      this._availableNumericEntities = this._getNumericEntities();
+      this._availableScriptEntities = this._getScriptEntities();
       this._render();
+
+      try {
+        const [numRes, scriptRes] = await Promise.all([
+          this._hass ? this._hass.callWS({ type: "task_manager/get_ha_numeric_entities" }).catch(() => null) : Promise.resolve(null),
+          this._hass ? this._hass.callWS({ type: "task_manager/get_ha_scripts" }).catch(() => null) : Promise.resolve(null)
+        ]);
+        if (numRes && Array.isArray(numRes.entities)) {
+          const map = new Map();
+          for (const ent of this._availableNumericEntities) map.set(ent.entity_id, ent);
+          for (const ent of numRes.entities) map.set(ent.entity_id, ent);
+          this._availableNumericEntities = Array.from(map.values()).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        }
+        if (scriptRes && Array.isArray(scriptRes.scripts)) {
+          const map = new Map();
+          for (const ent of this._availableScriptEntities) map.set(ent.entity_id, ent);
+          for (const ent of scriptRes.scripts) map.set(ent.entity_id, ent);
+          this._availableScriptEntities = Array.from(map.values()).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        }
+      } catch (err) {
+        console.debug("Task Manager: Could not query backend entities", err);
+      }
     }
 
     openUserModal(user = null) {
@@ -769,7 +798,11 @@
         for (const [entityId, stateObj] of Object.entries(this._hass.states)) {
           if (entityId.startsWith("task_manager") || entityId.startsWith("sensor.task_manager")) continue;
           const s = stateObj ? stateObj.state : "";
-          const isNum = !isNaN(parseFloat(s)) || (stateObj && stateObj.attributes && Boolean(stateObj.attributes.unit_of_measurement));
+          const isNum = !isNaN(parseFloat(s)) ||
+            (stateObj && stateObj.attributes && Boolean(stateObj.attributes.unit_of_measurement)) ||
+            entityId.startsWith("input_number.") ||
+            entityId.startsWith("number.") ||
+            entityId.startsWith("counter.");
           if (isNum) {
             const name = (stateObj.attributes && stateObj.attributes.friendly_name) || entityId;
             const unit = (stateObj.attributes && stateObj.attributes.unit_of_measurement) || "";
@@ -777,7 +810,7 @@
           }
         }
       }
-      list.sort((a, b) => a.name.localeCompare(b.name));
+      list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       return list;
     }
 
@@ -1651,6 +1684,114 @@
             font-size: 13px;
             font-weight: 600;
             color: var(--secondary-text-color, #475569);
+          }
+
+          /* Entity Combobox / Dropdown */
+          .entity-picker-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+          }
+
+          .entity-picker-input {
+            width: 100%;
+            padding-right: 32px !important;
+          }
+
+          .entity-picker-clear-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: none;
+            background: var(--divider-color, #cbd5e1);
+            color: var(--secondary-text-color, #64748b);
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: all 0.15s ease;
+            z-index: 2;
+          }
+
+          .entity-picker-clear-btn:hover {
+            background: #ef4444;
+            color: #ffffff;
+          }
+
+          .entity-dropdown-list {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            max-height: 220px;
+            overflow-y: auto;
+            background: var(--card-background-color, #ffffff);
+            border: 1px solid var(--divider-color, #cbd5e1);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            z-index: 1050;
+          }
+
+          .entity-dropdown-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border-bottom: 1px solid var(--divider-color, #f1f5f9);
+            transition: background 0.1s ease;
+          }
+
+          .entity-dropdown-item:last-child {
+            border-bottom: none;
+          }
+
+          .entity-dropdown-item:hover, .entity-dropdown-item.selected {
+            background: var(--secondary-background-color, #f1f5f9);
+          }
+
+          .entity-dropdown-name {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--primary-text-color, #0f172a);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .entity-dropdown-id {
+            font-size: 11px;
+            color: var(--secondary-text-color, #64748b);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .entity-dropdown-badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: var(--secondary-background-color, #e2e8f0);
+            color: var(--secondary-text-color, #475569);
+            white-space: nowrap;
+            flex-shrink: 0;
+          }
+
+          .entity-dropdown-empty {
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--secondary-text-color, #64748b);
           }
 
           .modal-footer {
@@ -2595,8 +2736,6 @@
 
     _renderThingModal() {
       const thing = this._modalState.thing;
-      const numEntities = this._getNumericEntities();
-      const scriptEntities = this._getScriptEntities();
       return `
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
@@ -2610,12 +2749,20 @@
             </div>
 
             <!-- Optional Linked External Numeric Entity -->
-            <div class="form-group">
+            <div class="form-group" style="position:relative;">
               <label class="form-label">${this.t("linkedEntity")}</label>
-              <input type="text" list="ha-numeric-entities" class="text-input" id="m-thing-external-entity" value="${this._escape(thing.external_entity_id || "")}" placeholder="${this.t("linkedEntityPlaceholder")}">
-              <datalist id="ha-numeric-entities">
-                ${numEntities.map(e => `<option value="${e.entity_id}">${this._escape(e.name)} (${e.state} ${e.unit || ""})</option>`).join("")}
-              </datalist>
+              <div class="entity-picker-wrapper">
+                <input
+                  type="text"
+                  class="text-input entity-picker-input"
+                  id="m-thing-external-entity"
+                  value="${this._escape(thing.external_entity_id || "")}"
+                  placeholder="${this.t("linkedEntityPlaceholder")}"
+                  autocomplete="off"
+                >
+                <button type="button" class="entity-picker-clear-btn" id="m-thing-external-entity-clear" title="${this.t("clearSelection")}" style="${thing.external_entity_id ? "display:flex;" : "display:none;"}">✕</button>
+              </div>
+              <div class="entity-dropdown-list" id="m-thing-external-entity-dropdown" style="display:none;"></div>
               <div style="font-size:11px; color:#64748b; margin-top:3px;">${this.t("linkedEntityHint")}</div>
             </div>
 
@@ -2650,12 +2797,20 @@
             </div>
 
             <!-- Optional Completion Script -->
-            <div class="form-group">
+            <div class="form-group" style="position:relative;">
               <label class="form-label">${this.t("completionScript")}</label>
-              <input type="text" list="ha-script-entities" class="text-input" id="m-thing-script" value="${this._escape(thing.script_entity_id || "")}" placeholder="${this.t("completionScriptPlaceholder")}">
-              <datalist id="ha-script-entities">
-                ${scriptEntities.map(s => `<option value="${s.entity_id}">${this._escape(s.name)} (${s.entity_id})</option>`).join("")}
-              </datalist>
+              <div class="entity-picker-wrapper">
+                <input
+                  type="text"
+                  class="text-input entity-picker-input"
+                  id="m-thing-script"
+                  value="${this._escape(thing.script_entity_id || "")}"
+                  placeholder="${this.t("completionScriptPlaceholder")}"
+                  autocomplete="off"
+                >
+                <button type="button" class="entity-picker-clear-btn" id="m-thing-script-clear" title="${this.t("clearSelection")}" style="${thing.script_entity_id ? "display:flex;" : "display:none;"}">✕</button>
+              </div>
+              <div class="entity-dropdown-list" id="m-thing-script-dropdown" style="display:none;"></div>
               <div style="font-size:11px; color:#64748b; margin-top:3px;">${this.t("completionScriptHint")}</div>
             </div>
 
@@ -3150,29 +3305,33 @@
         });
       }
 
-      // Modal External Entity Auto-fill for Thing
-      const extEntityInput = root.getElementById("m-thing-external-entity");
-      if (extEntityInput) {
-        const numEntities = this._getNumericEntities();
-        extEntityInput.addEventListener("input", (e) => {
-          const val = e.target.value.trim();
-          const match = numEntities.find(ent => ent.entity_id === val);
-          if (match) {
-            const nameEl = root.getElementById("m-thing-name");
-            if (nameEl && !nameEl.value.trim()) nameEl.value = match.name;
-            const unitEl = root.getElementById("m-thing-unit");
-            if (unitEl && !unitEl.value.trim() && match.unit) unitEl.value = match.unit;
-            const curEl = root.getElementById("m-thing-current");
-            if (curEl && (!curEl.value || curEl.value === "0")) curEl.value = match.state;
-            const opEl = root.getElementById("m-thing-operator");
-            const targetEl = root.getElementById("m-thing-target");
-            if (match.unit === "%" || /brush|filter|battery|life|rest/i.test(match.entity_id)) {
-              if (opEl) opEl.value = "<=";
-              if (targetEl && (!targetEl.value || targetEl.value === "30" || targetEl.value === "100")) targetEl.value = "0";
-            }
+      // Modal External Entity and Script Pickers for Thing
+      this._setupEntityPicker({
+        inputId: "m-thing-external-entity",
+        clearBtnId: "m-thing-external-entity-clear",
+        dropdownId: "m-thing-external-entity-dropdown",
+        getEntities: () => this._availableNumericEntities || this._getNumericEntities(),
+        onSelect: (ent) => {
+          if (ent) {
+            this._applyNumericEntityAutoFill(ent);
           }
-        });
-      }
+        },
+        renderBadge: (ent) => {
+          if (ent && ent.state !== undefined && ent.state !== null && ent.state !== "") {
+            return `<div class="entity-dropdown-badge">${this._escape(String(ent.state))} ${this._escape(ent.unit || "")}</div>`;
+          }
+          return "";
+        }
+      });
+
+      this._setupEntityPicker({
+        inputId: "m-thing-script",
+        clearBtnId: "m-thing-script-clear",
+        dropdownId: "m-thing-script-dropdown",
+        getEntities: () => this._availableScriptEntities || this._getScriptEntities(),
+        onSelect: null,
+        renderBadge: () => `<div class="entity-dropdown-badge" style="background:#f5f3ff; color:#7c3aed;">script</div>`
+      });
 
       // Modal Save Thing
       const btnSaveThing = root.getElementById("modal-save-thing");
@@ -3245,6 +3404,142 @@
 
           await this._callWS("task_manager/save_label", { label: labelPayload });
           this.closeModal();
+        });
+      }
+    }
+
+    _applyNumericEntityAutoFill(match) {
+      if (!match) return;
+      const root = this.shadowRoot;
+      const nameEl = root.getElementById("m-thing-name");
+      if (nameEl && !nameEl.value.trim() && match.name) nameEl.value = match.name;
+      const unitEl = root.getElementById("m-thing-unit");
+      if (unitEl && !unitEl.value.trim() && match.unit) unitEl.value = match.unit;
+      const curEl = root.getElementById("m-thing-current");
+      if (curEl && (!curEl.value || curEl.value === "0") && match.state !== undefined) {
+        const parsed = parseFloat(match.state);
+        curEl.value = !isNaN(parsed) ? parsed : match.state;
+      }
+      const opEl = root.getElementById("m-thing-operator");
+      const targetEl = root.getElementById("m-thing-target");
+      if (match.unit === "%" || /brush|filter|battery|life|rest/i.test(match.entity_id)) {
+        if (opEl) opEl.value = "<=";
+        if (targetEl && (!targetEl.value || targetEl.value === "30" || targetEl.value === "100")) targetEl.value = "0";
+      }
+    }
+
+    _setupEntityPicker({ inputId, clearBtnId, dropdownId, getEntities, onSelect, renderBadge }) {
+      const root = this.shadowRoot;
+      const inputEl = root.getElementById(inputId);
+      const clearBtnEl = root.getElementById(clearBtnId);
+      const dropdownEl = root.getElementById(dropdownId);
+      if (!inputEl || !dropdownEl) return;
+
+      const filterAndRender = () => {
+        const query = (inputEl.value || "").trim().toLowerCase();
+        const allEntities = getEntities ? getEntities() : [];
+        let filtered = allEntities;
+
+        if (query) {
+          filtered = allEntities.filter(e => {
+            const eid = (e.entity_id || "").toLowerCase();
+            const name = (e.name || "").toLowerCase();
+            return eid.includes(query) || name.includes(query);
+          });
+          filtered.sort((a, b) => {
+            const aName = (a.name || "").toLowerCase();
+            const bName = (b.name || "").toLowerCase();
+            const aId = (a.entity_id || "").toLowerCase();
+            const bId = (b.entity_id || "").toLowerCase();
+            const aStarts = aName.startsWith(query) || aId.startsWith(query);
+            const bStarts = bName.startsWith(query) || bId.startsWith(query);
+            if (aStarts && !bStarts) return -1;
+            if (!aStarts && bStarts) return 1;
+            return aName.localeCompare(bName);
+          });
+        }
+
+        const maxDisplay = 50;
+        const displayItems = filtered.slice(0, maxDisplay);
+
+        if (displayItems.length === 0) {
+          dropdownEl.innerHTML = `<div class="entity-dropdown-empty">${this.t("noMatchingEntities")}</div>`;
+        } else {
+          dropdownEl.innerHTML = displayItems.map(ent => `
+            <div class="entity-dropdown-item ${inputEl.value.trim() === ent.entity_id ? "selected" : ""}" data-entity-id="${this._escape(ent.entity_id)}">
+              <div style="min-width:0; flex:1;">
+                <div class="entity-dropdown-name">${this._escape(ent.name || ent.entity_id)}</div>
+                <div class="entity-dropdown-id">${this._escape(ent.entity_id)}</div>
+              </div>
+              ${renderBadge ? renderBadge(ent) : ""}
+            </div>
+          `).join("");
+
+          dropdownEl.querySelectorAll(".entity-dropdown-item").forEach(item => {
+            item.addEventListener("mousedown", (e) => {
+              e.preventDefault();
+              const entId = item.getAttribute("data-entity-id");
+              const selectedEnt = allEntities.find(e => e.entity_id === entId) || { entity_id: entId, name: entId };
+              inputEl.value = selectedEnt.entity_id;
+              if (clearBtnEl) clearBtnEl.style.display = "flex";
+              dropdownEl.style.display = "none";
+              if (onSelect) onSelect(selectedEnt);
+            });
+          });
+        }
+
+        dropdownEl.style.display = "block";
+      };
+
+      // Prevent blur on input when scrolling or interacting with dropdown
+      dropdownEl.addEventListener("mousedown", (e) => {
+        if (!e.target.closest(".entity-dropdown-item")) {
+          e.preventDefault();
+        }
+      });
+
+      inputEl.addEventListener("input", () => {
+        if (clearBtnEl) clearBtnEl.style.display = inputEl.value.trim() ? "flex" : "none";
+        filterAndRender();
+        const all = getEntities ? getEntities() : [];
+        const match = all.find(e => e.entity_id.toLowerCase() === inputEl.value.trim().toLowerCase());
+        if (match && onSelect) onSelect(match);
+      });
+
+      inputEl.addEventListener("focus", () => {
+        filterAndRender();
+      });
+
+      inputEl.addEventListener("click", () => {
+        if (dropdownEl.style.display === "none") {
+          filterAndRender();
+        }
+      });
+
+      inputEl.addEventListener("blur", () => {
+        setTimeout(() => {
+          dropdownEl.style.display = "none";
+        }, 200);
+      });
+
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          dropdownEl.style.display = "none";
+        }
+      });
+
+      if (clearBtnEl) {
+        clearBtnEl.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+        });
+        clearBtnEl.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          inputEl.value = "";
+          clearBtnEl.style.display = "none";
+          dropdownEl.style.display = "none";
+          if (onSelect) onSelect(null);
+          inputEl.focus();
         });
       }
     }

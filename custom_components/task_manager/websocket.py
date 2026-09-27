@@ -329,6 +329,8 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
             except (ValueError, TypeError):
                 if state.attributes.get("unit_of_measurement"):
                     is_num = True
+            if not is_num and (eid.startswith("input_number.") or eid.startswith("number.") or eid.startswith("counter.")):
+                is_num = True
             if is_num:
                 entities.append({
                     "entity_id": eid,
