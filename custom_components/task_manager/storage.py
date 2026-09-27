@@ -536,6 +536,7 @@ class TaskManagerData:
             "target_value": target_value,
             "threshold_operator": operator,
             "external_entity_id": thing_data.get("external_entity_id") or None,
+            "script_entity_id": thing_data.get("script_entity_id") or None,
             "initial_value": float(thing_data.get("initial_value", 100 if operator == THRESHOLD_OP_LTE else 0)),
             "unit": thing_data.get("unit", "units"),
             "auto_task_creation": bool(thing_data.get("auto_task_creation", False)),
@@ -563,6 +564,9 @@ class TaskManagerData:
 
         if "external_entity_id" in updates:
             thing["external_entity_id"] = updates["external_entity_id"] or None
+
+        if "script_entity_id" in updates:
+            thing["script_entity_id"] = updates["script_entity_id"] or None
 
         if is_thing_threshold_reached(thing):
             today_str = dt_util.now().date().strftime("%Y-%m-%d")
@@ -1009,12 +1013,18 @@ class TaskManagerStorage:
                 thing = self.data.get_thing(linked_thing_id)
                 if thing:
                     if thing_action == THING_ACTION_RESET:
-                        thing["current_value"] = 0
+                        operator = thing.get("threshold_operator", THRESHOLD_OP_GTE)
+                        if operator in (THRESHOLD_OP_LTE, "lte", "down", "countdown", "<"):
+                            thing["current_value"] = float(thing.get("initial_value", 100))
+                        else:
+                            thing["current_value"] = 0.0
                         thing["last_reset"] = now_str
                     elif thing_action == THING_ACTION_INCREMENT:
                         thing["current_value"] = thing.get("current_value", 0) + 1
                     elif thing_action == THING_ACTION_DECREMENT:
                         thing["current_value"] = max(0, thing.get("current_value", 0) - 1)
+                    if thing.get("script_entity_id"):
+                        await self._async_run_thing_script(thing.get("script_entity_id"), thing)
 
             await self.async_save()
             for t in self.data.get_all_tasks(include_external=True):
@@ -1025,8 +1035,38 @@ class TaskManagerStorage:
         # Internal task
         task = self.data.complete_task(task_id, user_id=user_id)
         if task:
+            linked_thing_id = task.get("linked_thing_id")
+            if linked_thing_id:
+                thing = self.data.get_thing(linked_thing_id)
+                if thing and thing.get("script_entity_id"):
+                    await self._async_run_thing_script(thing.get("script_entity_id"), thing)
             await self.async_save()
         return task
+
+    async def _async_run_thing_script(self, script_entity_id: str, thing: dict[str, Any]) -> None:
+        """Execute the configured Home Assistant script for a thing upon task completion."""
+        if not script_entity_id or not self.hass or not hasattr(self.hass, "services"):
+            return
+        script_eid = script_entity_id.strip()
+        _LOGGER.info(
+            "Task Manager: Triggering script '%s' after completing task for thing '%s'",
+            script_eid,
+            thing.get("name"),
+        )
+        try:
+            if script_eid.startswith("script."):
+                await self.hass.services.async_call(
+                    "script", "turn_on", {"entity_id": script_eid}, blocking=False
+                )
+            else:
+                await self.hass.services.async_call("script", script_eid, {}, blocking=False)
+            self.data._log_activity("thing_script_triggered", {
+                "thing_id": thing.get("id"),
+                "thing_name": thing.get("name"),
+                "script_entity_id": script_eid,
+            })
+        except Exception as err:
+            _LOGGER.error("Task Manager: Failed to run completion script '%s': %s", script_eid, err)
 
     async def async_reset_task(self, task_id: str) -> dict[str, Any] | None:
         """Reset an internal or external task."""

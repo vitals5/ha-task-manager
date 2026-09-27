@@ -139,6 +139,10 @@
         "external_entity_id": {
           "name": "External Entity ID",
           "description": "Optional numeric Home Assistant entity to automatically sync from."
+        },
+        "script_entity_id": {
+          "name": "Completion Script",
+          "description": "Optional Home Assistant script executed when completing a linked task."
         }
       }
     },

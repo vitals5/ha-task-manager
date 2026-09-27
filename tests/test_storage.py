@@ -6,7 +6,7 @@ import importlib.util
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # Mock homeassistant module hierarchy for local testing
 ha_mock = MagicMock()
@@ -53,6 +53,7 @@ sys.modules["custom_components.task_manager.storage"] = storage_mod
 storage_spec.loader.exec_module(storage_mod)
 
 TaskManagerData = storage_mod.TaskManagerData
+TaskManagerStorage = storage_mod.TaskManagerStorage
 calculate_next_due_date = storage_mod.calculate_next_due_date
 is_thing_threshold_reached = storage_mod.is_thing_threshold_reached
 FAR_FUTURE_DUE_DATE = const_mod.FAR_FUTURE_DUE_DATE
@@ -418,6 +419,85 @@ class TestTaskManagerStorage(unittest.TestCase):
         updated_task = self.data.get_task(task["id"])
         self.assertEqual(updated_task["due_date"], "2026-10-03")
         self.assertEqual(updated_task["status"], "pending")
+
+    def test_thing_script_entity_crud(self):
+        """Test creating and updating Thing with script_entity_id."""
+        thing = self.data.create_thing({
+            "name": "Roborock Main Brush",
+            "script_entity_id": "script.reset_main_brush",
+        })
+        self.assertEqual(thing["script_entity_id"], "script.reset_main_brush")
+
+        # Update script entity
+        updated = self.data.update_thing(thing["id"], {"script_entity_id": "script.custom_reset"})
+        self.assertEqual(updated["script_entity_id"], "script.custom_reset")
+
+        # Remove script entity
+        updated2 = self.data.update_thing(thing["id"], {"script_entity_id": None})
+        self.assertIsNone(updated2["script_entity_id"])
+
+
+class TestTaskManagerStorageAsync(unittest.IsolatedAsyncioTestCase):
+    """Async test suite for Task Manager storage actions and script triggers."""
+
+    async def test_task_completion_triggers_thing_script(self):
+        """Test completing a task linked to a Thing automatically runs its script entity."""
+        hass = MagicMock()
+        hass.services = MagicMock()
+        hass.services.async_call = AsyncMock()
+
+        storage = TaskManagerStorage(hass)
+        storage.async_save = AsyncMock()
+
+        thing = storage.data.create_thing({
+            "name": "Roborock Brush",
+            "script_entity_id": "script.reset_robot_brush",
+            "threshold_operator": "<=",
+            "target_value": 0,
+            "current_value": 0,
+        })
+
+        task = storage.data.create_task({
+            "title": "Clean Robot Brush",
+            "linked_thing_id": thing["id"],
+        })
+
+        # Complete task via async_complete_task
+        completed_task = await storage.async_complete_task(task["id"])
+        self.assertIsNotNone(completed_task)
+
+        # Verify script service was called
+        hass.services.async_call.assert_called_once_with(
+            "script", "turn_on", {"entity_id": "script.reset_robot_brush"}, blocking=False
+        )
+
+        # Verify activity log
+        log_actions = [entry["action"] for entry in storage.data.activity_log]
+        self.assertIn("thing_script_triggered", log_actions)
+
+    async def test_task_completion_triggers_thing_script_custom_name(self):
+        """Test script call when script_entity_id does not have script. prefix."""
+        hass = MagicMock()
+        hass.services = MagicMock()
+        hass.services.async_call = AsyncMock()
+
+        storage = TaskManagerStorage(hass)
+        storage.async_save = AsyncMock()
+
+        thing = storage.data.create_thing({
+            "name": "Filter",
+            "script_entity_id": "custom_filter_reset",
+        })
+
+        task = storage.data.create_task({
+            "title": "Replace Filter",
+            "linked_thing_id": thing["id"],
+        })
+
+        await storage.async_complete_task(task["id"])
+        hass.services.async_call.assert_called_once_with(
+            "script", "custom_filter_reset", {}, blocking=False
+        )
 
 
 if __name__ == "__main__":

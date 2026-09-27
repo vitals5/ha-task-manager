@@ -139,6 +139,10 @@
         "external_entity_id": {
           "name": "Externe Entitäts-ID",
           "description": "Optionale numerische Home Assistant Entität zum automatischen Synchronisieren."
+        },
+        "script_entity_id": {
+          "name": "Ausführungsskript bei Erledigung",
+          "description": "Optionales Home Assistant Skript, das bei Erledigung einer verknüpften Aufgabe ausgeführt wird."
         }
       }
     },

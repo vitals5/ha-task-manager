@@ -153,6 +153,35 @@ update_thing:
       default: false
       selector:
         boolean:
+    target_value:
+      name: Target / Threshold Value
+      description: Target threshold for linked tasks.
+      required: false
+      selector:
+        number:
+          step: any
+    threshold_operator:
+      name: Threshold Operator
+      description: Operator condition (>= or <=).
+      required: false
+      selector:
+        select:
+          options:
+            - ">="
+            - "<="
+    external_entity_id:
+      name: External Entity ID
+      description: Home Assistant numeric entity to link.
+      required: false
+      selector:
+        entity:
+    script_entity_id:
+      name: Completion Script Entity
+      description: Home Assistant script entity to execute when completing a linked task.
+      required: false
+      selector:
+        entity:
+          domain: script
 
 award_points:
   name: Award Points

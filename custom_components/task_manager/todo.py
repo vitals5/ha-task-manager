@@ -223,13 +223,12 @@ class TaskManagerTodoListEntity(TodoListEntity):
 
         # Check status transition
         if item.status == TodoItemStatus.COMPLETED and task.get("status") != "completed":
-            self._storage.data.complete_task(item.uid, user_id=self._user_id)
+            await self._storage.async_complete_task(item.uid, user_id=self._user_id)
         elif item.status == TodoItemStatus.NEEDS_ACTION and task.get("status") == "completed":
-            self._storage.data.reset_task(item.uid)
+            await self._storage.async_reset_task(item.uid)
         elif updates:
             self._storage.data.update_task(item.uid, updates)
-
-        await self._storage.async_save()
+            await self._storage.async_save()
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete tasks from Task Manager."""

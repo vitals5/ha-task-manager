@@ -59,7 +59,8 @@ SCHEMA_UPDATE_THING = vol.Schema({
     vol.Optional("target_value"): vol.Coerce(float),
     vol.Optional("threshold_value"): vol.Coerce(float),
     vol.Optional("threshold_operator"): vol.In([">=", "<=", "gte", "lte"]),
-    vol.Optional("external_entity_id"): vol.Any(cv.entity_id, None),
+    vol.Optional("external_entity_id"): vol.Any(cv.entity_id, cv.string, None),
+    vol.Optional("script_entity_id"): vol.Any(cv.entity_id, cv.string, None),
 })
 
 SCHEMA_AWARD_POINTS = vol.Schema({
@@ -96,8 +97,7 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
                     break
 
         if target_id:
-            storage.data.complete_task(target_id, user_id=user_id)
-            await storage.async_save()
+            await storage.async_complete_task(target_id, user_id=user_id)
         else:
             _LOGGER.warning("Task Manager: Task '%s' not found to complete", task_id or task_title)
 
@@ -114,8 +114,7 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
                     break
 
         if target_id:
-            storage.data.reset_task(target_id)
-            await storage.async_save()
+            await storage.async_reset_task(target_id)
 
     async def handle_delete_task(call: ServiceCall) -> None:
         """Handle deleting a task via service."""
@@ -127,7 +126,7 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
         """Handle updating or resetting a Thing via service."""
         thing_id = call.data["thing_id"]
         prop_updates = {}
-        for k in ("target_value", "threshold_value", "threshold_operator", "external_entity_id"):
+        for k in ("target_value", "threshold_value", "threshold_operator", "external_entity_id", "script_entity_id"):
             if k in call.data:
                 prop_updates[k] = call.data[k]
         if prop_updates:

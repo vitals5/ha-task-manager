@@ -301,6 +301,7 @@ class TaskManagerThingSensor(SensorEntity):
             "target_value": target,
             "threshold_operator": thing.get("threshold_operator", ">="),
             "external_entity_id": thing.get("external_entity_id"),
+            "script_entity_id": thing.get("script_entity_id"),
             "threshold_reached": is_thing_threshold_reached(thing),
             "progress_percent": pct,
             "auto_task_creation": thing.get("auto_task_creation", False),

@@ -187,7 +187,10 @@
       thresholdValue: "Trigger Threshold Value",
       taskLinkedThingHint: "⚡ This task is linked to a Thing with threshold. It becomes due on the day the threshold is reached. A schedule is optional as a fallback.",
       waitingForThreshold: "Waiting for threshold",
-      thresholdTriggered: "Threshold reached"
+      thresholdTriggered: "Threshold reached",
+      completionScript: "Completion Script (optional)",
+      completionScriptPlaceholder: "e.g. script.reset_vacuum_brush",
+      completionScriptHint: "Home Assistant script automatically executed when a linked task is completed (e.g. to reset counters)."
     },
     de: {
       appName: "Task Manager",
@@ -362,7 +365,10 @@
       thresholdValue: "Trigger-Schwellwert",
       taskLinkedThingHint: "⚡ Diese Aufgabe ist an ein Thing mit Schwellwert gekoppelt. Sie wird am Tag der Schwellwert-Überschreitung fällig. Ein Zeitplan ist optional als Fallback.",
       waitingForThreshold: "Wartet auf Schwellwert",
-      thresholdTriggered: "Schwellwert erreicht"
+      thresholdTriggered: "Schwellwert erreicht",
+      completionScript: "Ausführungsskript bei Erledigung (optional)",
+      completionScriptPlaceholder: "z. B. script.reset_vacuum_brush",
+      completionScriptHint: "Home Assistant Skript, das automatisch ausgeführt wird, sobald eine verknüpfte Aufgabe erledigt wird (z. B. zum Zurücksetzen von Zählern)."
     }
   };
 
@@ -775,6 +781,20 @@
       return list;
     }
 
+    _getScriptEntities() {
+      const list = [];
+      if (this._hass && this._hass.states) {
+        for (const [entityId, stateObj] of Object.entries(this._hass.states)) {
+          if (entityId.startsWith("script.")) {
+            const name = (stateObj.attributes && stateObj.attributes.friendly_name) || entityId;
+            list.push({ entity_id: entityId, name });
+          }
+        }
+      }
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      return list;
+    }
+
     async openLinkProviderModal() {
       const localEntities = this._getFrontendTodoEntities();
       this._availableTodoEntities = localEntities;
@@ -874,9 +894,10 @@
         target_value: 0,
         threshold_operator: ">=",
         external_entity_id: "",
+        script_entity_id: "",
         initial_value: 0,
         unit: "",
-        auto_task_creation: true,
+        auto_task_creation: false,
         auto_task_title: ""
       };
     }
@@ -2097,6 +2118,12 @@
                 <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${this._escape(thing.external_entity_id)}">${this._escape(thing.external_entity_id)}</span>
               </div>
             ` : ""}
+            ${thing.script_entity_id ? `
+              <div style="font-size:11px; color:#7c3aed; margin-top:4px; display:flex; align-items:center; gap:4px; background:#f5f3ff; padding:2px 6px; border-radius:4px;">
+                <span>📜</span>
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${this._escape(thing.script_entity_id)}">${this._escape(thing.script_entity_id)}</span>
+              </div>
+            ` : ""}
           </div>
 
           <div class="thing-actions">
@@ -2569,6 +2596,7 @@
     _renderThingModal() {
       const thing = this._modalState.thing;
       const numEntities = this._getNumericEntities();
+      const scriptEntities = this._getScriptEntities();
       return `
         <div class="modal-backdrop" id="modal-backdrop">
           <div class="modal-window">
@@ -2621,16 +2649,14 @@
               <input type="number" step="any" class="text-input" id="m-thing-current" value="${thing.current_value !== undefined ? thing.current_value : 0}">
             </div>
 
+            <!-- Optional Completion Script -->
             <div class="form-group">
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; cursor:pointer;">
-                <input type="checkbox" id="m-thing-auto-task" ${thing.auto_task_creation ? "checked" : ""}>
-                <span>${this.t("autoTask")}</span>
-              </label>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">${this.t("autoTaskTitleLabel")}</label>
-              <input type="text" class="text-input" id="m-thing-task-title" value="${this._escape(thing.auto_task_title || "")}" placeholder="${this.t("autoTaskTitlePlaceholder")}">
+              <label class="form-label">${this.t("completionScript")}</label>
+              <input type="text" list="ha-script-entities" class="text-input" id="m-thing-script" value="${this._escape(thing.script_entity_id || "")}" placeholder="${this.t("completionScriptPlaceholder")}">
+              <datalist id="ha-script-entities">
+                ${scriptEntities.map(s => `<option value="${s.entity_id}">${this._escape(s.name)} (${s.entity_id})</option>`).join("")}
+              </datalist>
+              <div style="font-size:11px; color:#64748b; margin-top:3px;">${this.t("completionScriptHint")}</div>
             </div>
 
             <div class="modal-footer">
@@ -3171,8 +3197,9 @@
             target_value: isNaN(targetVal) ? 0 : targetVal,
             threshold_operator: operator,
             external_entity_id: extEntity,
-            auto_task_creation: root.getElementById("m-thing-auto-task").checked,
-            auto_task_title: root.getElementById("m-thing-task-title").value.trim()
+            script_entity_id: root.getElementById("m-thing-script") ? root.getElementById("m-thing-script").value.trim() || null : null,
+            auto_task_creation: false,
+            auto_task_title: ""
           };
 
           await this._callWS("task_manager/save_thing", { thing: thingPayload });

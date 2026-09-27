@@ -340,6 +340,25 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         connection.send_result(msg["id"], {"entities": entities})
 
     @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/get_ha_scripts",
+    })
+    @websocket_api.async_response
+    async def ws_get_ha_scripts(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Return available script entities in Home Assistant for Thing completion actions."""
+        scripts = []
+        for state in hass.states.async_all():
+            eid = state.entity_id
+            if eid.startswith("script."):
+                scripts.append({
+                    "entity_id": eid,
+                    "name": state.attributes.get("friendly_name") or eid,
+                })
+        scripts.sort(key=lambda x: str(x.get("name", "")).lower())
+        connection.send_result(msg["id"], {"scripts": scripts})
+
+    @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/link_provider",
         vol.Required("entity_id"): str,
         vol.Optional("name", default=""): str,
@@ -415,6 +434,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
     websocket_api.async_register_command(hass, ws_import_data)
     websocket_api.async_register_command(hass, ws_get_ha_todo_entities)
     websocket_api.async_register_command(hass, ws_get_ha_numeric_entities)
+    websocket_api.async_register_command(hass, ws_get_ha_scripts)
     websocket_api.async_register_command(hass, ws_link_provider)
     websocket_api.async_register_command(hass, ws_unlink_provider)
     websocket_api.async_register_command(hass, ws_sync_providers)
