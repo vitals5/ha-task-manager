@@ -30,8 +30,9 @@ cal_comp_mock = MagicMock()
 cal_comp_mock.CalendarEntity = MockCalendarEntity
 cal_comp_mock.CalendarEvent = MockCalendarEvent
 
-sys.modules["homeassistant"] = ha_mock
-sys.modules["homeassistant.components"] = MagicMock(calendar=cal_comp_mock)
+sys.modules.setdefault("homeassistant", ha_mock)
+sys.modules.setdefault("homeassistant.components", MagicMock())
+sys.modules["homeassistant.components"].calendar = cal_comp_mock
 sys.modules["homeassistant.components.calendar"] = cal_comp_mock
 sys.modules["homeassistant.config_entries"] = ha_mock
 sys.modules["homeassistant.core"] = ha_mock

@@ -1,6 +1,7 @@
 """Data storage and management for the Task Manager integration."""
 from __future__ import annotations
 
+import copy
 from datetime import date, datetime, timedelta
 import logging
 import random
@@ -17,6 +18,13 @@ from .const import (
     DEFAULT_SETTINGS,
     DEFAULT_THINGS,
     DEFAULT_USERS,
+    EVENT_TASK_ASSIGNED,
+    EVENT_TASK_COMPLETED,
+    EVENT_TASK_CREATED,
+    EVENT_TASK_DUE,
+    EVENT_TASK_OVERDUE,
+    EVENT_TASK_REMINDER,
+    EVENT_TASK_REOPENED,
     FAR_FUTURE_DUE_DATE,
     PRIORITIES,
     PRIORITY_NONE,
@@ -107,7 +115,7 @@ def calculate_next_due_date(
         return next_date.strftime("%Y-%m-%d")
 
     if rec_type == RECURRENCE_WEEKLY:
-        days_of_week = recurrence.get("days_of_week", [])  # 0=Monday, 6=Sunday
+        days_of_week = recurrence.get("days_of_week") or recurrence.get("weekdays") or []  # 0=Monday, 6=Sunday
         if days_of_week:
             # Sort target days
             sorted_days = sorted([int(d) for d in days_of_week if 0 <= int(d) <= 6])
@@ -277,6 +285,8 @@ class TaskManagerData:
             "labels": task_data.get("labels", []),
             "recurrence": rec,
             "subtasks": subtasks,
+            "reminders": task_data.get("reminders", []),
+            "repetition_count": int(task_data.get("repetition_count", 0)),
             "points": int(task_data.get("points", self.settings.get("default_points", 10))),
             "linked_thing_id": linked_thing_id,
             "thing_action": task_data.get("thing_action", THING_ACTION_RESET),
@@ -336,6 +346,25 @@ class TaskManagerData:
 
         self._log_activity("task_updated", {"task_id": task_id, "title": task["title"]})
         return task
+
+    def duplicate_task(self, task_id: str) -> dict[str, Any] | None:
+        """Duplicate an existing task with clean state."""
+        orig = self.get_task(task_id)
+        if not orig:
+            return None
+
+        clone_data = copy.deepcopy(orig)
+        clone_data.pop("id", None)
+        clone_data.pop("created_at", None)
+        clone_data.pop("completed_at", None)
+        clone_data.pop("completed_by", None)
+        clone_data.pop("history", None)
+        clone_data["title"] = f"{orig.get('title', 'Task')} (Copy)"
+        clone_data["status"] = "pending"
+        for st in clone_data.get("subtasks", []):
+            st["completed"] = False
+            st["id"] = str(uuid.uuid4())
+        return self.create_task(clone_data)
 
     def complete_task(self, task_id: str, user_id: str | None = None) -> dict[str, Any] | None:
         """Mark a task complete, apply points, rotate assignee, and calculate recurrence."""
@@ -439,18 +468,38 @@ class TaskManagerData:
                     task["current_assignee"] = random.choice(candidates if candidates else assignees)
 
             # Recalculate next due date
+            rep_count = task.get("repetition_count", 0) + 1
+            task["repetition_count"] = rep_count
+            max_reps = rec.get("max_repetitions")
+            end_date = rec.get("end_date")
+
             if linked_thing_id and not has_time_fallback:
                 # No schedule fallback configured: next due date is set to far future until threshold triggers!
-                task["due_date"] = FAR_FUTURE_DUE_DATE
+                next_due = FAR_FUTURE_DUE_DATE
             else:
-                task["due_date"] = calculate_next_due_date(
+                next_due = calculate_next_due_date(
                     current_due_date_str=task.get("due_date", today_date_str),
                     recurrence=rec,
                     completion_date_str=today_date_str,
                 )
-            task["status"] = "pending"
-            task["completed_at"] = None
-            task["completed_by"] = None
+
+            # Check if recurrence expired
+            recurrence_expired = False
+            if max_reps and rep_count >= int(max_reps):
+                recurrence_expired = True
+            elif end_date and next_due and next_due > str(end_date):
+                recurrence_expired = True
+
+            if recurrence_expired:
+                rec["enabled"] = False
+                task["status"] = "completed"
+                task["completed_at"] = now_str
+                task["completed_by"] = effective_user_id
+            else:
+                task["due_date"] = next_due
+                task["status"] = "pending"
+                task["completed_at"] = None
+                task["completed_by"] = None
         else:
             task["status"] = "completed"
             task["completed_at"] = now_str
@@ -875,6 +924,8 @@ class TaskManagerData:
                     "completed_at": overlay.get("completed_at"),
                     "completed_by": overlay.get("completed_by"),
                     "history": overlay.get("history", []),
+                    "reminders": overlay.get("reminders", []),
+                    "repetition_count": overlay.get("repetition_count", 0),
                 }
                 all_tasks.append(merged)
 
@@ -971,6 +1022,136 @@ class TaskManagerStorage:
                 _LOGGER.error("Error syncing provider %s: %s", e_id, err)
         async_dispatcher_send(self.hass, SIGNAL_TASK_MANAGER_UPDATED)
 
+    def fire_task_event(
+        self,
+        event_type: str,
+        task: dict[str, Any],
+        extra: dict[str, Any] | None = None,
+    ) -> None:
+        """Fire a standardized task event to Home Assistant's event bus."""
+        if not self.hass:
+            return
+        event_data = {
+            "task_id": task.get("id"),
+            "task_title": task.get("title", ""),
+            "due_date": task.get("due_date"),
+            "due_time": task.get("due_time"),
+            "priority": task.get("priority", PRIORITY_NONE),
+            "status": task.get("status", "pending"),
+            "assignee": task.get("current_assignee"),
+            "points": task.get("points", 0),
+            "tags": task.get("labels", []),
+            "reminders": task.get("reminders", []),
+            "is_external": bool(task.get("is_external", False)),
+        }
+        if task.get("is_external"):
+            event_data["provider_entity_id"] = task.get("provider_entity_id")
+            event_data["provider_name"] = task.get("provider_name")
+        if extra:
+            event_data.update(extra)
+        self.hass.bus.async_fire(event_type, event_data)
+
+    async def async_duplicate_task(self, task_id: str) -> dict[str, Any] | None:
+        """Duplicate an internal or external task and persist."""
+        all_tasks = self.data.get_all_tasks(include_external=True)
+        task = next((t for t in all_tasks if t.get("id") == task_id or t.get("title", "").strip().lower() == task_id.strip().lower()), None)
+        if not task:
+            return None
+
+        # If external, clone into local task
+        if task.get("is_external"):
+            clone_payload = {
+                "title": f"{task.get('title', 'Task')} (Copy)",
+                "description": task.get("description", ""),
+                "due_date": task.get("due_date"),
+                "due_time": task.get("due_time"),
+                "priority": task.get("priority", PRIORITY_NONE),
+                "assignees": task.get("assignees", []),
+                "current_assignee": task.get("current_assignee"),
+                "rotation_mode": task.get("rotation_mode", ROTATION_NONE),
+                "labels": task.get("labels", []),
+                "subtasks": [{"id": str(uuid.uuid4()), "title": st.get("title", ""), "completed": False} for st in task.get("subtasks", [])],
+                "points": task.get("points", 10),
+                "recurrence": copy.deepcopy(task.get("recurrence", {})),
+                "reminders": list(task.get("reminders", [])),
+            }
+            new_task = self.data.create_task(clone_payload)
+            await self.async_save()
+            self.fire_task_event(EVENT_TASK_CREATED, new_task)
+            return new_task
+
+        new_task = self.data.duplicate_task(task["id"])
+        if new_task:
+            await self.async_save()
+            self.fire_task_event(EVENT_TASK_CREATED, new_task)
+        return new_task
+
+    async def async_move_task(self, task_id: str, target_provider: str) -> dict[str, Any] | None:
+        """Move a task to another provider or back to task_manager."""
+        all_tasks = self.data.get_all_tasks(include_external=True)
+        task = next((t for t in all_tasks if t.get("id") == task_id or t.get("title", "").strip().lower() == task_id.strip().lower()), None)
+        if not task:
+            return None
+
+        title = task.get("title", "")
+        description = task.get("description", "")
+        due_date = task.get("due_date")
+        due_time = task.get("due_time")
+        priority = task.get("priority", PRIORITY_NONE)
+        assignees = task.get("assignees", [])
+        current_assignee = task.get("current_assignee")
+        labels = task.get("labels", [])
+        subtasks = task.get("subtasks", [])
+        points = task.get("points", 10)
+        recurrence = task.get("recurrence", {})
+        reminders = task.get("reminders", [])
+
+        # 1. Delete from old location
+        await self.async_delete_task(task["id"])
+
+        # 2. Create in new location
+        if target_provider and target_provider != "task_manager":
+            created_res = await async_create_external_task(
+                self.hass,
+                target_provider,
+                title=title,
+                due_date=due_date,
+                due_time=due_time,
+                description=description,
+            )
+            await self.async_sync_providers()
+            if isinstance(created_res, dict) and created_res.get("uid"):
+                self.data.set_overlay(str(created_res["uid"]), {
+                    "priority": priority,
+                    "assignees": assignees,
+                    "current_assignee": current_assignee,
+                    "labels": labels,
+                    "subtasks": subtasks,
+                    "points": points,
+                    "recurrence": recurrence,
+                    "reminders": reminders,
+                })
+                await self.async_save()
+            return {"title": title, "destination": target_provider}
+        else:
+            new_task = self.data.create_task({
+                "title": title,
+                "description": description,
+                "due_date": due_date,
+                "due_time": due_time,
+                "priority": priority,
+                "assignees": assignees,
+                "current_assignee": current_assignee,
+                "labels": labels,
+                "subtasks": subtasks,
+                "points": points,
+                "recurrence": recurrence,
+                "reminders": reminders,
+            })
+            await self.async_save()
+            self.fire_task_event(EVENT_TASK_CREATED, new_task)
+            return new_task
+
     async def async_complete_task(
         self, task_id: str, user_id: str | None = None
     ) -> dict[str, Any] | None:
@@ -1029,6 +1210,7 @@ class TaskManagerStorage:
             await self.async_save()
             for t in self.data.get_all_tasks(include_external=True):
                 if t.get("id") == task_id:
+                    self.fire_task_event(EVENT_TASK_COMPLETED, t, {"user_id": effective_user})
                     return t
             return None
 
@@ -1041,6 +1223,7 @@ class TaskManagerStorage:
                 if thing and thing.get("script_entity_id"):
                     await self._async_run_thing_script(thing.get("script_entity_id"), thing)
             await self.async_save()
+            self.fire_task_event(EVENT_TASK_COMPLETED, task, {"user_id": user_id or task.get("current_assignee")})
         return task
 
     async def _async_run_thing_script(self, script_entity_id: str, thing: dict[str, Any]) -> None:
@@ -1090,12 +1273,14 @@ class TaskManagerStorage:
             await self.async_save()
             for t in self.data.get_all_tasks(include_external=True):
                 if t.get("id") == task_id:
+                    self.fire_task_event(EVENT_TASK_REOPENED, t)
                     return t
             return None
 
         task = self.data.reset_task(task_id)
         if task:
             await self.async_save()
+            self.fire_task_event(EVENT_TASK_REOPENED, task)
         return task
 
     async def async_delete_task(self, task_id: str) -> bool:
@@ -1144,6 +1329,7 @@ class TaskManagerStorage:
                 "linked_thing_id": task_data.get("linked_thing_id"),
                 "thing_action": task_data.get("thing_action", THING_ACTION_RESET),
                 "subtasks": task_data.get("subtasks", []),
+                "reminders": task_data.get("reminders", []),
                 "recurrence": task_data.get("recurrence", {
                     "enabled": False,
                     "type": RECURRENCE_NONE,
@@ -1172,9 +1358,20 @@ class TaskManagerStorage:
             await self.async_sync_providers()
             return {"title": task_data.get("title", ""), "is_external": True}
 
-        if task_id and self.data.get_task(task_id):
+        is_new = not bool(task_id and self.data.get_task(task_id))
+        old_task = self.data.get_task(task_id) if not is_new else None
+        old_assignee = old_task.get("current_assignee") if old_task else None
+
+        if not is_new:
             result = self.data.update_task(task_id, task_data)
         else:
             result = self.data.create_task(task_data)
         await self.async_save()
+
+        if result:
+            if is_new:
+                self.fire_task_event(EVENT_TASK_CREATED, result)
+            if result.get("current_assignee") != old_assignee:
+                self.fire_task_event(EVENT_TASK_ASSIGNED, result, {"previous_assignee": old_assignee, "new_assignee": result.get("current_assignee")})
+
         return result or {}

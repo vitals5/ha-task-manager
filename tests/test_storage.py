@@ -436,6 +436,37 @@ class TestTaskManagerStorage(unittest.TestCase):
         updated2 = self.data.update_thing(thing["id"], {"script_entity_id": None})
         self.assertIsNone(updated2["script_entity_id"])
 
+    def test_duplicate_task(self):
+        """Test duplicating a task creates an independent copy."""
+        task = self.data.create_task({
+            "title": "Clean oven",
+            "description": "Use special spray",
+            "priority": "p2",
+            "points": 20,
+            "reminders": [15, 60],
+            "subtasks": [{"id": "s1", "title": "Spray walls", "completed": True}],
+        })
+        clone = self.data.duplicate_task(task["id"])
+        self.assertIsNotNone(clone)
+        self.assertNotEqual(clone["id"], task["id"])
+        self.assertEqual(clone["title"], "Clean oven (Copy)")
+        self.assertEqual(clone["priority"], "p2")
+        self.assertEqual(clone["points"], 20)
+        self.assertEqual(clone["reminders"], [15, 60])
+        self.assertEqual(len(clone["subtasks"]), 1)
+        self.assertFalse(clone["subtasks"][0]["completed"])
+
+    def test_calculate_next_due_date_weekdays(self):
+        """Test calculating next due date with selected weekdays."""
+        rec = {
+            "type": "weekly",
+            "interval": 1,
+            "weekdays": [2, 4],  # Wednesday (2) and Friday (4)
+        }
+        # From Monday 2026-09-28 -> next is Wednesday 2026-09-30
+        next_due = calculate_next_due_date("2026-09-28", rec)
+        self.assertEqual(next_due, "2026-09-30")
+
 
 class TestTaskManagerStorageAsync(unittest.IsolatedAsyncioTestCase):
     """Async test suite for Task Manager storage actions and script triggers."""
@@ -499,6 +530,56 @@ class TestTaskManagerStorageAsync(unittest.IsolatedAsyncioTestCase):
             "script", "custom_filter_reset", {}, blocking=False
         )
 
+    async def test_automation_events_fired(self):
+        """Test automation events are emitted via hass.bus.async_fire."""
+        hass = MagicMock()
+        hass.bus = MagicMock()
+        hass.bus.async_fire = MagicMock()
+
+        storage = TaskManagerStorage(hass)
+        storage.async_save = AsyncMock()
+
+        # 1. Create task
+        task = await storage.async_save_task({
+            "title": "Water Plants",
+            "current_assignee": "user_household",
+        })
+        created_events = [c for c in hass.bus.async_fire.call_args_list if c[0][0] == const_mod.EVENT_TASK_CREATED]
+        self.assertTrue(len(created_events) > 0)
+        self.assertEqual(created_events[0][0][1]["task_title"], "Water Plants")
+
+        assigned_events = [c for c in hass.bus.async_fire.call_args_list if c[0][0] == const_mod.EVENT_TASK_ASSIGNED]
+        self.assertTrue(len(assigned_events) > 0)
+
+        # 2. Complete task
+        await storage.async_complete_task(task["id"])
+        completed_events = [c for c in hass.bus.async_fire.call_args_list if c[0][0] == const_mod.EVENT_TASK_COMPLETED]
+        self.assertTrue(len(completed_events) > 0)
+
+        # 3. Reset task
+        await storage.async_reset_task(task["id"])
+        reopened_events = [c for c in hass.bus.async_fire.call_args_list if c[0][0] == const_mod.EVENT_TASK_REOPENED]
+        self.assertTrue(len(reopened_events) > 0)
+
+    async def test_duplicate_and_move_task_async(self):
+        """Test async_duplicate_task and async_move_task."""
+        hass = MagicMock()
+        hass.bus = MagicMock()
+        hass.bus.async_fire = MagicMock()
+
+        storage = TaskManagerStorage(hass)
+        storage.async_save = AsyncMock()
+
+        task = storage.data.create_task({"title": "Clean Balcony"})
+        clone = await storage.async_duplicate_task(task["id"])
+        self.assertIsNotNone(clone)
+        self.assertEqual(clone["title"], "Clean Balcony (Copy)")
+
+        moved = await storage.async_move_task(task["id"], "task_manager")
+        self.assertIsNotNone(moved)
+        self.assertEqual(moved["title"], "Clean Balcony")
+
 
 if __name__ == "__main__":
     unittest.main()
+

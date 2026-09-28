@@ -24,6 +24,13 @@ create_task:
       example: "2026-09-30"
       selector:
         date:
+    due_time:
+      name: Due Time
+      description: Due time in HH:MM format.
+      required: false
+      example: "18:00"
+      selector:
+        time:
     priority:
       name: Priority
       description: Priority level (p1=Urgent, p2=High, p3=Medium, p4=Low, none=None).
@@ -49,6 +56,20 @@ create_task:
       example: "user_household"
       selector:
         text:
+    tags:
+      name: Tags
+      description: Comma-separated list of tags/labels.
+      required: false
+      example: "kitchen, daily"
+      selector:
+        text:
+    reminders:
+      name: Reminders
+      description: Minute offsets before due time (e.g. 0, 15, 60).
+      required: false
+      example: "0, 15, 60"
+      selector:
+        text:
     points:
       name: Points
       description: Reward points on completion.
@@ -61,6 +82,48 @@ create_task:
     linked_thing_id:
       name: Linked Thing ID
       description: ID of a Thing linked to this task (e.g. thing_water_filter).
+      required: false
+      selector:
+        text:
+
+add_task:
+  name: Add Task (Alias)
+  description: Alias for create_task.
+  fields:
+    title:
+      name: Title
+      description: The title or name of the task.
+      required: true
+      selector:
+        text:
+    description:
+      name: Description
+      description: Additional notes or instructions.
+      required: false
+      selector:
+        text:
+          multiline: true
+    due_date:
+      name: Due Date
+      description: Due date in YYYY-MM-DD format.
+      required: false
+      selector:
+        date:
+    due_time:
+      name: Due Time
+      description: Due time in HH:MM format.
+      required: false
+      selector:
+        time:
+    priority:
+      name: Priority
+      description: Priority level.
+      required: false
+      selector:
+        text:
+    assignee:
+      name: Assignee
+      description: Person or user assigned.
       required: false
       selector:
         text:
@@ -89,6 +152,12 @@ complete_task:
       required: false
       selector:
         text:
+    tag:
+      name: Tag
+      description: Complete all open tasks with this tag.
+      required: false
+      selector:
+        text:
 
 reset_task:
   name: Reset Task
@@ -104,6 +173,111 @@ reset_task:
       name: Task Title
       description: The title of the task to reset.
       required: false
+      selector:
+        text:
+    assigned_person:
+      name: Assigned Person
+      description: Reopen all completed tasks for this person.
+      required: false
+      selector:
+        text:
+    tag:
+      name: Tag
+      description: Reopen all completed tasks with this tag.
+      required: false
+      selector:
+        text:
+
+reopen_task:
+  name: Reopen Task (Alias)
+  description: Reopens completed tasks back to pending.
+  fields:
+    task_id:
+      name: Task ID
+      description: The unique identifier of the task.
+      required: false
+      selector:
+        text:
+    task_title:
+      name: Task Title
+      description: The title of the task to reopen.
+      required: false
+      selector:
+        text:
+    assigned_person:
+      name: Assigned Person
+      description: Reopen all completed tasks for this person.
+      required: false
+      selector:
+        text:
+    tag:
+      name: Tag
+      description: Reopen all completed tasks with this tag.
+      required: false
+      selector:
+        text:
+
+assign_task:
+  name: Assign Task
+  description: Assigns a task to a user or person.
+  fields:
+    task_id:
+      name: Task ID
+      description: Unique identifier of the task.
+      required: false
+      selector:
+        text:
+    task_title:
+      name: Task Title
+      description: Title of the task to assign.
+      required: false
+      selector:
+        text:
+    person:
+      name: Person / User ID
+      description: Person entity ID or User ID to assign.
+      required: true
+      selector:
+        text:
+
+duplicate_task:
+  name: Duplicate Task
+  description: Clones an existing task with all attributes.
+  fields:
+    task_id:
+      name: Task ID
+      description: Unique identifier of the task to duplicate.
+      required: false
+      selector:
+        text:
+    task_title:
+      name: Task Title
+      description: Title of the task to duplicate.
+      required: false
+      selector:
+        text:
+
+move_task:
+  name: Move Task
+  description: Moves a task to another provider list or native list.
+  fields:
+    task_id:
+      name: Task ID
+      description: Unique identifier of the task to move.
+      required: false
+      selector:
+        text:
+    task_title:
+      name: Task Title
+      description: Title of the task to move.
+      required: false
+      selector:
+        text:
+    target_provider:
+      name: Target Provider
+      description: Target provider entity ID or 'task_manager'.
+      required: false
+      default: "task_manager"
       selector:
         text:
 

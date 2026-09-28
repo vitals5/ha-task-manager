@@ -195,7 +195,15 @@
       completionScriptHint: "Home Assistant script automatically executed when a linked task is completed (e.g. to reset counters).",
       searchEntityPlaceholder: "Search entity by name or ID...",
       noMatchingEntities: "No matching entities found",
-      clearSelection: "Clear"
+      clearSelection: "Clear",
+      duplicate: "Duplicate",
+      dueSoon: "Due Soon",
+      reminders: "Reminders",
+      weekdaysLabel: "Repeat on Weekdays",
+      atDueTime: "At due time",
+      minBefore: "{min}m before",
+      hoursBefore: "{hours}h before",
+      daysBefore: "{days}d before"
     },
     de: {
       appName: "Task Manager",
@@ -378,7 +386,15 @@
       completionScriptHint: "Home Assistant Skript, das automatisch ausgeführt wird, sobald eine verknüpfte Aufgabe erledigt wird (z. B. zum Zurücksetzen von Zählern).",
       searchEntityPlaceholder: "Entität nach Name oder ID suchen...",
       noMatchingEntities: "Keine passenden Entitäten gefunden",
-      clearSelection: "Löschen"
+      clearSelection: "Löschen",
+      duplicate: "Duplizieren",
+      dueSoon: "Bald fällig",
+      reminders: "Erinnerungen",
+      weekdaysLabel: "Wochentage",
+      atDueTime: "Pünktlich zum Termin",
+      minBefore: "{min} Min. vorher",
+      hoursBefore: "{hours} Std. vorher",
+      daysBefore: "{days} Tage vorher"
     }
   };
 
@@ -638,6 +654,10 @@
       if (confirm(this.t("confirmDelete"))) {
         await this._callWS("task_manager/delete_task", { task_id: taskId });
       }
+    }
+
+    async duplicateTask(taskId) {
+      await this._callWS("task_manager/duplicate_task", { task_id: taskId });
     }
 
     async toggleSubtask(taskId, subtaskId, currentState) {
@@ -972,6 +992,11 @@
       // Status filter
       if (this._filterStatus === "today") {
         tasks = tasks.filter(t => t.status === "pending" && t.due_date === todayStr);
+      } else if (this._filterStatus === "due_soon") {
+        const soonDate = new Date();
+        soonDate.setDate(soonDate.getDate() + 7);
+        const soonStr = soonDate.toISOString().slice(0, 10);
+        tasks = tasks.filter(t => t.status === "pending" && t.due_date && t.due_date <= soonStr);
       } else if (this._filterStatus === "upcoming") {
         tasks = tasks.filter(t => t.status === "pending" && t.due_date > todayStr && t.due_date < "2099-01-01");
       } else if (this._filterStatus === "overdue") {
@@ -2381,6 +2406,7 @@
           <div class="filter-pills">
             <button class="filter-pill ${this._filterStatus === "all" ? "active" : ""}" data-status="all">${this.t("all")}</button>
             <button class="filter-pill ${this._filterStatus === "today" ? "active" : ""}" data-status="today">🔥 ${this.t("today")}</button>
+            <button class="filter-pill ${this._filterStatus === "due_soon" ? "active" : ""}" data-status="due_soon">⏳ ${this.t("dueSoon")}</button>
             <button class="filter-pill ${this._filterStatus === "upcoming" ? "active" : ""}" data-status="upcoming">${this.t("upcoming")}</button>
             <button class="filter-pill ${this._filterStatus === "overdue" ? "active" : ""}" data-status="overdue">
               ⚠️ ${this.t("overdue")} ${overdueCount > 0 ? `(${overdueCount})` : ""}
@@ -2517,6 +2543,7 @@
             </div>
 
             <div style="display:flex; gap:6px;">
+              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-duplicate-task="${task.id}" title="${this.t("duplicate")}">📋</button>
               <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-edit-task="${task.id}" title="${this.t("edit")}">✏️</button>
               <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--error-color, #ef4444);" data-delete-task="${task.id}" title="${this.t("delete")}">🗑️</button>
             </div>
@@ -3074,6 +3101,27 @@
               </div>
             </div>
 
+            <!-- Reminders -->
+            <div class="form-group">
+              <label class="form-label">🔔 ${this.t("reminders")}</label>
+              <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                ${[
+                  { val: 0, label: this.t("atDueTime") },
+                  { val: 15, label: this.t("minBefore", { min: "15" }) },
+                  { val: 60, label: this.t("hoursBefore", { hours: "1" }) },
+                  { val: 1440, label: this.t("daysBefore", { days: "1" }) }
+                ].map(r => {
+                  const checked = (task.reminders || []).includes(r.val);
+                  return `
+                    <label style="display:flex; align-items:center; gap:4px; font-size:12px; background:var(--secondary-background-color, rgba(127,127,127,0.08)); padding:4px 8px; border-radius:6px; cursor:pointer;">
+                      <input type="checkbox" class="m-reminder-checkbox" value="${r.val}" ${checked ? "checked" : ""}>
+                      <span>${r.label}</span>
+                    </label>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+
             ${isGamification ? `
               <div class="form-grid-2">
                 <div class="form-group">
@@ -3151,6 +3199,29 @@
                 <div class="form-group">
                   <label class="form-label">${this.t("interval")}</label>
                   <input type="number" class="text-input" id="m-task-rec-interval" value="${rec.interval || 1}" min="1">
+                </div>
+
+                <div id="m-rec-weekdays" class="form-group" style="grid-column: span 2; display:${rec.type === "weekly" ? "block" : "none"};">
+                  <label class="form-label">${this.t("weekdaysLabel")}</label>
+                  <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    ${[
+                      { id: 0, label: "Mo" },
+                      { id: 1, label: "Di" },
+                      { id: 2, label: "Mi" },
+                      { id: 3, label: "Do" },
+                      { id: 4, label: "Fr" },
+                      { id: 5, label: "Sa" },
+                      { id: 6, label: "So" }
+                    ].map(w => {
+                      const isSel = (rec.weekdays || rec.days_of_week || []).includes(w.id);
+                      return `
+                        <label style="display:flex; align-items:center; gap:4px; font-size:12px; background:var(--secondary-background-color, rgba(127,127,127,0.08)); padding:4px 8px; border-radius:6px; cursor:pointer;">
+                          <input type="checkbox" class="m-weekday-checkbox" value="${w.id}" ${isSel ? "checked" : ""}>
+                          <span>${w.label}</span>
+                        </label>
+                      `;
+                    }).join("")}
+                  </div>
                 </div>
 
                 <div class="form-group" style="grid-column: span 2;">
@@ -3559,6 +3630,10 @@
         btn.addEventListener("click", () => this.deleteTask(btn.getAttribute("data-delete-task")));
       });
 
+      root.querySelectorAll("[data-duplicate-task]").forEach(btn => {
+        btn.addEventListener("click", () => this.duplicateTask(btn.getAttribute("data-duplicate-task")));
+      });
+
       // Thing actions
       root.querySelectorAll("[data-thing-delta]").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -3754,6 +3829,8 @@
           const assignee = root.getElementById("m-task-assignee").value;
           const destSelect = root.getElementById("m-task-dest");
           const destProvider = destSelect ? destSelect.value : undefined;
+          const selectedReminders = Array.from(root.querySelectorAll(".m-reminder-checkbox:checked")).map(cb => parseInt(cb.value, 10));
+          const selectedWeekdays = Array.from(root.querySelectorAll(".m-weekday-checkbox:checked")).map(cb => parseInt(cb.value, 10));
 
           const taskPayload = {
             id: this._modalState.task.id || undefined,
@@ -3767,11 +3844,13 @@
             current_assignee: assignee || null,
             rotation_mode: root.getElementById("m-task-rotation").value,
             destination_provider: destProvider,
+            reminders: selectedReminders,
             recurrence: {
               enabled: recEnabled,
               type: root.getElementById("m-task-rec-type") ? root.getElementById("m-task-rec-type").value : "none",
               interval: parseInt(root.getElementById("m-task-rec-interval") ? root.getElementById("m-task-rec-interval").value : "1", 10),
-              based_on: root.getElementById("m-task-rec-based") ? root.getElementById("m-task-rec-based").value : "due_date"
+              based_on: root.getElementById("m-task-rec-based") ? root.getElementById("m-task-rec-based").value : "due_date",
+              weekdays: selectedWeekdays
             },
             subtasks: subtasks,
             linked_thing_id: root.getElementById("m-task-linked-thing").value || null,
@@ -3789,6 +3868,15 @@
         mRecEnable.addEventListener("change", (e) => {
           const f = root.getElementById("m-rec-fields");
           if (f) f.style.display = e.target.checked ? "grid" : "none";
+        });
+      }
+
+      // Modal Recurrence Type Change (Show/Hide Weekdays)
+      const mRecType = root.getElementById("m-task-rec-type");
+      if (mRecType) {
+        mRecType.addEventListener("change", (e) => {
+          const wd = root.getElementById("m-rec-weekdays");
+          if (wd) wd.style.display = e.target.value === "weekly" ? "block" : "none";
         });
       }
 

@@ -84,6 +84,37 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         connection.send_result(msg["id"], {"success": success, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/duplicate_task",
+        vol.Required("task_id"): str,
+    })
+    @websocket_api.async_response
+    async def ws_duplicate_task(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle duplicate task command."""
+        result = await storage.async_duplicate_task(msg["task_id"])
+        if not result:
+            connection.send_error(msg["id"], "task_not_found", "Task not found to duplicate")
+            return
+        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/move_task",
+        vol.Required("task_id"): str,
+        vol.Required("target_provider"): str,
+    })
+    @websocket_api.async_response
+    async def ws_move_task(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle move task command."""
+        result = await storage.async_move_task(msg["task_id"], msg["target_provider"])
+        if not result:
+            connection.send_error(msg["id"], "move_failed", "Failed to move task")
+            return
+        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/update_subtask",
         vol.Required("task_id"): str,
         vol.Required("subtask_id"): str,
@@ -424,6 +455,8 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
     websocket_api.async_register_command(hass, ws_complete_task)
     websocket_api.async_register_command(hass, ws_reset_task)
     websocket_api.async_register_command(hass, ws_delete_task)
+    websocket_api.async_register_command(hass, ws_duplicate_task)
+    websocket_api.async_register_command(hass, ws_move_task)
     websocket_api.async_register_command(hass, ws_update_subtask)
     websocket_api.async_register_command(hass, ws_save_thing)
     websocket_api.async_register_command(hass, ws_update_thing_value)

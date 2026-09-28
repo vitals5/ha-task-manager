@@ -49,7 +49,12 @@ ws_api_mock.websocket_command = lambda schema: (lambda f: f)
 ws_api_mock.async_response = lambda f: f
 sys.modules["homeassistant.components.websocket_api"] = ws_api_mock
 sys.modules["homeassistant.components"].websocket_api = ws_api_mock
-sys.modules.setdefault("homeassistant.helpers", MagicMock())
+helpers_mock = MagicMock()
+helpers_mock.__path__ = []
+sys.modules.setdefault("homeassistant.helpers", helpers_mock)
+sys.modules["homeassistant.helpers"].__path__ = []
+sys.modules.setdefault("homeassistant.helpers.dispatcher", MagicMock())
+sys.modules.setdefault("homeassistant.helpers.event", MagicMock())
 sys.modules.setdefault("homeassistant.helpers.storage", MagicMock())
 sys.modules.setdefault("homeassistant.util", MagicMock())
 sys.modules.setdefault("homeassistant.util.dt", MagicMock())
@@ -163,6 +168,9 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
 
         connection = MagicMock()
         connection.send_result = MagicMock()
+
+        from task_manager.websocket import async_register_websocket_api
+        async_register_websocket_api(hass, MagicMock())
 
         handler_num = ws_registered_handlers.get("ws_get_ha_numeric_entities")
         self.assertIsNotNone(handler_num)

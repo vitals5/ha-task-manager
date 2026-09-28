@@ -44,8 +44,9 @@ todo_comp_mock.TodoListEntityFeature = MockTodoListEntityFeature
 todo_comp_mock.TodoItem = MockTodoItem
 todo_comp_mock.TodoItemStatus = MockTodoItemStatus
 
-sys.modules["homeassistant"] = ha_mock
-sys.modules["homeassistant.components"] = MagicMock(todo=todo_comp_mock)
+sys.modules.setdefault("homeassistant", ha_mock)
+sys.modules.setdefault("homeassistant.components", MagicMock())
+sys.modules["homeassistant.components"].todo = todo_comp_mock
 sys.modules["homeassistant.components.todo"] = todo_comp_mock
 sys.modules["homeassistant.config_entries"] = ha_mock
 sys.modules["homeassistant.core"] = ha_mock

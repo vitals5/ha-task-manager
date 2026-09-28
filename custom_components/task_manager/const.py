@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 
 DOMAIN = "task_manager"
-PLATFORMS = ["calendar", "sensor", "todo"]
+PLATFORMS = ["binary_sensor", "calendar", "sensor", "todo"]
 
 URL_BASE = "/task_manager_ui"
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")
@@ -13,6 +13,16 @@ STORAGE_VERSION = 1
 STORAGE_KEY = "task_manager_data"
 
 SIGNAL_TASK_MANAGER_UPDATED = f"{DOMAIN}_updated"
+DATA_REMINDER_TIMERS = f"{DOMAIN}_reminder_timers"
+
+# Automation Events
+EVENT_TASK_CREATED = f"{DOMAIN}_task_created"
+EVENT_TASK_COMPLETED = f"{DOMAIN}_task_completed"
+EVENT_TASK_REOPENED = f"{DOMAIN}_task_reopened"
+EVENT_TASK_ASSIGNED = f"{DOMAIN}_task_assigned"
+EVENT_TASK_DUE = f"{DOMAIN}_task_due"
+EVENT_TASK_OVERDUE = f"{DOMAIN}_task_overdue"
+EVENT_TASK_REMINDER = f"{DOMAIN}_task_reminder"
 
 # Priority Levels
 PRIORITY_P1 = "p1"      # Urgent (Red)
@@ -88,9 +98,14 @@ FAR_FUTURE_DUE_DATE = "2099-12-31"
 
 # Services
 SERVICE_CREATE_TASK = "create_task"
+SERVICE_ADD_TASK = "add_task"
 SERVICE_UPDATE_TASK = "update_task"
 SERVICE_COMPLETE_TASK = "complete_task"
 SERVICE_RESET_TASK = "reset_task"
+SERVICE_REOPEN_TASK = "reopen_task"
+SERVICE_ASSIGN_TASK = "assign_task"
+SERVICE_MOVE_TASK = "move_task"
+SERVICE_DUPLICATE_TASK = "duplicate_task"
 SERVICE_DELETE_TASK = "delete_task"
 SERVICE_UPDATE_SUBTASK = "update_subtask"
 SERVICE_CREATE_THING = "create_thing"
