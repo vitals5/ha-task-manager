@@ -9,16 +9,40 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Mock homeassistant module hierarchy for local testing
+def mock_slugify(val):
+    import re
+    return re.sub(r"[^a-zA-Z0-9_]+", "_", str(val).lower()).strip("_")
+
+def dummy_callback(func):
+    return func
+
 ha_mock = MagicMock()
+ha_mock.callback = dummy_callback
+core_mock = MagicMock()
+core_mock.callback = dummy_callback
+
 dt_mock = MagicMock()
 dt_mock.now.return_value = datetime(2026, 9, 26, 12, 0, 0, tzinfo=timezone.utc)
+dt_mock.DEFAULT_TIME_ZONE = timezone.utc
+
+util_mock = sys.modules.get("homeassistant.util") or MagicMock()
+util_mock.dt = dt_mock
+util_mock.slugify = mock_slugify
+
+ws_mock = sys.modules.get("homeassistant.components.websocket_api") or MagicMock()
+ws_mock.websocket_command = lambda schema: (lambda func: func)
+ws_mock.async_response = lambda func: func
+components_mock = sys.modules.get("homeassistant.components") or MagicMock()
+components_mock.websocket_api = ws_mock
 
 sys.modules["homeassistant"] = ha_mock
-sys.modules["homeassistant.core"] = ha_mock
+sys.modules["homeassistant.core"] = core_mock
+sys.modules["homeassistant.components"] = components_mock
+sys.modules["homeassistant.components.websocket_api"] = ws_mock
 sys.modules["homeassistant.helpers"] = ha_mock
 sys.modules["homeassistant.helpers.dispatcher"] = ha_mock
 sys.modules["homeassistant.helpers.storage"] = ha_mock
-sys.modules["homeassistant.util"] = MagicMock(dt=dt_mock)
+sys.modules["homeassistant.util"] = util_mock
 sys.modules["homeassistant.util.dt"] = dt_mock
 
 project_root = Path(__file__).parent.parent
@@ -578,6 +602,148 @@ class TestTaskManagerStorageAsync(unittest.IsolatedAsyncioTestCase):
         moved = await storage.async_move_task(task["id"], "task_manager")
         self.assertIsNotNone(moved)
         self.assertEqual(moved["title"], "Clean Balcony")
+
+    def test_repeat_every_weekday(self):
+        """Test repeat_every_weekday schedule calculation."""
+        res = calculate_next_due_date("2026-09-26", {
+            "enabled": True,
+            "repeat_mode": const_mod.REPEAT_MODE_EVERY,
+            "repeat_every_type": const_mod.REPEAT_EVERY_WEEKDAY,
+            "repeat_every_weekday": 1,
+        })
+        self.assertEqual(res, "2026-09-29")
+
+    def test_repeat_every_day_of_month(self):
+        """Test repeat_every_day_of_month schedule calculation."""
+        res = calculate_next_due_date("2026-09-26", {
+            "enabled": True,
+            "repeat_mode": const_mod.REPEAT_MODE_EVERY,
+            "repeat_every_type": const_mod.REPEAT_EVERY_DAY_OF_MONTH,
+            "repeat_every_day_of_month": 15,
+        })
+        self.assertEqual(res, "2026-10-15")
+
+        res2 = calculate_next_due_date("2026-09-10", {
+            "enabled": True,
+            "repeat_mode": const_mod.REPEAT_MODE_EVERY,
+            "repeat_every_type": const_mod.REPEAT_EVERY_DAY_OF_MONTH,
+            "repeat_every_day_of_month": 15,
+        })
+        self.assertEqual(res2, "2026-09-15")
+
+    def test_repeat_every_weekday_of_month(self):
+        """Test repeat_every_weekday_of_month schedule calculation."""
+        res = calculate_next_due_date("2026-09-26", {
+            "enabled": True,
+            "repeat_mode": const_mod.REPEAT_MODE_EVERY,
+            "repeat_every_type": const_mod.REPEAT_EVERY_WEEKDAY_OF_MONTH,
+            "repeat_every_nth": 2,
+            "repeat_every_weekday": 1,
+        })
+        self.assertEqual(res, "2026-10-13")
+
+    def test_repeat_every_days_before_end_of_month(self):
+        """Test repeat_every_days_before_end_of_month calculation."""
+        res = calculate_next_due_date("2026-09-20", {
+            "enabled": True,
+            "repeat_mode": const_mod.REPEAT_MODE_EVERY,
+            "repeat_every_type": const_mod.REPEAT_EVERY_DAYS_BEFORE_END_OF_MONTH,
+            "repeat_every_days_before_end_of_month": 3,
+        })
+        self.assertEqual(res, "2026-09-27")
+
+        res2 = calculate_next_due_date("2026-09-28", {
+            "enabled": True,
+            "repeat_mode": const_mod.REPEAT_MODE_EVERY,
+            "repeat_every_type": const_mod.REPEAT_EVERY_DAYS_BEFORE_END_OF_MONTH,
+            "repeat_every_days_before_end_of_month": 3,
+        })
+        self.assertEqual(res2, "2026-10-28")
+
+    def test_pause_resume_task(self):
+        """Test pausing and resuming a task."""
+        data = TaskManagerData()
+        task = data.create_task({"title": "Test Pause", "due_date": "2026-09-26"})
+        self.assertTrue(task["is_active"])
+        state, _ = data.get_task_effective_state(task["id"])
+        self.assertEqual(state, const_mod.TASK_STATE_DUE)
+
+        paused = data.pause_task(task["id"])
+        self.assertFalse(paused["is_active"])
+        state, _ = data.get_task_effective_state(task["id"])
+        self.assertEqual(state, const_mod.TASK_STATE_INACTIVE)
+
+        resumed = data.resume_task(task["id"])
+        self.assertTrue(resumed["is_active"])
+        state, _ = data.get_task_effective_state(task["id"])
+        self.assertEqual(state, const_mod.TASK_STATE_DUE)
+
+    def test_set_last_done_date(self):
+        """Test setting explicit last done date on a recurring task."""
+        data = TaskManagerData()
+        task = data.create_task({
+            "title": "Set Done Test",
+            "due_date": "2026-09-26",
+            "recurrence": {
+                "enabled": True,
+                "type": "daily",
+                "interval": 2,
+                "based_on": "completion_date",
+            }
+        })
+        updated = data.set_last_done_date(task["id"], "2026-09-24")
+        self.assertEqual(updated["last_done_date"], "2026-09-24")
+        self.assertEqual(updated["times_completed"], 1)
+        self.assertEqual(updated["due_date"], "2026-09-26")
+
+    def test_dependencies_and_effective_state(self):
+        """Test dependency urgency rank gating in effective state calculation."""
+        data = TaskManagerData()
+        dep_task = data.create_task({"title": "Clean Filter", "due_date": "2026-09-26"})
+        main_task = data.create_task({
+            "title": "Run Dishwasher",
+            "due_date": "2026-09-26",
+            "dependencies": [dep_task["id"]],
+        })
+
+        state, _ = data.get_task_effective_state(main_task["id"])
+        self.assertEqual(state, const_mod.TASK_STATE_DUE)
+
+        data.complete_task(dep_task["id"])
+        state, _ = data.get_task_effective_state(main_task["id"])
+        self.assertEqual(state, const_mod.TASK_STATE_DONE)
+
+    def test_ha_overrides_in_effective_state(self):
+        """Test HA helper entity overrides for active and due soon."""
+        data = TaskManagerData()
+        task = data.create_task({
+            "title": "Override Task",
+            "due_date": "2026-09-28",
+            "is_active": True,
+            "active_override": "input_boolean.vacation",
+            "due_soon_override": "input_number.soon_days",
+        })
+
+        hass = MagicMock()
+        state_vacation = MagicMock(state="off")
+        state_soon = MagicMock(state="5")
+
+        def mock_get(entity_id):
+            if entity_id == "input_boolean.vacation":
+                return state_vacation
+            if entity_id == "input_number.soon_days":
+                return state_soon
+            return None
+
+        hass.states.get = mock_get
+
+        st, attrs = data.get_task_effective_state(task["id"], hass)
+        self.assertEqual(st, const_mod.TASK_STATE_INACTIVE)
+        self.assertEqual(attrs["due_soon_days"], 5)
+
+        state_vacation.state = "on"
+        st2, _ = data.get_task_effective_state(task["id"], hass)
+        self.assertEqual(st2, const_mod.TASK_STATE_DUE_SOON)
 
 
 if __name__ == "__main__":

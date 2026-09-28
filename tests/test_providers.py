@@ -9,16 +9,28 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock
 
 # Mock homeassistant module hierarchy
+def mock_slugify(val):
+    import re
+    return re.sub(r"[^a-zA-Z0-9_]+", "_", str(val).lower()).strip("_")
+
 ha_mock = MagicMock()
+ha_mock.callback = lambda func: func
+core_mock = MagicMock()
+core_mock.callback = lambda func: func
+
 dt_mock = MagicMock()
 dt_mock.DEFAULT_TIME_ZONE = timezone.utc
 dt_mock.now.return_value = datetime(2026, 9, 26, 12, 0, 0, tzinfo=timezone.utc)
 
+util_mock = sys.modules.get("homeassistant.util") or MagicMock()
+util_mock.dt = dt_mock
+util_mock.slugify = mock_slugify
+
 sys.modules["homeassistant"] = ha_mock
-sys.modules["homeassistant.core"] = ha_mock
+sys.modules["homeassistant.core"] = core_mock
 sys.modules["homeassistant.helpers"] = ha_mock
-sys.modules["homeassistant.helpers.entity_registry"] = ha_mock
-sys.modules["homeassistant.util"] = MagicMock(dt=dt_mock)
+sys.modules["homeassistant.helpers.entity_registry"] = MagicMock()
+sys.modules["homeassistant.util"] = util_mock
 sys.modules["homeassistant.util.dt"] = dt_mock
 
 project_root = Path(__file__).parent.parent

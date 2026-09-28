@@ -1,0 +1,99 @@
+blueprint:
+  name: Task Manager Task Reminder
+  description: Sends a daily notification for tasks that are due, overdue, or due soon, with optional tag and assignee filtering.
+  domain: automation
+  input:
+    notify_time:
+      name: Notification Time
+      description: Time of day to check tasks and send notification.
+      default: "09:00:00"
+      selector:
+        time:
+    notify_service:
+      name: Notification Service
+      description: The service to send notifications through (e.g. notify.notify or notify.mobile_app_yourphone).
+      default: notify.notify
+      selector:
+        text:
+    title:
+      name: Notification Title
+      description: Header for the notification.
+      default: "Task Manager: Daily Chores"
+      selector:
+        text:
+    include_due_soon:
+      name: Include Due Soon Tasks
+      description: If enabled, tasks that are within their due soon threshold are also included.
+      default: false
+      selector:
+        boolean:
+    tag_filter:
+      name: Tag Filter
+      description: Only notify about tasks having this tag (leave blank to include all tasks).
+      default: ""
+      selector:
+        text:
+    assignee_filter:
+      name: Assignee Filter
+      description: Only notify about tasks assigned to this user ID or person (leave blank for all).
+      default: ""
+      selector:
+        text:
+
+trigger:
+  - platform: time
+    at: !input notify_time
+
+variables:
+  include_due_soon: !input include_due_soon
+  tag_filter: !input tag_filter
+  assignee_filter: !input assignee_filter
+  notify_service: !input notify_service
+  title: !input title
+
+  task_sensors: >
+    {{
+      integration_entities('task_manager')
+      | select('match', '^sensor\.')
+      | selectattr('state', 'defined')
+      | list
+    }}
+
+  matching_tasks: >
+    {% set ns = namespace(tasks=[]) %}
+    {% for s in task_sensors %}
+      {% if state_attr(s, 'task_id') is not none %}
+        {% set st = states(s) %}
+        {% set is_active = state_attr(s, 'is_active') %}
+        {% set t_tags = state_attr(s, 'tags') or [] %}
+        {% set t_assignee = state_attr(s, 'assignee') %}
+        {% set t_name = state_attr(s, 'title') or state_attr(s, 'friendly_name') %}
+        {% set overdue_by = state_attr(s, 'overdue_by') | int(0) %}
+        {% set notif_interval = state_attr(s, 'notification_interval') | int(1) %}
+
+        {% set status_match = (st == 'due') or (include_due_soon and st == 'due_soon') %}
+        {% set tag_match = (tag_filter == '') or (tag_filter in t_tags) %}
+        {% set assignee_match = (assignee_filter == '') or (t_assignee == assignee_filter) %}
+        {% set interval_match = (overdue_by == 0) or (notif_interval <= 1) or ((overdue_by % notif_interval) == 0) %}
+
+        {% if is_active and status_match and tag_match and assignee_match and interval_match %}
+          {% set desc = t_name ~ (' (Overdue by ' ~ overdue_by ~ 'd)' if overdue_by > 0 else (' (Due soon)' if st == 'due_soon' else '')) %}
+          {% set ns.tasks = ns.tasks + [desc] %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.tasks }}
+
+condition:
+  - condition: template
+    value_template: "{{ matching_tasks | length > 0 }}"
+
+action:
+  - service: "{{ notify_service }}"
+    data:
+      title: "{{ title }}"
+      message: >
+        You have {{ matching_tasks | length }} task(s) needing attention:
+        {% for t in matching_tasks %}
+        • {{ t }}
+        {% endfor %}

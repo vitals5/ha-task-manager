@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 
 DOMAIN = "task_manager"
-PLATFORMS = ["binary_sensor", "calendar", "sensor", "todo"]
+PLATFORMS = ["binary_sensor", "button", "calendar", "sensor", "todo"]
 
 URL_BASE = "/task_manager_ui"
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")
@@ -52,6 +52,16 @@ ROTATION_MODES = [
     ROTATION_RANDOM,
 ]
 
+# Recurrence Modes
+REPEAT_MODE_AFTER = "repeat_after"
+REPEAT_MODE_EVERY = "repeat_every"
+
+# Repeat-Every Sub-Types
+REPEAT_EVERY_WEEKDAY = "repeat_every_weekday"                             # every N weeks on a weekday
+REPEAT_EVERY_DAY_OF_MONTH = "repeat_every_day_of_month"                   # Nth day of the month
+REPEAT_EVERY_WEEKDAY_OF_MONTH = "repeat_every_weekday_of_month"           # Nth weekday of the month
+REPEAT_EVERY_DAYS_BEFORE_END_OF_MONTH = "repeat_every_days_before_end_of_month" # N days before month end
+
 # Recurrence Types
 RECURRENCE_NONE = "none"
 RECURRENCE_DAILY = "daily"
@@ -67,6 +77,10 @@ RECURRENCE_TYPES = [
     RECURRENCE_MONTHLY,
     RECURRENCE_YEARLY,
     RECURRENCE_CUSTOM_DAYS,
+    REPEAT_EVERY_WEEKDAY,
+    REPEAT_EVERY_DAY_OF_MONTH,
+    REPEAT_EVERY_WEEKDAY_OF_MONTH,
+    REPEAT_EVERY_DAYS_BEFORE_END_OF_MONTH,
 ]
 
 # Recurrence Cadence Base
@@ -77,6 +91,12 @@ RECURRENCE_BASES = [
     RECURRENCE_BASED_DUE_DATE,
     RECURRENCE_BASED_COMPLETION,
 ]
+
+# Task States
+TASK_STATE_DUE = "due"
+TASK_STATE_DUE_SOON = "due_soon"
+TASK_STATE_DONE = "done"
+TASK_STATE_INACTIVE = "inactive"
 
 # Thing Actions on Task Completion
 THING_ACTION_NONE = "none"
@@ -103,6 +123,10 @@ SERVICE_UPDATE_TASK = "update_task"
 SERVICE_COMPLETE_TASK = "complete_task"
 SERVICE_RESET_TASK = "reset_task"
 SERVICE_REOPEN_TASK = "reopen_task"
+SERVICE_MARK_AS_DONE = "mark_as_done"
+SERVICE_SET_LAST_DONE_DATE = "set_last_done_date"
+SERVICE_PAUSE_TASK = "pause_task"
+SERVICE_RESUME_TASK = "resume_task"
 SERVICE_ASSIGN_TASK = "assign_task"
 SERVICE_MOVE_TASK = "move_task"
 SERVICE_DUPLICATE_TASK = "duplicate_task"

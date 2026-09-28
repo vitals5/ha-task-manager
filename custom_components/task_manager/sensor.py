@@ -14,9 +14,16 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util import dt as dt_util
+from homeassistant.util import dt as dt_util, slugify
 
-from .const import DOMAIN, SIGNAL_TASK_MANAGER_UPDATED
+from .const import (
+    DOMAIN,
+    SIGNAL_TASK_MANAGER_UPDATED,
+    TASK_STATE_DONE,
+    TASK_STATE_DUE,
+    TASK_STATE_DUE_SOON,
+    TASK_STATE_INACTIVE,
+)
 from .storage import TaskManagerStorage, is_thing_threshold_reached
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,12 +42,13 @@ async def async_setup_entry(
         ent_reg = er.async_get(hass)
         current_uids = {f"{DOMAIN}_user_{u['id']}_points" for u in storage.data.users}
         current_tids = {f"{DOMAIN}_thing_{th['id']}" for th in storage.data.things}
+        current_task_uids = {f"{DOMAIN}_task_{t['id']}_status" for t in storage.data.tasks}
         valid_uids = {
             f"{DOMAIN}_total_tasks",
             f"{DOMAIN}_pending_tasks",
             f"{DOMAIN}_overdue_tasks",
             f"{DOMAIN}_completed_today_tasks",
-        } | current_uids | current_tids
+        } | current_uids | current_tids | current_task_uids
 
         for reg_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
             if reg_entry.domain == "sensor" and reg_entry.unique_id not in valid_uids:
@@ -60,13 +68,15 @@ async def async_setup_entry(
 
     active_user_sensors: dict[str, TaskManagerUserSensor] = {}
     active_thing_sensors: dict[str, TaskManagerThingSensor] = {}
+    active_task_sensors: dict[str, TaskManagerTaskSensor] = {}
 
     @callback
     def update_dynamic_sensors() -> None:
-        """Add new sensors or remove deleted sensors for users and things."""
+        """Add new sensors or remove deleted sensors for users, things, and tasks."""
         new_entities = []
         current_user_ids = {u["id"] for u in storage.data.users}
         current_thing_ids = {th["id"] for th in storage.data.things}
+        current_task_ids = {t["id"] for t in storage.data.tasks}
 
         # 1. Add new users
         for user in storage.data.users:
@@ -109,6 +119,27 @@ async def async_setup_entry(
                         ent_reg.async_remove(reg_id)
                 except Exception as err:
                     _LOGGER.debug("Error removing thing sensor from registry: %s", err)
+
+        # 5. Add new task sensors
+        for task in storage.data.tasks:
+            t_id = task["id"]
+            if t_id not in active_task_sensors:
+                sensor = TaskManagerTaskSensor(storage, t_id)
+                active_task_sensors[t_id] = sensor
+                new_entities.append(sensor)
+
+        # 6. Remove deleted task sensors
+        for t_id in list(active_task_sensors.keys()):
+            if t_id not in current_task_ids:
+                sensor = active_task_sensors.pop(t_id)
+                hass.async_create_task(sensor.async_remove())
+                try:
+                    ent_reg = er.async_get(hass)
+                    reg_id = ent_reg.async_get_entity_id("sensor", DOMAIN, f"{DOMAIN}_task_{t_id}_status")
+                    if reg_id:
+                        ent_reg.async_remove(reg_id)
+                except Exception as err:
+                    _LOGGER.debug("Error removing task sensor from registry: %s", err)
 
         if new_entities:
             async_add_entities(new_entities)
@@ -307,3 +338,58 @@ class TaskManagerThingSensor(SensorEntity):
             "auto_task_creation": thing.get("auto_task_creation", False),
             "last_reset": thing.get("last_reset", ""),
         }
+
+
+class TaskManagerTaskSensor(SensorEntity):
+    """Sensor representing an individual task and its status/metrics."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, storage: TaskManagerStorage, task_id: str) -> None:
+        """Initialize task sensor."""
+        self._storage = storage
+        self._task_id = task_id
+        task = storage.data.get_task(task_id) or {}
+        title = task.get("title", "Task")
+        self._attr_name = f"Task {title}"
+        self._attr_unique_id = f"{DOMAIN}_task_{task_id}_status"
+        safe_title = slugify(title) or task_id[:8]
+        self.entity_id = f"sensor.task_manager_{safe_title}"
+
+    async def async_added_to_hass(self) -> None:
+        """Register update listener."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_TASK_MANAGER_UPDATED, self._handle_update
+            )
+        )
+
+    @callback
+    def _handle_update(self) -> None:
+        """Handle state update."""
+        self.async_write_ha_state()
+
+    @property
+    def icon(self) -> str:
+        """Return icon depending on status."""
+        state = self.native_value
+        if state == TASK_STATE_INACTIVE:
+            return "mdi:pause-circle-outline"
+        if state == TASK_STATE_DONE:
+            return "mdi:checkbox-marked-circle"
+        if state == TASK_STATE_DUE_SOON:
+            return "mdi:clock-alert-outline"
+        return "mdi:alert-circle-outline"
+
+    @property
+    def native_value(self) -> str:
+        """Return task state: due, due_soon, done, or inactive."""
+        state, _ = self._storage.data.get_task_effective_state(self._task_id, self.hass)
+        return state
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return task attributes."""
+        _, attrs = self._storage.data.get_task_effective_state(self._task_id, self.hass)
+        return attrs
+

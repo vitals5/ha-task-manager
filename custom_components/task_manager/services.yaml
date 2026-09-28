@@ -139,6 +139,13 @@ complete_task:
       example: "e34b9d0b-..."
       selector:
         text:
+    entity_id:
+      name: Task Sensor or Button Entity
+      description: Entity ID of the task sensor or complete button.
+      required: false
+      example: "sensor.task_manager_clean_kitchen"
+      selector:
+        entity:
     task_title:
       name: Task Title
       description: Find and complete the pending task matching this exact title.
@@ -155,6 +162,117 @@ complete_task:
     tag:
       name: Tag
       description: Complete all open tasks with this tag.
+      required: false
+      selector:
+        text:
+
+mark_as_done:
+  name: Mark As Done (Alias)
+  description: Alias for complete_task. Marks a task or chore as done.
+  fields:
+    task_id:
+      name: Task ID
+      description: The unique identifier of the task.
+      required: false
+      selector:
+        text:
+    entity_id:
+      name: Task Sensor or Button Entity
+      description: Entity ID of the task sensor or complete button.
+      required: false
+      selector:
+        entity:
+    task_title:
+      name: Task Title
+      description: Find and complete the pending task matching this exact title.
+      required: false
+      selector:
+        text:
+    user_id:
+      name: Completed by User ID
+      description: User ID who gets credit and points.
+      required: false
+      selector:
+        text:
+    tag:
+      name: Tag
+      description: Complete all open tasks with this tag.
+      required: false
+      selector:
+        text:
+
+set_last_done_date:
+  name: Set Last Done Date
+  description: Manually sets the last completion date of a recurring task and recalculates its due date.
+  fields:
+    task_id:
+      name: Task ID
+      description: The unique identifier of the task.
+      required: false
+      selector:
+        text:
+    entity_id:
+      name: Task Sensor or Button Entity
+      description: Entity ID of the task sensor or complete button.
+      required: false
+      selector:
+        entity:
+    task_title:
+      name: Task Title
+      description: The exact title of the task.
+      required: false
+      selector:
+        text:
+    date:
+      name: Date
+      description: Completion date in YYYY-MM-DD format.
+      required: true
+      example: "2026-09-27"
+      selector:
+        date:
+
+pause_task:
+  name: Pause Task
+  description: Temporarily deactivates a task so it will not become due until resumed.
+  fields:
+    task_id:
+      name: Task ID
+      description: The unique identifier of the task.
+      required: false
+      selector:
+        text:
+    entity_id:
+      name: Task Sensor or Button Entity
+      description: Entity ID of the task sensor or complete button.
+      required: false
+      selector:
+        entity:
+    task_title:
+      name: Task Title
+      description: The exact title of the task.
+      required: false
+      selector:
+        text:
+
+resume_task:
+  name: Resume Task
+  description: Resumes a paused task, setting it back to active.
+  fields:
+    task_id:
+      name: Task ID
+      description: The unique identifier of the task.
+      required: false
+      selector:
+        text:
+    entity_id:
+      name: Task Sensor or Button Entity
+      description: Entity ID of the task sensor or complete button.
+      required: false
+      selector:
+        entity:
+    task_title:
+      name: Task Title
+      description: The exact title of the task.
       required: false
       selector:
         text:

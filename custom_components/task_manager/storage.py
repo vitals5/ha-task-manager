@@ -1,6 +1,7 @@
 """Data storage and management for the Task Manager integration."""
 from __future__ import annotations
 
+import calendar
 import copy
 from datetime import date, datetime, timedelta
 import logging
@@ -36,6 +37,12 @@ from .const import (
     RECURRENCE_NONE,
     RECURRENCE_WEEKLY,
     RECURRENCE_YEARLY,
+    REPEAT_EVERY_WEEKDAY,
+    REPEAT_EVERY_DAY_OF_MONTH,
+    REPEAT_EVERY_WEEKDAY_OF_MONTH,
+    REPEAT_EVERY_DAYS_BEFORE_END_OF_MONTH,
+    REPEAT_MODE_AFTER,
+    REPEAT_MODE_EVERY,
     ROTATION_LEAST_COMPLETED,
     ROTATION_NONE,
     ROTATION_RANDOM,
@@ -43,6 +50,10 @@ from .const import (
     SIGNAL_TASK_MANAGER_UPDATED,
     STORAGE_KEY,
     STORAGE_VERSION,
+    TASK_STATE_DONE,
+    TASK_STATE_DUE,
+    TASK_STATE_DUE_SOON,
+    TASK_STATE_INACTIVE,
     THING_ACTION_DECREMENT,
     THING_ACTION_INCREMENT,
     THING_ACTION_RESET,
@@ -77,13 +88,211 @@ def is_thing_threshold_reached(thing: dict[str, Any]) -> bool:
     return current >= threshold
 
 
+def add_months(d: date, months: int) -> date:
+    """Add integer number of months to a date, clamping day to month length."""
+    year = d.year + (d.month + months - 1) // 12
+    month = (d.month + months - 1) % 12 + 1
+    last_day = calendar.monthrange(year, month)[1]
+    day = min(d.day, last_day)
+    return date(year, month, day)
+
+
+def weekday_number(name: str | int) -> int:
+    """Convert weekday name or number to python weekday number (0=Mon, 6=Sun)."""
+    if isinstance(name, int) or (isinstance(name, str) and name.isdigit()):
+        return int(name) % 7
+    mapping = {
+        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+        "friday": 4, "saturday": 5, "sunday": 6,
+        "mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6,
+    }
+    return mapping.get(str(name).lower(), 0)
+
+
+def calc_next_weekday(last: date, weekday_name: str, weeks_interval: int = 1) -> date:
+    """Return the next due date for 'every N weeks on weekday'."""
+    target = weekday_number(weekday_name)
+    days_ahead = (target - last.weekday()) % 7
+    if days_ahead == 0:
+        return last + timedelta(weeks=max(1, weeks_interval))
+    return last + timedelta(days=days_ahead) + timedelta(weeks=max(0, weeks_interval - 1))
+
+
+def calc_next_day_of_month(last: date, day: int, months_interval: int = 1) -> date:
+    """Return the next occurrence of day of the month strictly after last."""
+    months_interval = max(1, months_interval)
+    if months_interval == 1:
+        last_day = calendar.monthrange(last.year, last.month)[1]
+        candidate = last.replace(day=min(day, last_day))
+        if candidate > last:
+            return candidate
+    next_month = add_months(last.replace(day=1), months_interval)
+    last_day = calendar.monthrange(next_month.year, next_month.month)[1]
+    return next_month.replace(day=min(day, last_day))
+
+
+def calc_next_days_before_end_of_month(last: date, days_before: int, months_interval: int = 1) -> date:
+    """Return the next occurrence of (last day of month - days_before) strictly after last."""
+    months_interval = max(1, months_interval)
+    if months_interval == 1:
+        last_day = calendar.monthrange(last.year, last.month)[1]
+        candidate = last.replace(day=max(1, last_day - days_before))
+        if candidate > last:
+            return candidate
+    next_month = add_months(last.replace(day=1), months_interval)
+    last_day = calendar.monthrange(next_month.year, next_month.month)[1]
+    return next_month.replace(day=max(1, last_day - days_before))
+
+
+def get_nth_weekday_of_month(year: int, month: int, target_weekday: int, nth: int) -> date | None:
+    """Return the nth occurrence of target_weekday in year/month (-1 for last)."""
+    if nth == -1:
+        last_day = calendar.monthrange(year, month)[1]
+        d = date(year, month, last_day)
+        while d.weekday() != target_weekday:
+            d -= timedelta(days=1)
+        return d
+    first_day = date(year, month, 1)
+    days_ahead = (target_weekday - first_day.weekday()) % 7
+    first_occ = first_day + timedelta(days=days_ahead)
+    res = first_occ + timedelta(weeks=nth - 1)
+    return res if res.month == month else None
+
+
+def calc_next_weekday_of_month(last: date, weekday_name: str, nth_str: str, months_interval: int = 1) -> date:
+    """Return the next nth weekday-of-month occurrence strictly after last."""
+    months_interval = max(1, months_interval)
+    target = weekday_number(weekday_name)
+    nth = -1 if str(nth_str).lower() == "last" else int(nth_str)
+    if months_interval == 1:
+        occ = get_nth_weekday_of_month(last.year, last.month, target, nth)
+        if occ and occ > last:
+            return occ
+    candidate_month = add_months(last.replace(day=1), months_interval)
+    for _ in range(24):
+        occ = get_nth_weekday_of_month(candidate_month.year, candidate_month.month, target, nth)
+        if occ:
+            return occ
+        candidate_month = add_months(candidate_month, months_interval)
+    return add_months(last, months_interval)
+
+
+def calc_most_recent_weekday_in_cycle(last_done: date, today: date, weekday_name: str, weeks_interval: int = 1) -> date:
+    """Return most recent occurrence in cycle on or before today."""
+    first_cycle = calc_next_weekday(last_done, weekday_name, weeks_interval)
+    if first_cycle > today:
+        return last_done
+    days_elapsed = (today - first_cycle).days
+    periods = days_elapsed // (max(1, weeks_interval) * 7)
+    return first_cycle + timedelta(weeks=periods * max(1, weeks_interval))
+
+
+def calc_most_recent_day_of_month(last_done: date, today: date, day: int, months_interval: int = 1) -> date:
+    """Return most recent day of month occurrence on or before today."""
+    months_interval = max(1, months_interval)
+    if months_interval == 1:
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        candidate = today.replace(day=min(day, last_day))
+        if candidate <= today:
+            return candidate
+        prev_month = add_months(today.replace(day=1), -1)
+        prev_last_day = calendar.monthrange(prev_month.year, prev_month.month)[1]
+        return prev_month.replace(day=min(day, prev_last_day))
+    current = calc_next_day_of_month(last_done, day, months_interval)
+    if current > today:
+        return last_done
+    while True:
+        nxt = calc_next_day_of_month(current, day, months_interval)
+        if nxt > today:
+            return current
+        current = nxt
+
+
+def calc_most_recent_days_before_end_of_month(last_done: date, today: date, days_before: int, months_interval: int = 1) -> date:
+    """Return most recent days before month end occurrence on or before today."""
+    months_interval = max(1, months_interval)
+    if months_interval == 1:
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        candidate = today.replace(day=max(1, last_day - days_before))
+        if candidate <= today:
+            return candidate
+        prev_month = add_months(today.replace(day=1), -1)
+        prev_last_day = calendar.monthrange(prev_month.year, prev_month.month)[1]
+        return prev_month.replace(day=max(1, prev_last_day - days_before))
+    current = calc_next_days_before_end_of_month(last_done, days_before, months_interval)
+    if current > today:
+        return last_done
+    while True:
+        nxt = calc_next_days_before_end_of_month(current, days_before, months_interval)
+        if nxt > today:
+            return current
+        current = nxt
+
+
+def calc_most_recent_weekday_of_month(last_done: date, today: date, weekday_name: str, nth_str: str, months_interval: int = 1) -> date:
+    """Return most recent nth weekday of month occurrence on or before today."""
+    months_interval = max(1, months_interval)
+    target = weekday_number(weekday_name)
+    nth = -1 if str(nth_str).lower() == "last" else int(nth_str)
+    if months_interval == 1:
+        occ = get_nth_weekday_of_month(today.year, today.month, target, nth)
+        if occ and occ <= today:
+            return occ
+        candidate_month = add_months(today.replace(day=1), -1)
+        for _ in range(24):
+            occ = get_nth_weekday_of_month(candidate_month.year, candidate_month.month, target, nth)
+            if occ and occ <= today:
+                return occ
+            candidate_month = add_months(candidate_month, -1)
+        return today
+    current = calc_next_weekday_of_month(last_done, weekday_name, nth_str, months_interval)
+    if current > today:
+        return last_done
+    while True:
+        nxt = calc_next_weekday_of_month(current, weekday_name, nth_str, months_interval)
+        if nxt > today:
+            return current
+        current = nxt
+
+
+def find_most_recent_occurrence(last_done: date, today: date, recurrence: dict[str, Any]) -> date:
+    """Find the most recent scheduled occurrence on or before today."""
+    rec_type = recurrence.get("repeat_every_type") or recurrence.get("type", RECURRENCE_NONE)
+    if rec_type in (REPEAT_EVERY_WEEKDAY, "repeat_every_weekday"):
+        weekday = recurrence.get("repeat_every_weekday")
+        if weekday is None:
+            weekday = recurrence.get("repeat_weekday") or recurrence.get("weekday") or "monday"
+        weeks = int(recurrence.get("repeat_weeks_interval") or recurrence.get("interval", 1))
+        return calc_most_recent_weekday_in_cycle(last_done, today, weekday, weeks)
+    if rec_type in (REPEAT_EVERY_DAY_OF_MONTH, "repeat_every_day_of_month"):
+        day = recurrence.get("repeat_every_day_of_month")
+        if day is None:
+            day = recurrence.get("repeat_month_day") or recurrence.get("day", 1)
+        months = int(recurrence.get("repeat_months_interval") or recurrence.get("interval", 1))
+        return calc_most_recent_day_of_month(last_done, today, int(day), months)
+    if rec_type in (REPEAT_EVERY_WEEKDAY_OF_MONTH, "repeat_every_weekday_of_month"):
+        weekday = recurrence.get("repeat_every_weekday")
+        if weekday is None:
+            weekday = recurrence.get("repeat_weekday") or recurrence.get("weekday") or "monday"
+        nth = str(recurrence.get("repeat_every_nth") or recurrence.get("repeat_nth_occurrence") or recurrence.get("occurrence", "1"))
+        months = int(recurrence.get("repeat_months_interval") or recurrence.get("interval", 1))
+        return calc_most_recent_weekday_of_month(last_done, today, weekday, nth, months)
+    if rec_type in (REPEAT_EVERY_DAYS_BEFORE_END_OF_MONTH, "repeat_every_days_before_end_of_month"):
+        days_before = recurrence.get("repeat_every_days_before_end_of_month")
+        if days_before is None:
+            days_before = recurrence.get("repeat_days_before_end") or recurrence.get("days_before", 0)
+        months = int(recurrence.get("repeat_months_interval") or recurrence.get("interval", 1))
+        return calc_most_recent_days_before_end_of_month(last_done, today, int(days_before), months)
+    return today
+
+
 def calculate_next_due_date(
     current_due_date_str: str,
     recurrence: dict[str, Any],
     completion_date_str: str | None = None,
 ) -> str:
     """Calculate the next due date based on recurrence configuration."""
-    rec_type = recurrence.get("type", RECURRENCE_NONE)
+    rec_type = recurrence.get("repeat_every_type") or recurrence.get("type", RECURRENCE_NONE)
     interval = max(1, int(recurrence.get("interval", 1)))
     based_on = recurrence.get("based_on", RECURRENCE_BASED_DUE_DATE)
 
@@ -101,10 +310,40 @@ def calculate_next_due_date(
         # based on due date
         try:
             base_date = datetime.strptime(current_due_date_str[:10], "%Y-%m-%d").date()
-            # If the due date was in the past, calculate from the base date, but ensure it lands in the future if desired
         except ValueError:
             base_date = today
 
+    # Repeat-Every Sub-Types (Fixed Calendar Schedules)
+    if rec_type in (REPEAT_EVERY_WEEKDAY, "repeat_every_weekday"):
+        weekday = recurrence.get("repeat_every_weekday")
+        if weekday is None:
+            weekday = recurrence.get("repeat_weekday") or recurrence.get("weekday") or "monday"
+        weeks = int(recurrence.get("repeat_weeks_interval") or recurrence.get("interval", 1))
+        return calc_next_weekday(base_date, weekday, weeks).strftime("%Y-%m-%d")
+
+    if rec_type in (REPEAT_EVERY_DAY_OF_MONTH, "repeat_every_day_of_month"):
+        day = recurrence.get("repeat_every_day_of_month")
+        if day is None:
+            day = recurrence.get("repeat_month_day") or recurrence.get("day", 1)
+        months = int(recurrence.get("repeat_months_interval") or recurrence.get("interval", 1))
+        return calc_next_day_of_month(base_date, int(day), months).strftime("%Y-%m-%d")
+
+    if rec_type in (REPEAT_EVERY_WEEKDAY_OF_MONTH, "repeat_every_weekday_of_month"):
+        weekday = recurrence.get("repeat_every_weekday")
+        if weekday is None:
+            weekday = recurrence.get("repeat_weekday") or recurrence.get("weekday") or "monday"
+        nth = str(recurrence.get("repeat_every_nth") or recurrence.get("repeat_nth_occurrence") or recurrence.get("occurrence", "1"))
+        months = int(recurrence.get("repeat_months_interval") or recurrence.get("interval", 1))
+        return calc_next_weekday_of_month(base_date, weekday, nth, months).strftime("%Y-%m-%d")
+
+    if rec_type in (REPEAT_EVERY_DAYS_BEFORE_END_OF_MONTH, "repeat_every_days_before_end_of_month"):
+        days_before = recurrence.get("repeat_every_days_before_end_of_month")
+        if days_before is None:
+            days_before = recurrence.get("repeat_days_before_end") or recurrence.get("days_before", 0)
+        months = int(recurrence.get("repeat_months_interval") or recurrence.get("interval", 1))
+        return calc_next_days_before_end_of_month(base_date, int(days_before), months).strftime("%Y-%m-%d")
+
+    # Standard Recurrence Types
     if rec_type in (RECURRENCE_DAILY, RECURRENCE_CUSTOM_DAYS):
         next_date = base_date + timedelta(days=interval)
         # If based on due_date and still in the past, advance to next cycle >= today
@@ -283,6 +522,16 @@ class TaskManagerData:
             "current_assignee": current_assignee,
             "rotation_mode": task_data.get("rotation_mode", ROTATION_NONE),
             "labels": task_data.get("labels", []),
+            "tags": [str(t).strip() for t in task_data.get("tags", []) if str(t).strip()],
+            "is_active": bool(task_data.get("is_active", task_data.get("active", True))),
+            "active_override": task_data.get("active_override") or None,
+            "task_interval_override": task_data.get("task_interval_override") or None,
+            "due_soon_override": task_data.get("due_soon_override") or None,
+            "due_soon_days": max(0, int(task_data.get("due_soon_days", 0))),
+            "notification_interval": max(1, int(task_data.get("notification_interval", 1))),
+            "dependencies": [str(d).strip() for d in task_data.get("dependencies", []) if str(d).strip()],
+            "times_completed": int(task_data.get("times_completed", 0)),
+            "last_done_date": task_data.get("last_done_date", ""),
             "recurrence": rec,
             "subtasks": subtasks,
             "reminders": task_data.get("reminders", []),
@@ -325,6 +574,17 @@ class TaskManagerData:
                             "completed": bool(st.get("completed", False)),
                         })
                 task["subtasks"] = clean_st
+            elif key == "tags" and isinstance(val, list):
+                task["tags"] = [str(t).strip() for t in val if str(t).strip()]
+            elif key in ("active", "is_active"):
+                task["is_active"] = bool(val)
+            elif key in ("due_soon_days", "notification_interval", "times_completed"):
+                try:
+                    task[key] = max(0, int(val))
+                except (ValueError, TypeError):
+                    pass
+            elif key == "dependencies" and isinstance(val, list):
+                task["dependencies"] = [str(d).strip() for d in val if str(d).strip()]
             else:
                 task[key] = val
 
@@ -470,6 +730,8 @@ class TaskManagerData:
             # Recalculate next due date
             rep_count = task.get("repetition_count", 0) + 1
             task["repetition_count"] = rep_count
+            task["times_completed"] = task.get("times_completed", 0) + 1
+            task["last_done_date"] = today_date_str
             max_reps = rec.get("max_repetitions")
             end_date = rec.get("end_date")
 
@@ -477,11 +739,45 @@ class TaskManagerData:
                 # No schedule fallback configured: next due date is set to far future until threshold triggers!
                 next_due = FAR_FUTURE_DUE_DATE
             else:
-                next_due = calculate_next_due_date(
-                    current_due_date_str=task.get("due_date", today_date_str),
-                    recurrence=rec,
-                    completion_date_str=today_date_str,
+                repeat_mode = rec.get("mode") or (
+                    REPEAT_MODE_EVERY if rec.get("type") in (
+                        REPEAT_EVERY_WEEKDAY,
+                        REPEAT_EVERY_DAY_OF_MONTH,
+                        REPEAT_EVERY_WEEKDAY_OF_MONTH,
+                        REPEAT_EVERY_DAYS_BEFORE_END_OF_MONTH,
+                    ) else REPEAT_MODE_AFTER
                 )
+
+                if repeat_mode == REPEAT_MODE_EVERY:
+                    cur_due = task.get("due_date", today_date_str)
+                    try:
+                        cur_due_dt = datetime.strptime(cur_due[:10], "%Y-%m-%d").date()
+                    except ValueError:
+                        cur_due_dt = now.date()
+                    due_in = (cur_due_dt - now.date()).days if cur_due_dt > now.date() else 0
+                    due_soon_days = int(task.get("due_soon_days", 0))
+
+                    if 0 < due_in <= due_soon_days:
+                        # Early completion within due_soon window
+                        task["last_done_date"] = cur_due_dt.strftime("%Y-%m-%d")
+                        base_calc_date = cur_due_dt
+                    else:
+                        # Due or overdue: catch up to most recent occurrence
+                        recent = find_most_recent_occurrence(cur_due_dt, now.date(), rec)
+                        task["last_done_date"] = recent.strftime("%Y-%m-%d")
+                        base_calc_date = recent
+
+                    next_due = calculate_next_due_date(
+                        current_due_date_str=base_calc_date.strftime("%Y-%m-%d"),
+                        recurrence=rec,
+                        completion_date_str=task["last_done_date"],
+                    )
+                else:
+                    next_due = calculate_next_due_date(
+                        current_due_date_str=task.get("due_date", today_date_str),
+                        recurrence=rec,
+                        completion_date_str=today_date_str,
+                    )
 
             # Check if recurrence expired
             recurrence_expired = False
@@ -504,6 +800,8 @@ class TaskManagerData:
             task["status"] = "completed"
             task["completed_at"] = now_str
             task["completed_by"] = effective_user_id
+            task["times_completed"] = task.get("times_completed", 0) + 1
+            task["last_done_date"] = today_date_str
 
         self._log_activity("task_completed", {
             "task_id": task_id,
@@ -513,6 +811,170 @@ class TaskManagerData:
             "recurring": is_recurring,
         })
         return task
+
+    def set_last_done_date(self, task_id: str, new_date_str: str) -> dict[str, Any] | None:
+        """Set the last done date of a task explicitly and recalculate the next due date."""
+        task = self.get_task(task_id)
+        if not task:
+            return None
+        try:
+            valid_date = datetime.strptime(new_date_str[:10], "%Y-%m-%d").date().strftime("%Y-%m-%d")
+        except ValueError:
+            valid_date = new_date_str[:10]
+
+        task["last_done_date"] = valid_date
+        task["times_completed"] = task.get("times_completed", 0) + 1
+        rec = task.get("recurrence", {})
+        if rec.get("enabled", False) and rec.get("type", RECURRENCE_NONE) not in (RECURRENCE_NONE, "none", ""):
+            next_due = calculate_next_due_date(
+                current_due_date_str=valid_date,
+                recurrence=rec,
+                completion_date_str=valid_date,
+            )
+            task["due_date"] = next_due
+            task["status"] = "pending"
+        self._log_activity("task_set_last_done", {"task_id": task_id, "last_done": valid_date})
+        return task
+
+    def pause_task(self, task_id: str) -> dict[str, Any] | None:
+        """Pause / deactivate a task."""
+        task = self.get_task(task_id)
+        if not task:
+            return None
+        task["is_active"] = False
+        self._log_activity("task_paused", {"task_id": task_id, "title": task.get("title", "")})
+        return task
+
+    def resume_task(self, task_id: str) -> dict[str, Any] | None:
+        """Resume / activate a paused task."""
+        task = self.get_task(task_id)
+        if not task:
+            return None
+        task["is_active"] = True
+        self._log_activity("task_resumed", {"task_id": task_id, "title": task.get("title", "")})
+        return task
+
+    def get_task_effective_state(
+        self,
+        task_id: str,
+        hass: HomeAssistant | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        """Calculate the effective state and metrics for a task.
+
+        Returns (state, attributes) where state is one of:
+        - "inactive": task is paused or active_override is off
+        - "done": task is completed or not yet due
+        - "due_soon": within due_soon_days window
+        - "due": due today or overdue
+
+        Also resolves dependencies:
+        Urgency rank: done (0) < due_soon (1) < due (2).
+        A task's rank is clamped to the minimum rank among its dependencies.
+        """
+        task = self.get_task(task_id)
+        if not task:
+            return TASK_STATE_DONE, {}
+
+        now = dt_util.now()
+        if hasattr(now, "date") and callable(now.date):
+            d = now.date()
+            today = d if isinstance(d, date) else date.today()
+        else:
+            today = date.today()
+        today_str = today.strftime("%Y-%m-%d")
+
+        # 1. Effective active
+        effective_active = bool(task.get("is_active", True))
+        active_override = task.get("active_override")
+        if active_override and hass:
+            state_obj = hass.states.get(active_override)
+            if state_obj is not None and state_obj.state not in ("unavailable", "unknown"):
+                effective_active = (state_obj.state == "on")
+
+        # 2. Effective due_soon_days
+        effective_due_soon_days = int(task.get("due_soon_days", 0))
+        due_soon_override = task.get("due_soon_override")
+        if due_soon_override and hass:
+            state_obj = hass.states.get(due_soon_override)
+            if state_obj is not None and state_obj.state not in ("unavailable", "unknown"):
+                try:
+                    effective_due_soon_days = max(0, int(float(state_obj.state)))
+                except (ValueError, TypeError):
+                    pass
+
+        # 3. Due date & days until/overdue
+        due_date_str = task.get("due_date", today_str)
+        try:
+            due_date = datetime.strptime(due_date_str[:10], "%Y-%m-%d").date()
+        except ValueError:
+            due_date = today
+
+        due_in = (due_date - today).days if due_date > today else 0
+        overdue_by = (today - due_date).days if due_date < today else 0
+
+        # Base state calculation
+        if not effective_active:
+            native_state = TASK_STATE_INACTIVE
+        elif task.get("status") == "completed":
+            native_state = TASK_STATE_DONE
+        elif due_in == 0:
+            native_state = TASK_STATE_DUE
+        elif due_in <= effective_due_soon_days:
+            native_state = TASK_STATE_DUE_SOON
+        else:
+            native_state = TASK_STATE_DONE
+
+        # 4. Dependency constraint gating
+        dependencies = task.get("dependencies", [])
+        if native_state in (TASK_STATE_DUE, TASK_STATE_DUE_SOON) and dependencies:
+            state_rank = {TASK_STATE_DONE: 0, TASK_STATE_DUE_SOON: 1, TASK_STATE_DUE: 2}
+            own_rank = state_rank.get(native_state, 2)
+            min_dep_rank = own_rank
+
+            for dep_id in dependencies:
+                # Find by task id or entity_id or title
+                dep_task = self.get_task(dep_id)
+                if not dep_task:
+                    for t in self.tasks:
+                        if t.get("id") == dep_id or t.get("title") == dep_id:
+                            dep_task = t
+                            break
+
+                if dep_task:
+                    dep_state, _ = self.get_task_effective_state(dep_task["id"], hass)
+                    dep_rank = state_rank.get(dep_state, 0)
+                elif hass:
+                    dep_state_obj = hass.states.get(dep_id)
+                    dep_rank = state_rank.get(dep_state_obj.state if dep_state_obj else None, 0)
+                else:
+                    dep_rank = 0
+
+                if dep_rank < min_dep_rank:
+                    min_dep_rank = dep_rank
+
+            if min_dep_rank < own_rank:
+                rank_state = {0: TASK_STATE_DONE, 1: TASK_STATE_DUE_SOON, 2: TASK_STATE_DUE}
+                native_state = rank_state[min_dep_rank]
+
+        attrs = {
+            "task_id": task["id"],
+            "title": task.get("title", ""),
+            "due_date": due_date_str,
+            "due_in": due_in,
+            "overdue_by": overdue_by,
+            "due_soon_days": effective_due_soon_days,
+            "last_done": task.get("last_done_date", ""),
+            "times_completed": task.get("times_completed", 0),
+            "notification_interval": task.get("notification_interval", 1),
+            "tags": task.get("tags", []),
+            "dependencies": dependencies,
+            "is_active": effective_active,
+            "priority": task.get("priority", PRIORITY_NONE),
+            "assignee": task.get("current_assignee"),
+            "points": task.get("points", 10),
+            "recurrence": task.get("recurrence", {}),
+        }
+        return native_state, attrs
 
     def reset_task(self, task_id: str) -> dict[str, Any] | None:
         """Reset a completed task back to pending."""
@@ -909,6 +1371,16 @@ class TaskManagerData:
                     "current_assignee": overlay.get("current_assignee"),
                     "rotation_mode": overlay.get("rotation_mode", ROTATION_NONE),
                     "labels": overlay.get("labels", []),
+                    "tags": overlay.get("tags", []),
+                    "is_active": overlay.get("is_active", True),
+                    "active_override": overlay.get("active_override"),
+                    "task_interval_override": overlay.get("task_interval_override"),
+                    "due_soon_override": overlay.get("due_soon_override"),
+                    "due_soon_days": int(overlay.get("due_soon_days", 0)),
+                    "notification_interval": int(overlay.get("notification_interval", 1)),
+                    "dependencies": overlay.get("dependencies", []),
+                    "times_completed": int(overlay.get("times_completed", 0)),
+                    "last_done_date": overlay.get("last_done_date", ""),
                     "subtasks": overlay.get("subtasks", []),
                     "points": int(overlay.get("points", self.settings.get("default_points", 10))),
                     "linked_thing_id": overlay.get("linked_thing_id"),
@@ -1283,6 +1755,28 @@ class TaskManagerStorage:
             self.fire_task_event(EVENT_TASK_REOPENED, task)
         return task
 
+    async def async_set_last_done_date(self, task_id: str, new_date: str) -> dict[str, Any] | None:
+        """Set the last done date of a task explicitly and recalculate the next due date."""
+        task = self.data.set_last_done_date(task_id, new_date)
+        if task:
+            await self.async_save()
+            self.fire_task_event(EVENT_TASK_COMPLETED, task, {"manual_date": new_date})
+        return task
+
+    async def async_pause_task(self, task_id: str) -> dict[str, Any] | None:
+        """Pause / deactivate a task."""
+        task = self.data.pause_task(task_id)
+        if task:
+            await self.async_save()
+        return task
+
+    async def async_resume_task(self, task_id: str) -> dict[str, Any] | None:
+        """Resume / activate a task."""
+        task = self.data.resume_task(task_id)
+        if task:
+            await self.async_save()
+        return task
+
     async def async_delete_task(self, task_id: str) -> bool:
         """Delete an internal or external task."""
         if task_id.startswith("ext:"):
@@ -1325,6 +1819,16 @@ class TaskManagerStorage:
                 "current_assignee": task_data.get("current_assignee"),
                 "rotation_mode": task_data.get("rotation_mode", ROTATION_NONE),
                 "labels": task_data.get("labels", []),
+                "tags": task_data.get("tags", []),
+                "is_active": task_data.get("is_active", True),
+                "active_override": task_data.get("active_override"),
+                "task_interval_override": task_data.get("task_interval_override"),
+                "due_soon_override": task_data.get("due_soon_override"),
+                "due_soon_days": int(task_data.get("due_soon_days", 0)),
+                "notification_interval": int(task_data.get("notification_interval", 1)),
+                "dependencies": task_data.get("dependencies", []),
+                "times_completed": int(task_data.get("times_completed", 0)),
+                "last_done_date": task_data.get("last_done_date", ""),
                 "points": int(task_data.get("points", self.data.settings.get("default_points", 10))),
                 "linked_thing_id": task_data.get("linked_thing_id"),
                 "thing_action": task_data.get("thing_action", THING_ACTION_RESET),

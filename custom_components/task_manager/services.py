@@ -20,9 +20,13 @@ from .const import (
     SERVICE_CREATE_TASK,
     SERVICE_DELETE_TASK,
     SERVICE_DUPLICATE_TASK,
+    SERVICE_MARK_AS_DONE,
     SERVICE_MOVE_TASK,
+    SERVICE_PAUSE_TASK,
     SERVICE_REOPEN_TASK,
     SERVICE_RESET_TASK,
+    SERVICE_RESUME_TASK,
+    SERVICE_SET_LAST_DONE_DATE,
     SERVICE_UPDATE_SUBTASK,
     SERVICE_UPDATE_TASK,
     SERVICE_UPDATE_THING,
@@ -50,13 +54,28 @@ SCHEMA_CREATE_TASK = vol.Schema({
 
 SCHEMA_COMPLETE_TASK = vol.Schema({
     vol.Optional("task_id"): cv.string,
+    vol.Optional("entity_id"): cv.string,
     vol.Optional("task_title"): cv.string,
     vol.Optional("user_id"): cv.string,
     vol.Optional("tag"): cv.string,
 })
 
+SCHEMA_SET_LAST_DONE_DATE = vol.Schema({
+    vol.Optional("task_id"): cv.string,
+    vol.Optional("entity_id"): cv.string,
+    vol.Optional("task_title"): cv.string,
+    vol.Required("date"): cv.string,
+})
+
+SCHEMA_PAUSE_RESUME_TASK = vol.Schema({
+    vol.Optional("task_id"): cv.string,
+    vol.Optional("entity_id"): cv.string,
+    vol.Optional("task_title"): cv.string,
+})
+
 SCHEMA_RESET_TASK = vol.Schema({
     vol.Optional("task_id"): cv.string,
+    vol.Optional("entity_id"): cv.string,
     vol.Optional("task_title"): cv.string,
     vol.Optional("assigned_person"): cv.string,
     vol.Optional("user_id"): cv.string,
@@ -106,6 +125,45 @@ SCHEMA_AWARD_POINTS = vol.Schema({
 })
 
 
+def resolve_task_id(call_data: dict[str, Any], storage: TaskManagerStorage, hass: HomeAssistant) -> str | None:
+    """Resolve a target task ID from task_id, entity_id, or task_title."""
+    task_id = call_data.get("task_id")
+    if task_id:
+        return str(task_id)
+
+    entity_id = call_data.get("entity_id")
+    if entity_id:
+        try:
+            from homeassistant.helpers import entity_registry as er
+            ent_reg = er.async_get(hass)
+            entry = ent_reg.async_get(entity_id)
+            if entry and isinstance(getattr(entry, "unique_id", None), str):
+                for t in storage.data.tasks:
+                    if entry.unique_id in (
+                        f"{DOMAIN}_task_{t['id']}_status",
+                        f"{DOMAIN}_task_{t['id']}_complete",
+                    ):
+                        return t["id"]
+        except Exception:
+            pass
+
+        from homeassistant.util import slugify
+        for t in storage.data.get_all_tasks(include_external=True):
+            safe = str(slugify(t.get("title", "")) or "")
+            if safe and safe in entity_id:
+                return t["id"]
+            if t.get("id") == entity_id:
+                return t["id"]
+
+    task_title = call_data.get("task_title")
+    if task_title:
+        for t in storage.data.get_all_tasks(include_external=True):
+            if t.get("title", "").strip().lower() == task_title.strip().lower():
+                return t["id"]
+
+    return None
+
+
 def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) -> None:
     """Register all integration action services."""
 
@@ -152,34 +210,49 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
 
     async def handle_complete_task(call: ServiceCall) -> None:
         """Handle completing a task via service."""
-        task_id = call.data.get("task_id")
-        task_title = call.data.get("task_title")
         user_id = call.data.get("user_id")
         tag = call.data.get("tag")
 
         if tag:
             all_tasks = storage.data.get_all_tasks(include_external=True)
             for t in all_tasks:
-                if t.get("status") == "pending" and tag in t.get("labels", []):
+                if t.get("status") == "pending" and (tag in t.get("labels", []) or tag in t.get("tags", [])):
                     await storage.async_complete_task(t["id"], user_id=user_id)
             return
 
-        target_id = task_id
-        if not target_id and task_title:
-            for t in storage.data.get_all_tasks(include_external=True):
-                if t.get("title", "").strip().lower() == task_title.strip().lower() and t.get("status") == "pending":
-                    target_id = t["id"]
-                    break
-
+        target_id = resolve_task_id(call.data, storage, hass)
         if target_id:
             await storage.async_complete_task(target_id, user_id=user_id)
         else:
-            _LOGGER.warning("Task Manager: Task '%s' not found to complete", task_id or task_title)
+            _LOGGER.warning("Task Manager: Task '%s' not found to complete", call.data.get("task_id") or call.data.get("task_title") or call.data.get("entity_id"))
+
+    async def handle_set_last_done_date(call: ServiceCall) -> None:
+        """Handle setting the last completion date explicitly via service."""
+        target_id = resolve_task_id(call.data, storage, hass)
+        date_str = call.data["date"]
+        if target_id:
+            await storage.async_set_last_done_date(target_id, date_str)
+        else:
+            _LOGGER.warning("Task Manager: Task '%s' not found to set last done date", call.data.get("task_id") or call.data.get("task_title") or call.data.get("entity_id"))
+
+    async def handle_pause_task(call: ServiceCall) -> None:
+        """Handle pausing a task via service."""
+        target_id = resolve_task_id(call.data, storage, hass)
+        if target_id:
+            await storage.async_pause_task(target_id)
+        else:
+            _LOGGER.warning("Task Manager: Task '%s' not found to pause", call.data.get("task_id") or call.data.get("task_title") or call.data.get("entity_id"))
+
+    async def handle_resume_task(call: ServiceCall) -> None:
+        """Handle resuming a paused task via service."""
+        target_id = resolve_task_id(call.data, storage, hass)
+        if target_id:
+            await storage.async_resume_task(target_id)
+        else:
+            _LOGGER.warning("Task Manager: Task '%s' not found to resume", call.data.get("task_id") or call.data.get("task_title") or call.data.get("entity_id"))
 
     async def handle_reset_task(call: ServiceCall) -> None:
         """Handle resetting/reopening a task via service."""
-        task_id = call.data.get("task_id")
-        task_title = call.data.get("task_title")
         assigned_person = call.data.get("assigned_person") or call.data.get("user_id")
         tag = call.data.get("tag")
 
@@ -190,35 +263,21 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
                     matches_person = not assigned_person or (
                         t.get("current_assignee") == assigned_person or assigned_person in t.get("assignees", [])
                     )
-                    matches_tag = not tag or (tag in t.get("labels", []))
+                    matches_tag = not tag or (tag in t.get("labels", []) or tag in t.get("tags", []))
                     if matches_person and matches_tag:
                         await storage.async_reset_task(t["id"])
             return
 
-        target_id = task_id
-        if not target_id and task_title:
-            for t in storage.data.get_all_tasks(include_external=True):
-                if t.get("title", "").strip().lower() == task_title.strip().lower():
-                    target_id = t["id"]
-                    break
-
+        target_id = resolve_task_id(call.data, storage, hass)
         if target_id:
             await storage.async_reset_task(target_id)
 
     async def handle_assign_task(call: ServiceCall) -> None:
         """Handle assigning a task to a person."""
-        task_id = call.data.get("task_id")
-        task_title = call.data.get("task_title")
+        target_id = resolve_task_id(call.data, storage, hass)
         person = call.data.get("person") or call.data.get("assignee") or call.data.get("assigned_person")
 
-        target_id = task_id
         all_tasks = storage.data.get_all_tasks(include_external=True)
-        if not target_id and task_title:
-            for t in all_tasks:
-                if t.get("title", "").strip().lower() == task_title.strip().lower():
-                    target_id = t["id"]
-                    break
-
         if target_id:
             task = next((t for t in all_tasks if t["id"] == target_id), None)
             if task:
@@ -228,47 +287,30 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
                     task_copy["assignees"] = list(task_copy.get("assignees", [])) + [person]
                 await storage.async_save_task(task_copy)
         else:
-            _LOGGER.warning("Task Manager: Task '%s' not found to assign", task_id or task_title)
+            _LOGGER.warning("Task Manager: Task not found to assign")
 
     async def handle_duplicate_task(call: ServiceCall) -> None:
         """Handle duplicating a task via service."""
-        task_id = call.data.get("task_id")
-        task_title = call.data.get("task_title")
-
-        target_id = task_id
-        if not target_id and task_title:
-            for t in storage.data.get_all_tasks(include_external=True):
-                if t.get("title", "").strip().lower() == task_title.strip().lower():
-                    target_id = t["id"]
-                    break
-
+        target_id = resolve_task_id(call.data, storage, hass)
         if target_id:
             await storage.async_duplicate_task(target_id)
         else:
-            _LOGGER.warning("Task Manager: Task '%s' not found to duplicate", task_id or task_title)
+            _LOGGER.warning("Task Manager: Task not found to duplicate")
 
     async def handle_move_task(call: ServiceCall) -> None:
         """Handle moving a task to another provider or list via service."""
-        task_id = call.data.get("task_id")
-        task_title = call.data.get("task_title")
+        target_id = resolve_task_id(call.data, storage, hass)
         target_provider = call.data.get("target_provider") or call.data.get("target_entity_id") or "task_manager"
-
-        target_id = task_id
-        if not target_id and task_title:
-            for t in storage.data.get_all_tasks(include_external=True):
-                if t.get("title", "").strip().lower() == task_title.strip().lower():
-                    target_id = t["id"]
-                    break
 
         if target_id:
             await storage.async_move_task(target_id, target_provider)
         else:
-            _LOGGER.warning("Task Manager: Task '%s' not found to move", task_id or task_title)
+            _LOGGER.warning("Task Manager: Task not found to move")
 
     async def handle_delete_task(call: ServiceCall) -> None:
         """Handle deleting a task via service."""
-        task_id = call.data["task_id"]
-        if storage.data.delete_task(task_id):
+        target_id = resolve_task_id(call.data, storage, hass)
+        if target_id and storage.data.delete_task(target_id):
             await storage.async_save()
 
     async def handle_update_thing(call: ServiceCall) -> None:
@@ -301,6 +343,10 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
     hass.services.async_register(DOMAIN, SERVICE_CREATE_TASK, handle_create_task, schema=SCHEMA_CREATE_TASK)
     hass.services.async_register(DOMAIN, SERVICE_ADD_TASK, handle_create_task, schema=SCHEMA_CREATE_TASK)
     hass.services.async_register(DOMAIN, SERVICE_COMPLETE_TASK, handle_complete_task, schema=SCHEMA_COMPLETE_TASK)
+    hass.services.async_register(DOMAIN, SERVICE_MARK_AS_DONE, handle_complete_task, schema=SCHEMA_COMPLETE_TASK)
+    hass.services.async_register(DOMAIN, SERVICE_SET_LAST_DONE_DATE, handle_set_last_done_date, schema=SCHEMA_SET_LAST_DONE_DATE)
+    hass.services.async_register(DOMAIN, SERVICE_PAUSE_TASK, handle_pause_task, schema=SCHEMA_PAUSE_RESUME_TASK)
+    hass.services.async_register(DOMAIN, SERVICE_RESUME_TASK, handle_resume_task, schema=SCHEMA_PAUSE_RESUME_TASK)
     hass.services.async_register(DOMAIN, SERVICE_RESET_TASK, handle_reset_task, schema=SCHEMA_RESET_TASK)
     hass.services.async_register(DOMAIN, SERVICE_REOPEN_TASK, handle_reset_task, schema=SCHEMA_RESET_TASK)
     hass.services.async_register(DOMAIN, SERVICE_ASSIGN_TASK, handle_assign_task, schema=SCHEMA_ASSIGN_TASK)
@@ -317,6 +363,10 @@ def async_unregister_services(hass: HomeAssistant) -> None:
         SERVICE_CREATE_TASK,
         SERVICE_ADD_TASK,
         SERVICE_COMPLETE_TASK,
+        SERVICE_MARK_AS_DONE,
+        SERVICE_SET_LAST_DONE_DATE,
+        SERVICE_PAUSE_TASK,
+        SERVICE_RESUME_TASK,
         SERVICE_RESET_TASK,
         SERVICE_REOPEN_TASK,
         SERVICE_ASSIGN_TASK,

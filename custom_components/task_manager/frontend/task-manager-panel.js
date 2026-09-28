@@ -203,7 +203,31 @@
       atDueTime: "At due time",
       minBefore: "{min}m before",
       hoursBefore: "{hours}h before",
-      daysBefore: "{days}d before"
+      daysBefore: "{days}d before",
+      tags: "Tags",
+      tagsPlaceholder: "e.g. kitchen, trash, weekly (comma separated)",
+      dependencies: "Dependencies",
+      dependenciesHint: "Select prerequisite tasks that must be done first",
+      dueSoonDays: "Due Soon Threshold (days)",
+      notificationInterval: "Notification Interval (days)",
+      isActive: "Task Active",
+      isPaused: "Paused",
+      pause: "Pause Task",
+      resume: "Resume Task",
+      timesCompleted: "{count}x completed",
+      repeatMode: "Recurrence Mode",
+      repeatModeAfter: "Interval after completion",
+      repeatModeEvery: "Calendar Schedule",
+      repeatEveryWeekday: "Specific Weekday",
+      repeatEveryDayOfMonth: "Day of Month",
+      repeatEveryWeekdayOfMonth: "Nth Weekday of Month",
+      repeatEveryDaysBeforeEndOfMonth: "Days before month end",
+      activeOverride: "HA Active Override Entity (optional)",
+      intervalOverride: "HA Interval Override Entity (optional)",
+      dueSoonOverride: "HA Due-Soon Override Entity (optional)",
+      setLastDoneDate: "Set Completion Date",
+      lastDoneDate: "Last Done Date",
+      advancedOptions: "Advanced & Overrides"
     },
     de: {
       appName: "Task Manager",
@@ -394,7 +418,31 @@
       atDueTime: "Pünktlich zum Termin",
       minBefore: "{min} Min. vorher",
       hoursBefore: "{hours} Std. vorher",
-      daysBefore: "{days} Tage vorher"
+      daysBefore: "{days} Tage vorher",
+      tags: "Tags",
+      tagsPlaceholder: "z.B. küche, müll, wöchentlich (kommagetrennt)",
+      dependencies: "Abhängigkeiten",
+      dependenciesHint: "Wähle Aufgaben aus, die zuerst erledigt sein müssen",
+      dueSoonDays: "Bald-fällig-Schwelle (Tage)",
+      notificationInterval: "Benachrichtigungsintervall (Tage)",
+      isActive: "Aufgabe Aktiv",
+      isPaused: "Pausiert",
+      pause: "Aufgabe pausieren",
+      resume: "Aufgabe fortsetzen",
+      timesCompleted: "{count}x erledigt",
+      repeatMode: "Wiederholungsmodus",
+      repeatModeAfter: "Intervall nach Erledigung",
+      repeatModeEvery: "Fester Kalenderplan",
+      repeatEveryWeekday: "Bestimmter Wochentag",
+      repeatEveryDayOfMonth: "Tag im Monat",
+      repeatEveryWeekdayOfMonth: "N-ter Wochentag im Monat",
+      repeatEveryDaysBeforeEndOfMonth: "Tage vor Monatsende",
+      activeOverride: "HA Aktiv-Override Entität (optional)",
+      intervalOverride: "HA Intervall-Override Entität (optional)",
+      dueSoonOverride: "HA Bald-Fällig-Override Entität (optional)",
+      setLastDoneDate: "Erledigt-Datum manuell setzen",
+      lastDoneDate: "Letztes Erledigt-Datum",
+      advancedOptions: "Erweitert & HA Overrides"
     }
   };
 
@@ -986,26 +1034,36 @@
       // Search filter
       if (this._searchQuery.trim()) {
         const q = this._searchQuery.toLowerCase();
-        tasks = tasks.filter(t => (t.title && t.title.toLowerCase().includes(q)) || (t.description && t.description.toLowerCase().includes(q)));
+        tasks = tasks.filter(t => 
+          (t.title && t.title.toLowerCase().includes(q)) || 
+          (t.description && t.description.toLowerCase().includes(q)) ||
+          (t.tags && t.tags.some(tag => String(tag).toLowerCase().includes(q)))
+        );
       }
 
       // Status filter
-      if (this._filterStatus === "today") {
-        tasks = tasks.filter(t => t.status === "pending" && t.due_date === todayStr);
+      if (this._filterStatus === "inactive") {
+        tasks = tasks.filter(t => t.is_active === false);
+      } else if (this._filterStatus === "today") {
+        tasks = tasks.filter(t => t.is_active !== false && t.status === "pending" && t.due_date === todayStr);
       } else if (this._filterStatus === "due_soon") {
-        const soonDate = new Date();
-        soonDate.setDate(soonDate.getDate() + 7);
-        const soonStr = soonDate.toISOString().slice(0, 10);
-        tasks = tasks.filter(t => t.status === "pending" && t.due_date && t.due_date <= soonStr);
+        tasks = tasks.filter(t => {
+          if (t.is_active === false || t.status !== "pending" || !t.due_date) return false;
+          const dsDays = (t.due_soon_days !== undefined && t.due_soon_days > 0) ? t.due_soon_days : 7;
+          const soonDate = new Date();
+          soonDate.setDate(soonDate.getDate() + dsDays);
+          const soonStr = soonDate.toISOString().slice(0, 10);
+          return t.due_date <= soonStr;
+        });
       } else if (this._filterStatus === "upcoming") {
-        tasks = tasks.filter(t => t.status === "pending" && t.due_date > todayStr && t.due_date < "2099-01-01");
+        tasks = tasks.filter(t => t.is_active !== false && t.status === "pending" && t.due_date > todayStr && t.due_date < "2099-01-01");
       } else if (this._filterStatus === "overdue") {
-        tasks = tasks.filter(t => t.status === "pending" && t.due_date && t.due_date < todayStr);
+        tasks = tasks.filter(t => t.is_active !== false && t.status === "pending" && t.due_date && t.due_date < todayStr);
       } else if (this._filterStatus === "completed") {
         tasks = tasks.filter(t => t.status === "completed");
       } else {
-        // 'all' shows pending first, completed can be toggled
-        tasks = tasks.filter(t => t.status === "pending");
+        // 'all' shows active pending tasks
+        tasks = tasks.filter(t => t.is_active !== false && t.status === "pending");
       }
 
       // Assignee filter
@@ -2400,6 +2458,7 @@
       const tasks = this._getFilteredTasks();
       const todayStr = new Date().toISOString().slice(0, 10);
       const overdueCount = this._data.tasks.filter(t => t.status === "pending" && t.due_date && t.due_date < todayStr).length;
+      const pausedCount = this._data.tasks.filter(t => t.is_active === false).length;
 
       return `
         <div class="toolbar">
@@ -2411,6 +2470,11 @@
             <button class="filter-pill ${this._filterStatus === "overdue" ? "active" : ""}" data-status="overdue">
               ⚠️ ${this.t("overdue")} ${overdueCount > 0 ? `(${overdueCount})` : ""}
             </button>
+            ${pausedCount > 0 ? `
+              <button class="filter-pill ${this._filterStatus === "inactive" ? "active" : ""}" data-status="inactive">
+                ⏸️ ${this.t("isPaused")} (${pausedCount})
+              </button>
+            ` : ""}
             <button class="filter-pill ${this._filterStatus === "completed" ? "active" : ""}" data-status="completed">✓ ${this.t("completed")}</button>
           </div>
 
@@ -2508,6 +2572,28 @@
                   </span>
                 ` : ""}
 
+                ${task.is_active === false ? `
+                  <span class="meta-chip" style="background:rgba(100,116,139,0.15); color:#64748b;">
+                    ⏸️ ${this.t("isPaused")}
+                  </span>
+                ` : ""}
+
+                ${task.times_completed > 0 ? `
+                  <span class="meta-chip" style="background:rgba(16,185,129,0.12); color:#10b981;" title="${this.t("timesCompleted", { count: task.times_completed })}">
+                    🔁 ${task.times_completed}x
+                  </span>
+                ` : ""}
+
+                ${task.tags && task.tags.length ? task.tags.map(tg => `
+                  <span class="meta-chip" style="background:rgba(139,92,246,0.12); color:#8b5cf6;">🏷️ ${this._escape(tg)}</span>
+                `).join("") : ""}
+
+                ${task.dependencies && task.dependencies.length ? `
+                  <span class="meta-chip" style="background:rgba(234,179,8,0.15); color:#ca8a04;" title="${this.t("dependencies")}">
+                    🔗 ${task.dependencies.length} ${this.t("dependencies")}
+                  </span>
+                ` : ""}
+
                 ${task.labels && task.labels.map(lId => {
                   const lbl = this._data.labels.find(l => l.id === lId);
                   return lbl ? `<span class="meta-chip" style="background:${lbl.color}15; color:${lbl.color};">${this._escape(lbl.name)}</span>` : "";
@@ -2543,6 +2629,9 @@
             </div>
 
             <div style="display:flex; gap:6px;">
+              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-toggle-active-task="${task.id}" title="${task.is_active === false ? this.t("resume") : this.t("pause")}">
+                ${task.is_active === false ? "▶️" : "⏸️"}
+              </button>
               <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-duplicate-task="${task.id}" title="${this.t("duplicate")}">📋</button>
               <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-edit-task="${task.id}" title="${this.t("edit")}">✏️</button>
               <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--error-color, #ef4444);" data-delete-task="${task.id}" title="${this.t("delete")}">🗑️</button>
@@ -3080,6 +3169,15 @@
               </div>
             ` : ""}
 
+            <!-- Active / Paused Toggle -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:var(--secondary-background-color, rgba(127,127,127,0.06)); padding:8px 12px; border-radius:8px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.15)));">
+              <div>
+                <div style="font-weight:600; font-size:13px;">${this.t("isActive")}</div>
+                <div style="font-size:11px; color:var(--secondary-text-color, #64748b);">${this.t("isActiveHint")}</div>
+              </div>
+              <input type="checkbox" id="m-task-is-active" ${task.is_active !== false ? "checked" : ""} style="width:18px; height:18px; cursor:pointer;">
+            </div>
+
             <div class="form-group">
               <label class="form-label">${this.t("titleLabel")}</label>
               <input type="text" class="text-input" id="m-task-title" value="${this._escape(task.title)}" placeholder="${this.t("titlePlaceholder")}">
@@ -3090,6 +3188,25 @@
               <textarea class="text-input" id="m-task-desc" rows="2" placeholder="${this.t("descriptionPlaceholder")}">${this._escape(task.description)}</textarea>
             </div>
 
+            <!-- Tags -->
+            <div class="form-group">
+              <label class="form-label">🏷️ ${this.t("tags")}</label>
+              <input type="text" class="text-input" id="m-task-tags" value="${this._escape((task.tags || []).join(", "))}" placeholder="${this.t("tagsPlaceholder")}">
+            </div>
+
+            <!-- Dependencies -->
+            <div class="form-group">
+              <label class="form-label">🔗 ${this.t("dependencies")}</label>
+              <div style="font-size:11px; color:var(--secondary-text-color, #64748b); margin-bottom:4px;">${this.t("dependenciesHint")}</div>
+              <select class="select-input" id="m-task-dependencies" multiple size="3" style="height:auto; min-height:64px;">
+                ${this._data.tasks.filter(t => t.id !== task.id).map(t => `
+                  <option value="${t.id}" ${(task.dependencies || []).includes(t.id) ? "selected" : ""}>
+                    ${this._escape(t.title)} (${t.status === "completed" ? "✓" : "⏳"})
+                  </option>
+                `).join("")}
+              </select>
+            </div>
+
             <div class="form-grid-2">
               <div class="form-group">
                 <label class="form-label">${this.t("dueDate")}</label>
@@ -3098,6 +3215,17 @@
               <div class="form-group">
                 <label class="form-label">${this.t("dueTime")}</label>
                 <input type="time" class="text-input" id="m-task-time" value="${task.due_time || ""}">
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">⏳ ${this.t("dueSoonDays")}</label>
+                <input type="number" class="text-input" id="m-task-due-soon-days" value="${task.due_soon_days !== undefined ? task.due_soon_days : 0}" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">🔔 ${this.t("notificationInterval")}</label>
+                <input type="number" class="text-input" id="m-task-notification-interval" value="${task.notification_interval !== undefined ? task.notification_interval : 1}" min="1">
               </div>
             </div>
 
@@ -3184,52 +3312,117 @@
                 <span>${this.t("recurrenceSchedule")}</span>
               </label>
 
-              <div id="m-rec-fields" class="form-grid-2" style="display:${rec.enabled ? "grid" : "none"}; margin-top:10px;">
+              <div id="m-rec-fields" style="display:${rec.enabled ? "flex" : "none"}; flex-direction:column; gap:10px; margin-top:10px;">
                 <div class="form-group">
-                  <label class="form-label">${this.t("type")}</label>
-                  <select class="select-input" id="m-task-rec-type">
-                    <option value="daily" ${rec.type === "daily" ? "selected" : ""}>${this.t("daily")}</option>
-                    <option value="weekly" ${rec.type === "weekly" ? "selected" : ""}>${this.t("weekly")}</option>
-                    <option value="monthly" ${rec.type === "monthly" ? "selected" : ""}>${this.t("monthly")}</option>
-                    <option value="yearly" ${rec.type === "yearly" ? "selected" : ""}>${this.t("yearly")}</option>
-                    <option value="custom_days" ${rec.type === "custom_days" ? "selected" : ""}>${this.t("customDays")}</option>
+                  <label class="form-label">${this.t("repeatMode")}</label>
+                  <select class="select-input" id="m-task-rec-mode">
+                    <option value="after" ${(rec.repeat_mode || "after") === "after" ? "selected" : ""}>🔄 ${this.t("repeatModeAfter")}</option>
+                    <option value="every" ${(rec.repeat_mode || "") === "every" ? "selected" : ""}>📅 ${this.t("repeatModeEvery")}</option>
                   </select>
                 </div>
 
-                <div class="form-group">
-                  <label class="form-label">${this.t("interval")}</label>
-                  <input type="number" class="text-input" id="m-task-rec-interval" value="${rec.interval || 1}" min="1">
-                </div>
-
-                <div id="m-rec-weekdays" class="form-group" style="grid-column: span 2; display:${rec.type === "weekly" ? "block" : "none"};">
-                  <label class="form-label">${this.t("weekdaysLabel")}</label>
-                  <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                    ${[
-                      { id: 0, label: "Mo" },
-                      { id: 1, label: "Di" },
-                      { id: 2, label: "Mi" },
-                      { id: 3, label: "Do" },
-                      { id: 4, label: "Fr" },
-                      { id: 5, label: "Sa" },
-                      { id: 6, label: "So" }
-                    ].map(w => {
-                      const isSel = (rec.weekdays || rec.days_of_week || []).includes(w.id);
-                      return `
-                        <label style="display:flex; align-items:center; gap:4px; font-size:12px; background:var(--secondary-background-color, rgba(127,127,127,0.08)); padding:4px 8px; border-radius:6px; cursor:pointer;">
-                          <input type="checkbox" class="m-weekday-checkbox" value="${w.id}" ${isSel ? "checked" : ""}>
-                          <span>${w.label}</span>
-                        </label>
-                      `;
-                    }).join("")}
+                <!-- Mode 'after' fields -->
+                <div id="m-rec-mode-after" class="form-grid-2" style="display:${(rec.repeat_mode || "after") === "after" ? "grid" : "none"};">
+                  <div class="form-group">
+                    <label class="form-label">${this.t("type")}</label>
+                    <select class="select-input" id="m-task-rec-type">
+                      <option value="daily" ${rec.type === "daily" ? "selected" : ""}>${this.t("daily")}</option>
+                      <option value="weekly" ${rec.type === "weekly" ? "selected" : ""}>${this.t("weekly")}</option>
+                      <option value="monthly" ${rec.type === "monthly" ? "selected" : ""}>${this.t("monthly")}</option>
+                      <option value="yearly" ${rec.type === "yearly" ? "selected" : ""}>${this.t("yearly")}</option>
+                      <option value="custom_days" ${rec.type === "custom_days" ? "selected" : ""}>${this.t("customDays")}</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">${this.t("interval")}</label>
+                    <input type="number" class="text-input" id="m-task-rec-interval" value="${rec.interval || 1}" min="1">
+                  </div>
+                  <div id="m-rec-weekdays" class="form-group" style="grid-column: span 2; display:${rec.type === "weekly" ? "block" : "none"};">
+                    <label class="form-label">${this.t("weekdaysLabel")}</label>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                      ${[
+                        { id: 0, label: "Mo" },
+                        { id: 1, label: "Di" },
+                        { id: 2, label: "Mi" },
+                        { id: 3, label: "Do" },
+                        { id: 4, label: "Fr" },
+                        { id: 5, label: "Sa" },
+                        { id: 6, label: "So" }
+                      ].map(w => {
+                        const isSel = (rec.weekdays || rec.days_of_week || []).includes(w.id);
+                        return `
+                          <label style="display:flex; align-items:center; gap:4px; font-size:12px; background:var(--secondary-background-color, rgba(127,127,127,0.08)); padding:4px 8px; border-radius:6px; cursor:pointer;">
+                            <input type="checkbox" class="m-weekday-checkbox" value="${w.id}" ${isSel ? "checked" : ""}>
+                            <span>${w.label}</span>
+                          </label>
+                        `;
+                      }).join("")}
+                    </div>
+                  </div>
+                  <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">${this.t("recurrenceCadence")}</label>
+                    <select class="select-input" id="m-task-rec-based">
+                      <option value="due_date" ${rec.based_on === "due_date" ? "selected" : ""}>${this.t("cadenceDueDate")}</option>
+                      <option value="completion_date" ${rec.based_on === "completion_date" ? "selected" : ""}>${this.t("cadenceCompletionDate")}</option>
+                    </select>
                   </div>
                 </div>
 
-                <div class="form-group" style="grid-column: span 2;">
-                  <label class="form-label">${this.t("recurrenceCadence")}</label>
-                  <select class="select-input" id="m-task-rec-based">
-                    <option value="due_date" ${rec.based_on === "due_date" ? "selected" : ""}>${this.t("cadenceDueDate")}</option>
-                    <option value="completion_date" ${rec.based_on === "completion_date" ? "selected" : ""}>${this.t("cadenceCompletionDate")}</option>
-                  </select>
+                <!-- Mode 'every' calendar schedule fields -->
+                <div id="m-rec-mode-every" style="display:${(rec.repeat_mode || "") === "every" ? "flex" : "none"}; flex-direction:column; gap:10px;">
+                  <div class="form-group">
+                    <label class="form-label">${this.t("repeatMode")}</label>
+                    <select class="select-input" id="m-task-rec-every-type">
+                      <option value="repeat_every_weekday" ${rec.repeat_every_type === "repeat_every_weekday" ? "selected" : ""}>${this.t("repeatEveryWeekday")}</option>
+                      <option value="repeat_every_day_of_month" ${rec.repeat_every_type === "repeat_every_day_of_month" ? "selected" : ""}>${this.t("repeatEveryDayOfMonth")}</option>
+                      <option value="repeat_every_weekday_of_month" ${rec.repeat_every_type === "repeat_every_weekday_of_month" ? "selected" : ""}>${this.t("repeatEveryWeekdayOfMonth")}</option>
+                      <option value="repeat_every_days_before_end_of_month" ${rec.repeat_every_type === "repeat_every_days_before_end_of_month" ? "selected" : ""}>${this.t("repeatEveryDaysBeforeEndOfMonth")}</option>
+                    </select>
+                  </div>
+                  <div id="m-every-weekday-group" class="form-group" style="display:${(!rec.repeat_every_type || rec.repeat_every_type === "repeat_every_weekday") ? "block" : "none"};">
+                    <label class="form-label">${this.t("weekdaysLabel")}</label>
+                    <select class="select-input" id="m-task-every-weekday">
+                      <option value="0" ${rec.repeat_every_weekday === 0 ? "selected" : ""}>Mo (Montag / Monday)</option>
+                      <option value="1" ${rec.repeat_every_weekday === 1 ? "selected" : ""}>Di (Dienstag / Tuesday)</option>
+                      <option value="2" ${rec.repeat_every_weekday === 2 ? "selected" : ""}>Mi (Mittwoch / Wednesday)</option>
+                      <option value="3" ${rec.repeat_every_weekday === 3 ? "selected" : ""}>Do (Donnerstag / Thursday)</option>
+                      <option value="4" ${rec.repeat_every_weekday === 4 ? "selected" : ""}>Fr (Freitag / Friday)</option>
+                      <option value="5" ${rec.repeat_every_weekday === 5 ? "selected" : ""}>Sa (Samstag / Saturday)</option>
+                      <option value="6" ${rec.repeat_every_weekday === 6 ? "selected" : ""}>So (Sonntag / Sunday)</option>
+                    </select>
+                  </div>
+                  <div id="m-every-day-group" class="form-group" style="display:${rec.repeat_every_type === "repeat_every_day_of_month" ? "block" : "none"};">
+                    <label class="form-label">${this.t("repeatEveryDayOfMonth")}</label>
+                    <input type="number" class="text-input" id="m-task-every-day" value="${rec.repeat_every_day_of_month || 1}" min="1" max="31">
+                  </div>
+                  <div id="m-every-weekday-month-group" class="form-grid-2" style="display:${rec.repeat_every_type === "repeat_every_weekday_of_month" ? "grid" : "none"};">
+                    <div class="form-group">
+                      <label class="form-label">N-ter (1-5)</label>
+                      <select class="select-input" id="m-task-every-nth">
+                        <option value="1" ${rec.repeat_every_nth === 1 ? "selected" : ""}>1.</option>
+                        <option value="2" ${rec.repeat_every_nth === 2 ? "selected" : ""}>2.</option>
+                        <option value="3" ${rec.repeat_every_nth === 3 ? "selected" : ""}>3.</option>
+                        <option value="4" ${rec.repeat_every_nth === 4 ? "selected" : ""}>4.</option>
+                        <option value="5" ${rec.repeat_every_nth === 5 ? "selected" : ""}>5.</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">${this.t("weekdaysLabel")}</label>
+                      <select class="select-input" id="m-task-every-nth-weekday">
+                        <option value="0" ${rec.repeat_every_weekday === 0 ? "selected" : ""}>Mo</option>
+                        <option value="1" ${rec.repeat_every_weekday === 1 ? "selected" : ""}>Di</option>
+                        <option value="2" ${rec.repeat_every_weekday === 2 ? "selected" : ""}>Mi</option>
+                        <option value="3" ${rec.repeat_every_weekday === 3 ? "selected" : ""}>Do</option>
+                        <option value="4" ${rec.repeat_every_weekday === 4 ? "selected" : ""}>Fr</option>
+                        <option value="5" ${rec.repeat_every_weekday === 5 ? "selected" : ""}>Sa</option>
+                        <option value="6" ${rec.repeat_every_weekday === 6 ? "selected" : ""}>So</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div id="m-every-days-before-group" class="form-group" style="display:${rec.repeat_every_type === "repeat_every_days_before_end_of_month" ? "block" : "none"};">
+                    <label class="form-label">${this.t("repeatEveryDaysBeforeEndOfMonth")}</label>
+                    <input type="number" class="text-input" id="m-task-every-days-before" value="${rec.repeat_every_days_before_end_of_month || 1}" min="1" max="30">
+                  </div>
                 </div>
               </div>
             </div>
@@ -3265,6 +3458,25 @@
                 ${this.t("taskLinkedThingHint")}
               </div>
             </div>
+
+            <!-- Advanced Options & HA Overrides -->
+            <details style="margin-top:10px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.15))); border-radius:8px; padding:8px 12px; background:var(--secondary-background-color, rgba(127,127,127,0.03));">
+              <summary style="font-weight:600; font-size:13px; cursor:pointer; color:var(--primary-text-color, inherit);">⚙️ ${this.t("advancedOptions")}</summary>
+              <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
+                <div class="form-group">
+                  <label class="form-label">${this.t("activeOverride")}</label>
+                  <input type="text" class="text-input" id="m-task-active-override" value="${this._escape(task.active_override || "")}" placeholder="input_boolean.vacation_mode">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">${this.t("intervalOverride")}</label>
+                  <input type="text" class="text-input" id="m-task-interval-override" value="${this._escape(task.task_interval_override || "")}" placeholder="input_number.task_interval">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">${this.t("dueSoonOverride")}</label>
+                  <input type="text" class="text-input" id="m-task-due-soon-override" value="${this._escape(task.due_soon_override || "")}" placeholder="input_number.due_soon_days">
+                </div>
+              </div>
+            </details>
 
             <div class="modal-footer">
               <button class="btn btn-secondary" id="modal-cancel">${this.t("cancel")}</button>
@@ -3634,6 +3846,21 @@
         btn.addEventListener("click", () => this.duplicateTask(btn.getAttribute("data-duplicate-task")));
       });
 
+      // Task Active / Pause Toggle
+      root.querySelectorAll("[data-toggle-active-task]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const tId = btn.getAttribute("data-toggle-active-task");
+          const task = this._data.tasks.find(t => t.id === tId);
+          if (task) {
+            if (task.is_active === false) {
+              await this._callWS("task_manager/resume_task", { task_id: tId });
+            } else {
+              await this._callWS("task_manager/pause_task", { task_id: tId });
+            }
+          }
+        });
+      });
+
       // Thing actions
       root.querySelectorAll("[data-thing-delta]").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -3832,6 +4059,20 @@
           const selectedReminders = Array.from(root.querySelectorAll(".m-reminder-checkbox:checked")).map(cb => parseInt(cb.value, 10));
           const selectedWeekdays = Array.from(root.querySelectorAll(".m-weekday-checkbox:checked")).map(cb => parseInt(cb.value, 10));
 
+          const tagsStr = root.getElementById("m-task-tags") ? root.getElementById("m-task-tags").value.trim() : "";
+          const tags = tagsStr ? tagsStr.split(",").map(t => t.trim()).filter(Boolean) : [];
+
+          const depSelect = root.getElementById("m-task-dependencies");
+          const dependencies = depSelect ? Array.from(depSelect.selectedOptions).map(o => o.value) : [];
+
+          const recMode = root.getElementById("m-task-rec-mode") ? root.getElementById("m-task-rec-mode").value : "after";
+          const recEveryType = root.getElementById("m-task-rec-every-type") ? root.getElementById("m-task-rec-every-type").value : "repeat_every_weekday";
+          const recEveryWeekday = parseInt(root.getElementById("m-task-every-weekday") ? root.getElementById("m-task-every-weekday").value : "0", 10);
+          const recEveryDay = parseInt(root.getElementById("m-task-every-day") ? root.getElementById("m-task-every-day").value : "1", 10);
+          const recEveryNth = parseInt(root.getElementById("m-task-every-nth") ? root.getElementById("m-task-every-nth").value : "1", 10);
+          const recEveryNthWeekday = parseInt(root.getElementById("m-task-every-nth-weekday") ? root.getElementById("m-task-every-nth-weekday").value : "0", 10);
+          const recEveryDaysBefore = parseInt(root.getElementById("m-task-every-days-before") ? root.getElementById("m-task-every-days-before").value : "1", 10);
+
           const taskPayload = {
             id: this._modalState.task.id || undefined,
             title: title,
@@ -3845,12 +4086,27 @@
             rotation_mode: root.getElementById("m-task-rotation").value,
             destination_provider: destProvider,
             reminders: selectedReminders,
+            is_active: root.getElementById("m-task-is-active") ? root.getElementById("m-task-is-active").checked : true,
+            tags: tags,
+            dependencies: dependencies,
+            due_soon_days: parseInt(root.getElementById("m-task-due-soon-days").value, 10) || 0,
+            notification_interval: parseInt(root.getElementById("m-task-notification-interval").value, 10) || 1,
+            active_override: root.getElementById("m-task-active-override") ? root.getElementById("m-task-active-override").value.trim() || null : null,
+            task_interval_override: root.getElementById("m-task-interval-override") ? root.getElementById("m-task-interval-override").value.trim() || null : null,
+            due_soon_override: root.getElementById("m-task-due-soon-override") ? root.getElementById("m-task-due-soon-override").value.trim() || null : null,
             recurrence: {
               enabled: recEnabled,
+              repeat_mode: recMode,
               type: root.getElementById("m-task-rec-type") ? root.getElementById("m-task-rec-type").value : "none",
               interval: parseInt(root.getElementById("m-task-rec-interval") ? root.getElementById("m-task-rec-interval").value : "1", 10),
               based_on: root.getElementById("m-task-rec-based") ? root.getElementById("m-task-rec-based").value : "due_date",
-              weekdays: selectedWeekdays
+              weekdays: selectedWeekdays,
+              repeat_every_type: recEveryType,
+              repeat_every_weekday: recEveryType === "repeat_every_weekday_of_month" ? recEveryNthWeekday : recEveryWeekday,
+              repeat_every_day_of_month: recEveryDay,
+              repeat_every_weekday_of_month: recEveryType === "repeat_every_weekday_of_month",
+              repeat_every_nth: recEveryNth,
+              repeat_every_days_before_end_of_month: recEveryDaysBefore
             },
             subtasks: subtasks,
             linked_thing_id: root.getElementById("m-task-linked-thing").value || null,
@@ -3867,7 +4123,34 @@
       if (mRecEnable) {
         mRecEnable.addEventListener("change", (e) => {
           const f = root.getElementById("m-rec-fields");
-          if (f) f.style.display = e.target.checked ? "grid" : "none";
+          if (f) f.style.display = e.target.checked ? "flex" : "none";
+        });
+      }
+
+      // Modal Recurrence Mode Toggle (After vs Every)
+      const mRecMode = root.getElementById("m-task-rec-mode");
+      if (mRecMode) {
+        mRecMode.addEventListener("change", (e) => {
+          const modeAfter = root.getElementById("m-rec-mode-after");
+          const modeEvery = root.getElementById("m-rec-mode-every");
+          if (modeAfter) modeAfter.style.display = e.target.value === "after" ? "grid" : "none";
+          if (modeEvery) modeEvery.style.display = e.target.value === "every" ? "flex" : "none";
+        });
+      }
+
+      // Modal Recurrence Every Subtype Change
+      const mRecEveryType = root.getElementById("m-task-rec-every-type");
+      if (mRecEveryType) {
+        mRecEveryType.addEventListener("change", (e) => {
+          const val = e.target.value;
+          const grpWd = root.getElementById("m-every-weekday-group");
+          const grpDay = root.getElementById("m-every-day-group");
+          const grpNth = root.getElementById("m-every-weekday-month-group");
+          const grpBef = root.getElementById("m-every-days-before-group");
+          if (grpWd) grpWd.style.display = val === "repeat_every_weekday" ? "block" : "none";
+          if (grpDay) grpDay.style.display = val === "repeat_every_day_of_month" ? "block" : "none";
+          if (grpNth) grpNth.style.display = val === "repeat_every_weekday_of_month" ? "grid" : "none";
+          if (grpBef) grpBef.style.display = val === "repeat_every_days_before_end_of_month" ? "block" : "none";
         });
       }
 

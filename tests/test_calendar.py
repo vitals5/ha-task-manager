@@ -40,7 +40,13 @@ sys.modules["homeassistant.helpers"] = ha_mock
 sys.modules["homeassistant.helpers.dispatcher"] = ha_mock
 sys.modules["homeassistant.helpers.entity_platform"] = ha_mock
 sys.modules["homeassistant.helpers.storage"] = ha_mock
-sys.modules["homeassistant.util"] = MagicMock(dt=dt_mock)
+def mock_slugify(val):
+    import re
+    return re.sub(r"[^a-zA-Z0-9_]+", "_", str(val).lower()).strip("_")
+util_mock = sys.modules.get("homeassistant.util") or MagicMock()
+util_mock.dt = dt_mock
+util_mock.slugify = mock_slugify
+sys.modules["homeassistant.util"] = util_mock
 sys.modules["homeassistant.util.dt"] = dt_mock
 
 project_root = Path(__file__).parent.parent

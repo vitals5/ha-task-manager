@@ -56,8 +56,20 @@ sys.modules["homeassistant.helpers"].__path__ = []
 sys.modules.setdefault("homeassistant.helpers.dispatcher", MagicMock())
 sys.modules.setdefault("homeassistant.helpers.event", MagicMock())
 sys.modules.setdefault("homeassistant.helpers.storage", MagicMock())
-sys.modules.setdefault("homeassistant.util", MagicMock())
-sys.modules.setdefault("homeassistant.util.dt", MagicMock())
+
+def mock_slugify(val):
+    import re
+    return re.sub(r"[^a-zA-Z0-9_]+", "_", str(val).lower()).strip("_")
+
+util_mock = MagicMock()
+util_mock.slugify = mock_slugify
+dt_mock = MagicMock()
+dt_mock.now.return_value = datetime(2026, 9, 26, 12, 0, 0, tzinfo=timezone.utc)
+dt_mock.DEFAULT_TIME_ZONE = timezone.utc
+util_mock.dt = dt_mock
+
+sys.modules["homeassistant.util"] = util_mock
+sys.modules["homeassistant.util.dt"] = dt_mock
 sys.modules.setdefault("voluptuous", MagicMock())
 
 # Import task_manager package
@@ -183,8 +195,9 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
         connection = MagicMock()
         connection.send_result = MagicMock()
 
-        from task_manager.websocket import async_register_websocket_api
-        async_register_websocket_api(hass, MagicMock())
+        from task_manager import websocket as tm_ws
+        tm_ws.websocket_api.async_register_command = mock_ws_register_cmd
+        tm_ws.async_register_websocket_api(hass, MagicMock())
 
         handler_num = ws_registered_handlers.get("ws_get_ha_numeric_entities")
         self.assertIsNotNone(handler_num)

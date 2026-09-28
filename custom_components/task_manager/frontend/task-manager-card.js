@@ -3,7 +3,7 @@
  * Type: custom:task-manager-card
  */
 
-const CARD_VERSION = "1.0.15";
+const CARD_VERSION = "1.0.17";
 
 class TaskManagerCard extends HTMLElement {
   constructor() {
@@ -14,6 +14,16 @@ class TaskManagerCard extends HTMLElement {
     this._currentFilter = "all";
     this._tasks = [];
     this._users = [];
+  }
+
+  _escape(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   static getStubConfig() {
@@ -102,21 +112,26 @@ class TaskManagerCard extends HTMLElement {
 
     let list = [...this._tasks];
 
-    if (this._currentFilter === "today") {
-      list = list.filter(t => t.status === "pending" && t.due_date === todayStr);
+    if (this._currentFilter === "inactive") {
+      list = list.filter(t => t.is_active === false);
+    } else if (this._currentFilter === "today") {
+      list = list.filter(t => t.is_active !== false && t.status === "pending" && t.due_date === todayStr);
     } else if (this._currentFilter === "due_soon") {
-      list = list.filter(t => t.status === "pending" && t.due_date && t.due_date <= soonStr);
+      list = list.filter(t => {
+        if (t.is_active === false || t.status !== "pending" || !t.due_date) return false;
+        const dsDays = (t.due_soon_days !== undefined && t.due_soon_days > 0) ? t.due_soon_days : 7;
+        const soonDate = new Date();
+        soonDate.setDate(soonDate.getDate() + dsDays);
+        const soonStr = soonDate.toISOString().slice(0, 10);
+        return t.due_date <= soonStr;
+      });
     } else if (this._currentFilter === "overdue") {
-      list = list.filter(t => t.status === "pending" && t.due_date && t.due_date < todayStr);
+      list = list.filter(t => t.is_active !== false && t.status === "pending" && t.due_date && t.due_date < todayStr);
     } else if (this._currentFilter === "completed") {
       list = list.filter(t => t.status === "completed");
     } else {
-      // all: show pending (or completed if toggle active)
-      if (this._config.show_completed === false) {
-        list = list.filter(t => t.status === "pending");
-      } else {
-        list = list.filter(t => t.status === "pending");
-      }
+      // all: show active pending
+      list = list.filter(t => t.is_active !== false && t.status === "pending");
     }
 
     // Sort: overdue first, then due_date, then priority
@@ -147,6 +162,7 @@ class TaskManagerCard extends HTMLElement {
     const todayStr = new Date().toISOString().slice(0, 10);
     const tasks = this._getFilteredTasks();
     const overdueCount = this._tasks.filter(t => t.status === "pending" && t.due_date && t.due_date < todayStr).length;
+    const pausedCount = this._tasks.filter(t => t.is_active === false).length;
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -359,6 +375,9 @@ class TaskManagerCard extends HTMLElement {
           ${overdueCount > 0 ? `
             <button class="filter-chip ${this._currentFilter === "overdue" ? "active" : ""}" data-filter="overdue">⚠️ ${de ? "Überfällig" : "Overdue"} (${overdueCount})</button>
           ` : ""}
+          ${pausedCount > 0 ? `
+            <button class="filter-chip ${this._currentFilter === "inactive" ? "active" : ""}" data-filter="inactive">⏸️ ${de ? "Pausiert" : "Paused"} (${pausedCount})</button>
+          ` : ""}
           <button class="filter-chip ${this._currentFilter === "completed" ? "active" : ""}" data-filter="completed">✓ ${de ? "Erledigt" : "Done"}</button>
         </div>
 
@@ -391,6 +410,9 @@ class TaskManagerCard extends HTMLElement {
                 <div class="task-content">
                   <div class="task-title ${isDone ? "done" : ""}">${t.title || (de ? "Aufgabe" : "Task")}</div>
                   <div class="task-meta">
+                    ${t.is_active === false ? `
+                      <span class="badge" style="background:rgba(100,116,139,0.15); color:#64748b;">⏸️ ${de ? "Pausiert" : "Paused"}</span>
+                    ` : ""}
                     ${t.due_date ? `
                       <span class="badge ${isOverdue ? "badge-overdue" : isToday ? "badge-due-today" : "badge-date"}">
                         ${isOverdue ? (de ? "⚠️ Überfällig: " : "⚠️ Overdue: ") : isToday ? (de ? "🔥 Heute" : "🔥 Today") : "📅 "} ${t.due_date}
@@ -402,6 +424,15 @@ class TaskManagerCard extends HTMLElement {
                     ${this._config.show_assignee && assigneeName ? `
                       <span class="badge badge-date">👤 ${assigneeName}</span>
                     ` : ""}
+                    ${t.times_completed > 0 ? `
+                      <span class="badge" style="background:rgba(16,185,129,0.12); color:#10b981;">🔁 ${t.times_completed}x</span>
+                    ` : ""}
+                    ${t.dependencies && t.dependencies.length > 0 ? `
+                      <span class="badge" style="background:rgba(234,179,8,0.15); color:#ca8a04;">🔗 ${t.dependencies.length} ${de ? "Abh." : "deps"}</span>
+                    ` : ""}
+                    ${t.tags && t.tags.length > 0 ? t.tags.map(tg => `
+                      <span class="badge" style="background:rgba(139,92,246,0.12); color:#8b5cf6;">🏷️ ${this._escape(tg)}</span>
+                    `).join("") : ""}
                   </div>
                 </div>
               </div>

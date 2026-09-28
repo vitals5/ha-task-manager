@@ -72,6 +72,52 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/pause_task",
+        vol.Required("task_id"): str,
+    })
+    @websocket_api.async_response
+    async def ws_pause_task(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle pause task command."""
+        result = await storage.async_pause_task(msg["task_id"])
+        if not result:
+            connection.send_error(msg["id"], "task_not_found", "Task not found")
+            return
+        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/resume_task",
+        vol.Required("task_id"): str,
+    })
+    @websocket_api.async_response
+    async def ws_resume_task(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle resume task command."""
+        result = await storage.async_resume_task(msg["task_id"])
+        if not result:
+            connection.send_error(msg["id"], "task_not_found", "Task not found")
+            return
+        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/set_last_done_date",
+        vol.Required("task_id"): str,
+        vol.Required("date"): str,
+    })
+    @websocket_api.async_response
+    async def ws_set_last_done_date(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle set last done date command."""
+        result = await storage.async_set_last_done_date(msg["task_id"], msg["date"])
+        if not result:
+            connection.send_error(msg["id"], "task_not_found", "Task not found")
+            return
+        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/delete_task",
         vol.Required("task_id"): str,
     })
