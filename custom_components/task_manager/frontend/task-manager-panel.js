@@ -288,10 +288,15 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       onCompleteEntityLabel: "Action Entity on Completion (button/script/switch)",
       onCompleteEntityPlaceholder: "e.g. button.vacuum_start or script.clean",
       qrCode: "QR Code",
-      scanQr: "Scan with phone camera or Home Assistant Companion App",
-      printTag: "Print Tag",
+      scanQr: "Scan with smartphone camera or Home Assistant Companion App",
+      qrTaskSubtitle: "Scan with camera to complete this task immediately.",
+      qrThingSubtitle: "Scan with camera to view maintenance tasks for this appliance.",
+      printTag: "Print Label",
       copyLink: "Copy Link",
       linkCopied: "Link copied to clipboard!",
+      targetUrl: "Target URL",
+      taskCompletedViaQr: "Task \"{title}\" completed via QR-Code! 🎉",
+      taskAlreadyCompleted: "Task \"{title}\" is already completed.",
       close: "Close",
     },
     de: {
@@ -563,9 +568,14 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       onCompleteEntityPlaceholder: "z. B. button.vacuum_start oder script.clean",
       qrCode: "QR-Code",
       scanQr: "Mit Smartphone-Kamera oder Home Assistant Companion App scannen",
+      qrTaskSubtitle: "Mit Smartphone-Kamera scannen, um diese Aufgabe sofort zu erledigen.",
+      qrThingSubtitle: "Mit Smartphone-Kamera scannen, um Wartungsaufgaben für dieses Gerät anzuzeigen.",
       printTag: "Etikett drucken",
       copyLink: "Link kopieren",
       linkCopied: "Link in die Zwischenablage kopiert!",
+      targetUrl: "Ziel-URL",
+      taskCompletedViaQr: "Aufgabe \"{title}\" via QR-Code erledigt! 🎉",
+      taskAlreadyCompleted: "Aufgabe \"{title}\" ist bereits erledigt.",
       close: "Schließen",
     }
   };
@@ -599,17 +609,29 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       this._tabletMode = false;
       this._audioCtx = null;
       this._availableTodoEntities = [];
+      this._urlParamsHandled = false;
     }
 
     connectedCallback() {
       this._onResize = () => this._updateSidebarVisibility();
       window.addEventListener("resize", this._onResize);
       this._updateSidebarVisibility();
+
+      this._onLocationChange = () => {
+        this._urlParamsHandled = false;
+        this._handleUrlParameters();
+      };
+      window.addEventListener("location-changed", this._onLocationChange);
+      window.addEventListener("popstate", this._onLocationChange);
     }
 
     disconnectedCallback() {
       if (this._onResize) {
         window.removeEventListener("resize", this._onResize);
+      }
+      if (this._onLocationChange) {
+        window.removeEventListener("location-changed", this._onLocationChange);
+        window.removeEventListener("popstate", this._onLocationChange);
       }
     }
 
@@ -822,7 +844,251 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       }
     }
 
-    
+    _showToast(message, type = "success") {
+      const existing = this.shadowRoot && this.shadowRoot.getElementById("panel-toast");
+      if (existing) existing.remove();
+
+      const toast = document.createElement("div");
+      toast.id = "panel-toast";
+      toast.style.position = "fixed";
+      toast.style.bottom = "28px";
+      toast.style.left = "50%";
+      toast.style.transform = "translateX(-50%)";
+      toast.style.background = type === "error" ? "var(--error-color, #ef4444)" : type === "info" ? "#334155" : "var(--primary-color, #2563eb)";
+      toast.style.color = "#ffffff";
+      toast.style.padding = "14px 26px";
+      toast.style.borderRadius = "12px";
+      toast.style.boxShadow = "0 8px 30px rgba(0,0,0,0.35)";
+      toast.style.fontSize = "15px";
+      toast.style.fontWeight = "600";
+      toast.style.zIndex = "99999";
+      toast.style.display = "flex";
+      toast.style.alignItems = "center";
+      toast.style.gap = "10px";
+      toast.style.transition = "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)";
+      toast.style.pointerEvents = "none";
+      toast.textContent = message;
+
+      if (this.shadowRoot) {
+        this.shadowRoot.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = "0";
+          toast.style.transform = "translateX(-50%) translateY(12px)";
+          setTimeout(() => toast.remove(), 350);
+        }, 4000);
+      }
+    }
+
+    async _copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (e) {
+          console.warn("navigator.clipboard.writeText failed, using fallback", e);
+        }
+      }
+
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.top = "-9999px";
+        textArea.style.left = "-9999px";
+        textArea.style.opacity = "0";
+        const container = document.body || document.documentElement || this.shadowRoot;
+        if (container) {
+          container.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          const successful = document.execCommand("copy");
+          container.removeChild(textArea);
+          if (successful) return true;
+        }
+      } catch (err) {
+        console.error("execCommand fallback failed", err);
+      }
+
+      try {
+        if (typeof prompt === "function") {
+          prompt(this.t("copyLink"), text);
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    }
+
+    _printTag(title, subtitle, qrSvg, targetUrl) {
+      try {
+        const oldFrame = document.getElementById("qr-print-frame");
+        if (oldFrame) oldFrame.remove();
+
+        const frame = document.createElement("iframe");
+        frame.id = "qr-print-frame";
+        frame.style.position = "fixed";
+        frame.style.top = "-9999px";
+        frame.style.left = "-9999px";
+        frame.style.width = "1px";
+        frame.style.height = "1px";
+        frame.style.border = "none";
+        const container = document.body || document.documentElement;
+        if (container) {
+          container.appendChild(frame);
+        } else {
+          return;
+        }
+
+        const frameDoc = frame.contentWindow.document || frame.contentDocument;
+        frameDoc.open();
+        frameDoc.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <title>Etikett - ${this._escape(title)}</title>
+              <style>
+                @page { margin: 8mm; size: auto; }
+                body {
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                  margin: 0;
+                  padding: 16px;
+                  display: flex;
+                  justify-content: center;
+                  background: #fff;
+                }
+                .tag-card {
+                  border: 2px dashed #1e293b;
+                  border-radius: 12px;
+                  padding: 18px 20px;
+                  text-align: center;
+                  width: 280px;
+                  background: #fff;
+                  box-sizing: border-box;
+                }
+                .tag-title {
+                  font-size: 16px;
+                  font-weight: 700;
+                  color: #0f172a;
+                  margin: 0 0 4px 0;
+                  line-height: 1.3;
+                  word-break: break-word;
+                }
+                .tag-sub {
+                  font-size: 11px;
+                  color: #64748b;
+                  margin: 0 0 12px 0;
+                }
+                .qr-box {
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  margin: 0 auto 10px auto;
+                }
+                .qr-box svg {
+                  width: 170px !important;
+                  height: 170px !important;
+                  display: block;
+                }
+                .tag-url {
+                  font-size: 9px;
+                  font-family: monospace;
+                  color: #64748b;
+                  word-break: break-all;
+                  margin: 0 0 10px 0;
+                  line-height: 1.2;
+                }
+                .tag-footer {
+                  font-size: 11px;
+                  font-weight: 600;
+                  color: #2563eb;
+                  border-top: 1px solid #e2e8f0;
+                  padding-top: 6px;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="tag-card">
+                <div class="tag-title">${title}</div>
+                <div class="tag-sub">${subtitle}</div>
+                <div class="qr-box">${qrSvg}</div>
+                <div class="tag-url">${targetUrl}</div>
+                <div class="tag-footer">Task Manager • Home Assistant</div>
+              </div>
+            </body>
+          </html>
+        `);
+        frameDoc.close();
+
+        setTimeout(() => {
+          try {
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+          } catch (e) {
+            console.error("Frame print failed", e);
+          } finally {
+            setTimeout(() => {
+              try { frame.remove(); } catch (err) {}
+            }, 3000);
+          }
+        }, 350);
+      } catch (err) {
+        console.error("Failed to create print frame", err);
+      }
+    }
+
+    async _handleUrlParameters() {
+      if (this._urlParamsHandled) return;
+      if (!this._data || !this._data.tasks || this._data.tasks.length === 0) return;
+
+      let searchStr = window.location.search;
+      if (!searchStr && window.location.hash && window.location.hash.includes("?")) {
+        searchStr = window.location.hash.slice(window.location.hash.indexOf("?"));
+      }
+      if (!searchStr) return;
+
+      const urlParams = new URLSearchParams(searchStr);
+      const taskId = urlParams.get("task_id") || urlParams.get("complete_task") || urlParams.get("taskId");
+      const thingId = urlParams.get("thing_id") || urlParams.get("thingId");
+      const action = urlParams.get("action");
+
+      if (!taskId && !thingId) return;
+      this._urlParamsHandled = true;
+
+      // Clean browser URL query string without reloading page
+      try {
+        const cleanUrl = window.location.pathname + (window.location.hash ? window.location.hash.split("?")[0] : "");
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch (e) {}
+
+      if (taskId) {
+        const task = this._data.tasks.find(t => t.id === taskId);
+        if (task) {
+          if (action === "view") {
+            this.openTaskModal(task);
+          } else {
+            // Default action on task QR code is to complete the task
+            if (task.status === "completed") {
+              this._showToast(`ℹ️ ${this.t("taskAlreadyCompleted", { title: task.title })}`, "info");
+            } else if (task.task_type === "reading") {
+              this.openCompleteModal(task);
+            } else {
+              await this.completeTask(task.id);
+              this._showToast(`🎉 ${this.t("taskCompletedViaQr", { title: task.title })}`);
+            }
+          }
+        } else {
+          console.warn(`Task Manager: Task with ID ${taskId} not found for URL action.`);
+        }
+      } else if (thingId) {
+        const thing = (this._data.things || []).find(th => th.id === thingId);
+        if (thing) {
+          this._currentTab = "things";
+          this._render();
+          this._showToast(`⚙️ ${this._escape(thing.name)}`, "info");
+        }
+      }
+    }
+
     _getWarrantyStatus(thing) {
       if (!thing || !thing.warranty_expiry) return "none";
       try {
@@ -2048,7 +2314,27 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             padding: 16px;
           }
 
+          .modal-close-btn {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: var(--secondary-text-color, #64748b);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            line-height: 1;
+            z-index: 10;
+          }
+          .modal-close-btn:hover {
+            background: rgba(127, 127, 127, 0.15);
+            color: var(--primary-text-color, inherit);
+          }
+
           .modal-window {
+            position: relative;
             background: var(--card-background-color, #ffffff);
             color: var(--primary-text-color, inherit);
             border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.2)));
@@ -4238,9 +4524,10 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       const item = (this._modalState && this._modalState.item) || {};
       const itemType = (this._modalState && this._modalState.itemType) || "task";
       const origin = window.location.origin;
-      const targetUrl = itemType === "thing" 
-        ? `${origin}/task-manager?thing_id=${item.id}`
-        : `${origin}/task-manager?task_id=${item.id}`;
+      const isTask = itemType === "task";
+      const targetUrl = isTask 
+        ? `${origin}/task-manager?action=complete&task_id=${item.id}`
+        : `${origin}/task-manager?thing_id=${item.id}`;
       
       let qrSvg = "";
       try {
@@ -4259,29 +4546,36 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         console.error("QR Code error:", e);
       }
 
+      const title = this._escape(item.title || item.name || "");
+      const subtitle = isTask ? this.t("qrTaskSubtitle") : this.t("qrThingSubtitle");
+
       return `
         <div class="modal-backdrop" id="modal-backdrop">
-          <div class="modal-window" style="text-align:center;">
+          <div class="modal-window" style="position:relative; text-align:center; max-width:440px;">
+            <button class="modal-close-btn" title="${this.t("close")}">✕</button>
             <div class="modal-handle"></div>
             <h2 style="margin:0 0 4px 0; font-size:18px;">
-              📱 ${this.t("qrCode")}: ${this._escape(item.title || item.name || "")}
+              📱 ${this.t("qrCode")}: ${title}
             </h2>
             <p style="font-size:12px; color:var(--secondary-text-color, #64748b); margin:0 0 16px 0;">
-              ${this.t("scanQr")}
+              ${subtitle}
             </p>
 
-            <div id="qr-container" style="display:inline-block; background:#ffffff; padding:12px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:16px;">
+            <div id="qr-container" style="display:inline-block; background:#ffffff; padding:14px; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.08); margin-bottom:14px;">
               ${qrSvg || `<div style="padding:40px; color:#64748b;">[QR Code]</div>`}
             </div>
 
-            <div style="background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px; padding:8px 12px; font-family:monospace; font-size:11px; word-break:break-all; margin-bottom:16px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.15)));">
-              ${this._escape(targetUrl)}
+            <div style="background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px; padding:8px 12px; font-family:monospace; font-size:11px; word-break:break-all; margin-bottom:16px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.15))); text-align:left;">
+              <div style="font-size:10px; font-weight:600; color:var(--secondary-text-color, #64748b); margin-bottom:2px; font-family:sans-serif;">${this.t("targetUrl")}:</div>
+              <span id="qr-target-url-text">${this._escape(targetUrl)}</span>
             </div>
 
-            <div style="display:flex; gap:8px; justify-content:center;">
-              <button class="btn btn-secondary" id="btn-copy-qr-link">📋 ${this.t("copyLink")}</button>
-              <button class="btn btn-secondary" id="btn-print-qr-tag">🖨️ ${this.t("printTag")}</button>
-              <button class="btn btn-primary" id="modal-cancel">${this.t("close")}</button>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; gap:8px; justify-content:center;">
+                <button class="btn btn-secondary" id="btn-copy-qr-link" style="flex:1;">📋 ${this.t("copyLink")}</button>
+                <button class="btn btn-secondary" id="btn-print-qr-tag" style="flex:1;">🖨️ ${this.t("printTag")}</button>
+              </div>
+              <button class="btn btn-primary" id="modal-cancel" style="width:100%;">✕ ${this.t("close")}</button>
             </div>
           </div>
         </div>
@@ -5155,20 +5449,35 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         });
       }
 
+      // Close button on modals
+      root.querySelectorAll(".modal-close-btn").forEach(btn => {
+        btn.addEventListener("click", () => this.closeModal());
+      });
+
       // Copy QR Link
       const btnCopyQr = root.getElementById("btn-copy-qr-link");
       if (btnCopyQr) {
-        btnCopyQr.addEventListener("click", () => {
-          const item = this._modalState.item || {};
-          const itemType = this._modalState.itemType || "task";
+        btnCopyQr.addEventListener("click", async () => {
+          const item = (this._modalState && this._modalState.item) || {};
+          const itemType = (this._modalState && this._modalState.itemType) || "task";
+          const origin = window.location.origin;
           const targetUrl = itemType === "thing" 
-            ? `${window.location.origin}/task-manager?thing_id=${item.id}`
-            : `${window.location.origin}/task-manager?task_id=${item.id}`;
-          navigator.clipboard.writeText(targetUrl).then(() => {
-            alert(this.t("linkCopied"));
-          }).catch(() => {
-            prompt(this.t("copyLink"), targetUrl);
-          });
+            ? `${origin}/task-manager?thing_id=${item.id}`
+            : `${origin}/task-manager?action=complete&task_id=${item.id}`;
+
+          const copied = await this._copyToClipboard(targetUrl);
+          if (copied) {
+            const originalHtml = btnCopyQr.innerHTML;
+            btnCopyQr.innerHTML = `✓ ${this.t("linkCopied")}`;
+            btnCopyQr.style.background = "var(--success-color, #10b981)";
+            btnCopyQr.style.color = "#ffffff";
+            this._showToast(`📋 ${this.t("linkCopied")}`);
+            setTimeout(() => {
+              btnCopyQr.innerHTML = originalHtml;
+              btnCopyQr.style.background = "";
+              btnCopyQr.style.color = "";
+            }, 2500);
+          }
         });
       }
 
@@ -5176,32 +5485,24 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       const btnPrintQr = root.getElementById("btn-print-qr-tag");
       if (btnPrintQr) {
         btnPrintQr.addEventListener("click", () => {
+          const item = (this._modalState && this._modalState.item) || {};
+          const itemType = (this._modalState && this._modalState.itemType) || "task";
+          const origin = window.location.origin;
+          const targetUrl = itemType === "thing" 
+            ? `${origin}/task-manager?thing_id=${item.id}`
+            : `${origin}/task-manager?action=complete&task_id=${item.id}`;
+
           const qrContainer = root.getElementById("qr-container");
-          if (!qrContainer) return;
-          const item = this._modalState.item || {};
-          const printWindow = window.open("", "_blank");
-          if (printWindow) {
-            printWindow.document.write(`
-              <html>
-                <head>
-                  <title>QR Tag - ${this._escape(item.title || item.name || "")}</title>
-                  <style>
-                    body { font-family: sans-serif; text-align: center; padding: 20px; }
-                    .tag-box { border: 2px dashed #000; padding: 20px; display: inline-block; border-radius: 8px; }
-                    h2 { margin: 0 0 10px 0; font-size: 18px; }
-                  </style>
-                </head>
-                <body onload="window.print(); window.close();">
-                  <div class="tag-box">
-                    <h2>${this._escape(item.title || item.name || "")}</h2>
-                    ${qrContainer.innerHTML}
-                    <div style="font-size: 12px; margin-top: 8px; color: #555;">Task Manager • Home Assistant</div>
-                  </div>
-                </body>
-              </html>
-            `);
-            printWindow.document.close();
-          }
+          const qrSvg = qrContainer ? qrContainer.innerHTML : "";
+          const title = item.title || item.name || "Task Manager";
+          const subtitle = itemType === "thing" ? this.t("qrThingSubtitle") : this.t("qrTaskSubtitle");
+
+          const origText = btnPrintQr.innerHTML;
+          btnPrintQr.innerHTML = `🖨️ ${this.t("printTag")}...`;
+          this._printTag(title, subtitle, qrSvg, targetUrl);
+          setTimeout(() => {
+            btnPrintQr.innerHTML = origText;
+          }, 2000);
         });
       }
 
