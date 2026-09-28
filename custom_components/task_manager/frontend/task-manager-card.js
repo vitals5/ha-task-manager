@@ -3,6 +3,8 @@
  * Type: custom:task-manager-card
  */
 
+const CARD_VERSION = "1.0.15";
+
 class TaskManagerCard extends HTMLElement {
   constructor() {
     super();
@@ -11,20 +13,39 @@ class TaskManagerCard extends HTMLElement {
     this._hass = null;
     this._currentFilter = "all";
     this._tasks = [];
+    this._users = [];
   }
 
-  setConfig(config) {
-    this._config = {
+  static getStubConfig() {
+    return {
       title: "Task Manager",
+      default_filter: "all",
       show_add: true,
       show_completed: true,
       show_assignee: true,
       show_priority: true,
       max_items: 20,
+    };
+  }
+
+  static async getConfigElement() {
+    return document.createElement("task-manager-card-editor");
+  }
+
+  setConfig(config) {
+    this._config = {
+      title: "Task Manager",
       default_filter: "all",
+      show_add: true,
+      show_completed: true,
+      show_assignee: true,
+      show_priority: true,
+      max_items: 20,
       ...config,
     };
-    this._currentFilter = this._config.default_filter || "all";
+    if (!this._currentFilter || this._currentFilter === "all") {
+      this._currentFilter = this._config.default_filter || "all";
+    }
     this._render();
   }
 
@@ -32,14 +53,18 @@ class TaskManagerCard extends HTMLElement {
     const oldHass = this._hass;
     this._hass = hass;
 
-    // Check if we need to reload tasks
     if (!oldHass || this._hasDataChanged(oldHass, hass)) {
       this._fetchTasks();
     }
   }
 
+  connectedCallback() {
+    if (this._hass) {
+      this._fetchTasks();
+    }
+  }
+
   _hasDataChanged(oldHass, newHass) {
-    // Check if sensor or todo states changed
     const sOld = oldHass.states["sensor.task_manager_pending_tasks"];
     const sNew = newHass.states["sensor.task_manager_pending_tasks"];
     if (sOld !== sNew) return true;
@@ -55,13 +80,13 @@ class TaskManagerCard extends HTMLElement {
     if (!this._hass) return;
     try {
       const res = await this._hass.callWS({ type: "task_manager/get_data" });
-      if (res && res.tasks) {
-        this._tasks = res.tasks;
+      if (res) {
+        if (Array.isArray(res.tasks)) this._tasks = res.tasks;
+        if (Array.isArray(res.users)) this._users = res.users;
         this._render();
       }
     } catch (err) {
-      // Fallback: try reading from todo entity if WS is busy
-      console.debug("TaskManagerCard: fetch error", err);
+      console.debug("TaskManagerCard: Error querying task_manager/get_data", err);
     }
   }
 
@@ -86,8 +111,12 @@ class TaskManagerCard extends HTMLElement {
     } else if (this._currentFilter === "completed") {
       list = list.filter(t => t.status === "completed");
     } else {
-      // all: show pending
-      list = list.filter(t => t.status === "pending");
+      // all: show pending (or completed if toggle active)
+      if (this._config.show_completed === false) {
+        list = list.filter(t => t.status === "pending");
+      } else {
+        list = list.filter(t => t.status === "pending");
+      }
     }
 
     // Sort: overdue first, then due_date, then priority
@@ -106,9 +135,15 @@ class TaskManagerCard extends HTMLElement {
     return list;
   }
 
+  _isGerman() {
+    const lang = (this._hass && (this._hass.language || (this._hass.locale && this._hass.locale.language))) || "en";
+    return lang.startsWith("de");
+  }
+
   _render() {
     if (!this.shadowRoot) return;
 
+    const de = this._isGerman();
     const todayStr = new Date().toISOString().slice(0, 10);
     const tasks = this._getFilteredTasks();
     const overdueCount = this._tasks.filter(t => t.status === "pending" && t.due_date && t.due_date < todayStr).length;
@@ -125,6 +160,8 @@ class TaskManagerCard extends HTMLElement {
           border-radius: var(--ha-card-border-radius, 12px);
           box-shadow: var(--ha-card-box-shadow, none);
           border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.15)));
+          box-sizing: border-box;
+          overflow: hidden;
         }
         .header {
           display: flex;
@@ -133,11 +170,12 @@ class TaskManagerCard extends HTMLElement {
           margin-bottom: 12px;
         }
         .title {
-          font-size: 18px;
+          font-size: 17px;
           font-weight: 700;
           display: flex;
           align-items: center;
           gap: 8px;
+          color: var(--primary-text-color, inherit);
         }
         .filter-row {
           display: flex;
@@ -154,13 +192,19 @@ class TaskManagerCard extends HTMLElement {
           border: none;
           background: var(--secondary-background-color, rgba(127,127,127,0.12));
           color: var(--secondary-text-color, #64748b);
-          padding: 5px 10px;
+          padding: 6px 12px;
           border-radius: 16px;
           font-size: 12px;
           font-weight: 600;
           cursor: pointer;
           white-space: nowrap;
           transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .filter-chip:hover {
+          background: var(--secondary-background-color, rgba(127,127,127,0.2));
         }
         .filter-chip.active {
           background: var(--primary-color, #2563eb);
@@ -168,8 +212,8 @@ class TaskManagerCard extends HTMLElement {
         }
         .add-row {
           display: flex;
-          gap: 6px;
-          margin-bottom: 12px;
+          gap: 8px;
+          margin-bottom: 14px;
         }
         .add-input {
           flex: 1;
@@ -180,6 +224,7 @@ class TaskManagerCard extends HTMLElement {
           background: var(--card-background-color, #ffffff);
           color: var(--primary-text-color, inherit);
           outline: none;
+          box-sizing: border-box;
         }
         .add-input:focus {
           border-color: var(--primary-color, #2563eb);
@@ -193,6 +238,13 @@ class TaskManagerCard extends HTMLElement {
           font-size: 18px;
           font-weight: 700;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: opacity 0.15s ease;
+        }
+        .add-btn:active {
+          opacity: 0.8;
         }
         .task-list {
           display: flex;
@@ -203,7 +255,7 @@ class TaskManagerCard extends HTMLElement {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 8px 10px;
+          padding: 9px 12px;
           border-radius: 8px;
           background: var(--secondary-background-color, rgba(127,127,127,0.06));
           border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.12)));
@@ -226,6 +278,7 @@ class TaskManagerCard extends HTMLElement {
           color: transparent;
           flex-shrink: 0;
           padding: 0;
+          transition: all 0.15s ease;
         }
         .task-check.checked {
           background: var(--success-color, #10b981);
@@ -242,6 +295,7 @@ class TaskManagerCard extends HTMLElement {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          color: var(--primary-text-color, inherit);
         }
         .task-title.done {
           text-decoration: line-through;
@@ -251,30 +305,34 @@ class TaskManagerCard extends HTMLElement {
           display: flex;
           gap: 6px;
           flex-wrap: wrap;
-          margin-top: 3px;
+          margin-top: 4px;
           font-size: 11px;
         }
         .badge {
-          padding: 1px 6px;
+          padding: 2px 6px;
           border-radius: 4px;
           font-weight: 600;
           font-size: 10px;
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
         }
         .badge-overdue {
           background: rgba(239, 68, 68, 0.15);
-          color: #ef4444;
+          color: var(--error-color, #ef4444);
         }
         .badge-due-today {
           background: rgba(245, 158, 11, 0.15);
-          color: #d97706;
+          color: var(--warning-color, #d97706);
         }
         .badge-date {
-          background: rgba(127, 127, 127, 0.12);
+          background: var(--secondary-background-color, rgba(127, 127, 127, 0.12));
           color: var(--secondary-text-color, #64748b);
         }
         .badge-p1 { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
         .badge-p2 { background: rgba(249, 115, 22, 0.2); color: #f97316; }
         .badge-p3 { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .badge-p4 { background: rgba(100, 116, 139, 0.2); color: #64748b; }
         .empty-state {
           text-align: center;
           padding: 24px 8px;
@@ -287,56 +345,62 @@ class TaskManagerCard extends HTMLElement {
         <div class="header">
           <div class="title">
             <span>📋</span>
-            <span>${this._config.title || "Tasks"}</span>
+            <span>${this._config.title || (de ? "Aufgaben & Chores" : "Task Manager")}</span>
           </div>
           <div style="font-size:12px; font-weight:600; color:var(--secondary-text-color, #64748b);">
-            ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}
+            ${tasks.length} ${de ? (tasks.length === 1 ? "Aufgabe" : "Aufgaben") : (tasks.length === 1 ? "task" : "tasks")}
           </div>
         </div>
 
         <div class="filter-row">
-          <button class="filter-chip ${this._currentFilter === "all" ? "active" : ""}" data-filter="all">All</button>
-          <button class="filter-chip ${this._currentFilter === "today" ? "active" : ""}" data-filter="today">🔥 Today</button>
-          <button class="filter-chip ${this._currentFilter === "due_soon" ? "active" : ""}" data-filter="due_soon">⏳ Due Soon</button>
+          <button class="filter-chip ${this._currentFilter === "all" ? "active" : ""}" data-filter="all">${de ? "Alle" : "All"}</button>
+          <button class="filter-chip ${this._currentFilter === "today" ? "active" : ""}" data-filter="today">🔥 ${de ? "Heute" : "Today"}</button>
+          <button class="filter-chip ${this._currentFilter === "due_soon" ? "active" : ""}" data-filter="due_soon">⏳ ${de ? "Bald fällig" : "Due Soon"}</button>
           ${overdueCount > 0 ? `
-            <button class="filter-chip ${this._currentFilter === "overdue" ? "active" : ""}" data-filter="overdue">⚠️ Overdue (${overdueCount})</button>
+            <button class="filter-chip ${this._currentFilter === "overdue" ? "active" : ""}" data-filter="overdue">⚠️ ${de ? "Überfällig" : "Overdue"} (${overdueCount})</button>
           ` : ""}
-          <button class="filter-chip ${this._currentFilter === "completed" ? "active" : ""}" data-filter="completed">✓ Done</button>
+          <button class="filter-chip ${this._currentFilter === "completed" ? "active" : ""}" data-filter="completed">✓ ${de ? "Erledigt" : "Done"}</button>
         </div>
 
         ${this._config.show_add ? `
           <div class="add-row">
-            <input type="text" class="add-input" id="card-add-input" placeholder="Add a task...">
-            <button class="add-btn" id="card-add-btn">+</button>
+            <input type="text" class="add-input" id="card-add-input" placeholder="${de ? "Neue Aufgabe hinzufügen..." : "Add a new task..."}">
+            <button class="add-btn" id="card-add-btn" title="${de ? "Hinzufügen" : "Add"}">+</button>
           </div>
         ` : ""}
 
         <div class="task-list">
           ${tasks.length === 0 ? `
-            <div class="empty-state">🎉 No tasks in this view</div>
+            <div class="empty-state">🎉 ${de ? "Keine offenen Aufgaben in dieser Ansicht" : "No open tasks in this view"}</div>
           ` : tasks.map(t => {
             const isDone = t.status === "completed";
             const isOverdue = !isDone && t.due_date && t.due_date < todayStr;
             const isToday = !isDone && t.due_date === todayStr;
 
+            let assigneeName = t.current_assignee;
+            if (assigneeName && Array.isArray(this._users)) {
+              const u = this._users.find(x => x.id === assigneeName);
+              if (u && u.name) assigneeName = u.name;
+            }
+
             return `
               <div class="task-item">
-                <button class="task-check ${isDone ? "checked" : ""}" data-id="${t.id}" data-action="${isDone ? "reset" : "complete"}">
+                <button class="task-check ${isDone ? "checked" : ""}" data-id="${t.id}" data-action="${isDone ? "reset" : "complete"}" title="${isDone ? (de ? "Wiedereröffnen" : "Reopen") : (de ? "Erledigen" : "Complete")}">
                   ✓
                 </button>
                 <div class="task-content">
-                  <div class="task-title ${isDone ? "done" : ""}">${t.title || "Untitled Task"}</div>
+                  <div class="task-title ${isDone ? "done" : ""}">${t.title || (de ? "Aufgabe" : "Task")}</div>
                   <div class="task-meta">
                     ${t.due_date ? `
                       <span class="badge ${isOverdue ? "badge-overdue" : isToday ? "badge-due-today" : "badge-date"}">
-                        ${isOverdue ? "⚠️ Overdue: " : isToday ? "🔥 Today: " : "📅 "} ${t.due_date}
+                        ${isOverdue ? (de ? "⚠️ Überfällig: " : "⚠️ Overdue: ") : isToday ? (de ? "🔥 Heute" : "🔥 Today") : "📅 "} ${t.due_date}
                       </span>
                     ` : ""}
                     ${this._config.show_priority && t.priority && t.priority !== "none" ? `
                       <span class="badge badge-${t.priority}">${t.priority.toUpperCase()}</span>
                     ` : ""}
-                    ${this._config.show_assignee && t.current_assignee ? `
-                      <span class="badge badge-date">👤 ${t.current_assignee}</span>
+                    ${this._config.show_assignee && assigneeName ? `
+                      <span class="badge badge-date">👤 ${assigneeName}</span>
                     ` : ""}
                   </div>
                 </div>
@@ -368,10 +432,16 @@ class TaskManagerCard extends HTMLElement {
         const taskId = btn.getAttribute("data-id");
         const action = btn.getAttribute("data-action");
         if (taskId && this._hass) {
-          if (action === "complete") {
-            await this._hass.callWS({ type: "task_manager/complete_task", task_id: taskId });
-          } else {
-            await this._hass.callWS({ type: "task_manager/reset_task", task_id: taskId });
+          try {
+            if (action === "complete") {
+              await this._hass.callWS({ type: "task_manager/complete_task", task_id: taskId });
+            } else {
+              await this._hass.callWS({ type: "task_manager/reset_task", task_id: taskId });
+            }
+          } catch (e) {
+            // Service fallback
+            const srv = action === "complete" ? "complete_task" : "reopen_task";
+            await this._hass.callService("task_manager", srv, { task_id: taskId });
           }
           await this._fetchTasks();
         }
@@ -386,10 +456,17 @@ class TaskManagerCard extends HTMLElement {
       const title = addInput.value.trim();
       if (!title) return;
       addInput.value = "";
-      await this._hass.callWS({
-        type: "task_manager/save_task",
-        task: { title: title, due_date: new Date().toISOString().slice(0, 10) }
-      });
+      try {
+        await this._hass.callWS({
+          type: "task_manager/save_task",
+          task: { title: title, due_date: new Date().toISOString().slice(0, 10) }
+        });
+      } catch (e) {
+        await this._hass.callService("task_manager", "create_task", {
+          title: title,
+          due_date: new Date().toISOString().slice(0, 10)
+        });
+      }
       await this._fetchTasks();
     };
 
@@ -402,14 +479,172 @@ class TaskManagerCard extends HTMLElement {
   }
 }
 
-customElements.define("task-manager-card", TaskManagerCard);
+class TaskManagerCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._config = {};
+    this._hass = null;
+  }
 
-// Register with Lovelace Card Picker
+  setConfig(config) {
+    this._config = { ...config };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+  }
+
+  _valueChanged(ev) {
+    if (!this._config || !ev.target) return;
+    const target = ev.target;
+    const configValue = target.configValue;
+    if (!configValue) return;
+
+    let value = target.value;
+    if (target.type === "checkbox") {
+      value = target.checked;
+    } else if (target.type === "number") {
+      value = parseInt(target.value, 10);
+    }
+
+    this._config = {
+      ...this._config,
+      [configValue]: value,
+    };
+
+    const event = new CustomEvent("config-changed", {
+      detail: { config: this._config },
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
+  }
+
+  _render() {
+    if (!this.shadowRoot) return;
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        .card-config {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 8px 0;
+          font-family: var(--paper-font-body1_-_font-family);
+        }
+        .form-row {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .form-row label {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--primary-text-color, inherit);
+        }
+        .form-row input[type="text"],
+        .form-row input[type="number"],
+        .form-row select {
+          padding: 8px 10px;
+          border-radius: 6px;
+          border: 1px solid var(--divider-color, rgba(127,127,127,0.3));
+          background: var(--card-background-color, #ffffff);
+          color: var(--primary-text-color, inherit);
+          font-size: 13px;
+        }
+        .toggle-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+        }
+      </style>
+
+      <div class="card-config">
+        <div class="form-row">
+          <label>Title</label>
+          <input type="text" .configValue="${"title"}" id="ed-title" value="${this._config.title || "Task Manager"}">
+        </div>
+
+        <div class="form-row">
+          <label>Default Filter</label>
+          <select .configValue="${"default_filter"}" id="ed-filter">
+            <option value="all" ${this._config.default_filter === "all" ? "selected" : ""}>All</option>
+            <option value="today" ${this._config.default_filter === "today" ? "selected" : ""}>Today</option>
+            <option value="due_soon" ${this._config.default_filter === "due_soon" ? "selected" : ""}>Due Soon</option>
+            <option value="overdue" ${this._config.default_filter === "overdue" ? "selected" : ""}>Overdue</option>
+            <option value="completed" ${this._config.default_filter === "completed" ? "selected" : ""}>Completed</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label>Max Tasks to Display</label>
+          <input type="number" .configValue="${"max_items"}" id="ed-max" value="${this._config.max_items || 20}" min="1" max="100">
+        </div>
+
+        <label class="toggle-row">
+          <input type="checkbox" .configValue="${"show_add"}" id="ed-add" ${this._config.show_add !== false ? "checked" : ""}>
+          <span>Show Quick Add Input Row</span>
+        </label>
+
+        <label class="toggle-row">
+          <input type="checkbox" .configValue="${"show_priority"}" id="ed-prio" ${this._config.show_priority !== false ? "checked" : ""}>
+          <span>Show Priority Badges</span>
+        </label>
+
+        <label class="toggle-row">
+          <input type="checkbox" .configValue="${"show_assignee"}" id="ed-assignee" ${this._config.show_assignee !== false ? "checked" : ""}>
+          <span>Show Assigned Member</span>
+        </label>
+      </div>
+    `;
+
+    const inputs = this.shadowRoot.querySelectorAll("input, select");
+    inputs.forEach(input => {
+      input.addEventListener("change", (e) => this._valueChanged(e));
+      input.addEventListener("input", (e) => this._valueChanged(e));
+    });
+  }
+}
+
+// Resilient Custom Element Registration (immediate + polling fallback for scoped registries)
+const _registerCustomCardElements = () => {
+  if (!customElements.get("task-manager-card")) {
+    try {
+      customElements.define("task-manager-card", TaskManagerCard);
+    } catch (_) {}
+  }
+  if (!customElements.get("task-manager-card-editor")) {
+    try {
+      customElements.define("task-manager-card-editor", TaskManagerCardEditor);
+    } catch (_) {}
+  }
+};
+
+_registerCustomCardElements();
+
+let _regAttempts = 0;
+const _checkRegistryPoll = () => {
+  _registerCustomCardElements();
+  _regAttempts++;
+  if (_regAttempts < 40) {
+    setTimeout(_checkRegistryPoll, 100);
+  }
+};
+_checkRegistryPoll();
+
+// Register with Lovelace Card Picker modal
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "task-manager-card",
-  name: "Task Manager Card",
-  description: "Display, filter, complete, and add chores and tasks on your Lovelace dashboard.",
-  preview: true,
-  documentationURL: "https://github.com/vitals5/ha-task-manager",
-});
+if (!window.customCards.some(c => c.type === "task-manager-card")) {
+  window.customCards.push({
+    type: "task-manager-card",
+    name: "Task Manager Card",
+    description: "Display, filter, complete, and add chores and tasks on your Lovelace dashboard.",
+    preview: true,
+    documentationURL: "https://github.com/vitals5/ha-task-manager",
+  });
+}

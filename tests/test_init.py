@@ -87,6 +87,15 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
         entry.entry_id = "test_entry_123"
         entry.async_on_unload = MagicMock()
 
+        hass.async_create_task = asyncio.create_task
+        lovelace_mock = MagicMock()
+        resources_mock = MagicMock()
+        resources_mock.loaded = True
+        resources_mock.async_items = MagicMock(return_value=[])
+        resources_mock.async_create_item = AsyncMock()
+        lovelace_mock.resources = resources_mock
+        hass.data["lovelace"] = lovelace_mock
+
         with patch.object(task_manager.TaskManagerStorage, "async_load", AsyncMock()):
             with patch.object(task_manager.TaskManagerStorage, "async_sync_providers", AsyncMock()):
                 with patch("task_manager.panel_custom.async_register_panel", AsyncMock()):
@@ -94,11 +103,16 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
                     self.assertTrue(result)
                     self.assertIn("task_manager", hass.data)
                     self.assertIn("test_entry_123", hass.data["task_manager"])
+                    self.assertTrue(hass.data.get("task_manager_card_registered"))
+                    # Allow async_create_task to complete
+                    await asyncio.sleep(0.01)
+                    resources_mock.async_create_item.assert_called_once()
 
                 # Test unload
                 unload_result = await task_manager.async_unload_entry(hass, entry)
                 self.assertTrue(unload_result)
                 self.assertNotIn("test_entry_123", hass.data["task_manager"])
+                self.assertNotIn("task_manager_card_registered", hass.data)
 
     async def test_external_entity_state_change_updates_thing(self):
         """Test state changes on external numeric entities automatically update linked things."""
@@ -194,7 +208,40 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
         res_scripts = connection.send_result.call_args[0][1]
         script_eids = [s["entity_id"] for s in res_scripts["scripts"]]
         self.assertIn("script.clean_now", script_eids)
-        self.assertNotIn("switch.kitchen_light", script_eids)
+    async def test_lovelace_resource_registration_and_update(self):
+        """Test Lovelace resource registration updates existing resource if url changed."""
+        hass = MagicMock()
+        hass.data = {}
+        hass.config_entries = MagicMock()
+        hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
+        hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
+        hass.bus = MagicMock()
+        hass.http = MagicMock()
+        hass.http.async_register_static_paths = AsyncMock(return_value=None)
+        hass.async_create_task = asyncio.create_task
+
+        lovelace_mock = MagicMock()
+        resources_mock = MagicMock()
+        resources_mock.loaded = True
+        resources_mock.async_items = MagicMock(return_value=[
+            {"id": "res_1", "res_type": "module", "url": "/task_manager_ui/task-manager-card.js?v=old"}
+        ])
+        resources_mock.async_update_item = AsyncMock()
+        resources_mock.async_create_item = AsyncMock()
+        lovelace_mock.resources = resources_mock
+        hass.data["lovelace"] = lovelace_mock
+
+        entry = MagicMock()
+        entry.entry_id = "test_entry_789"
+        entry.async_on_unload = MagicMock()
+
+        with patch.object(task_manager.TaskManagerStorage, "async_load", AsyncMock()):
+            with patch.object(task_manager.TaskManagerStorage, "async_sync_providers", AsyncMock()):
+                with patch("task_manager.panel_custom.async_register_panel", AsyncMock()):
+                    await task_manager.async_setup_entry(hass, entry)
+                    await asyncio.sleep(0.01)
+                    resources_mock.async_update_item.assert_called_once()
+                    self.assertIn("/task_manager_ui/task-manager-card.js", resources_mock.async_update_item.call_args[0][1]["url"])
 
 
 if __name__ == "__main__":

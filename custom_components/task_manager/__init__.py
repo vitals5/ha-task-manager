@@ -8,7 +8,7 @@ from typing import Any
 
 from homeassistant.components import panel_custom
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EVENT_STATE_CHANGED
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, EVENT_STATE_CHANGED
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import async_call_later, async_track_time_change
@@ -205,7 +205,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_setup_frontend(hass: HomeAssistant) -> None:
-    """Register HTTP static path and custom sidebar panel."""
+    """Register HTTP static path, Lovelace dashboard card, and custom sidebar panel."""
     # Register static path for frontend assets
     if hasattr(hass.http, "async_register_static_paths"):
         from homeassistant.components.http import StaticPathConfig
@@ -215,11 +215,68 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
     else:
         hass.http.register_static_path(URL_BASE, FRONTEND_DIR, cache_headers=False)
 
-    version_str = "1.0.15"
+    version_str = "1.0.16"
+    try:
+        card_file = os.path.join(FRONTEND_DIR, "task-manager-card.js")
+        if os.path.exists(card_file):
+            version_str = f"{version_str}.{int(os.path.getmtime(card_file))}"
+    except Exception:
+        pass
+
+    card_url = f"{URL_BASE}/task-manager-card.js?v={version_str}"
+
+    # 1. Register Lovelace card via add_extra_js_url so it is loaded on all HA dashboards
+    if not hass.data.get(f"{DOMAIN}_card_registered"):
+        hass.data[f"{DOMAIN}_card_registered"] = True
+        try:
+            from homeassistant.components.frontend import add_extra_js_url
+            add_extra_js_url(hass, card_url)
+            _LOGGER.info("Registered Task Manager Lovelace card via add_extra_js_url: %s", card_url)
+        except Exception as err:
+            _LOGGER.debug("Could not register Lovelace card via add_extra_js_url: %s", err)
+
+        # 2. Also auto-register in Lovelace resources storage collection if available
+        async def _async_register_lovelace_resource() -> None:
+            try:
+                lovelace = hass.data.get("lovelace")
+                if not lovelace:
+                    return
+                resources = getattr(lovelace, "resources", None)
+                if not resources:
+                    return
+                if not getattr(resources, "loaded", True):
+                    try:
+                        await resources.async_load()
+                    except Exception:
+                        pass
+                existing = None
+                for item in resources.async_items():
+                    url = item.get("url", "")
+                    if url.startswith(f"{URL_BASE}/task-manager-card.js"):
+                        existing = item
+                        break
+                if existing:
+                    if existing.get("url") != card_url and hasattr(resources, "async_update_item"):
+                        await resources.async_update_item(existing["id"], {"res_type": "module", "url": card_url})
+                elif hasattr(resources, "async_create_item"):
+                    await resources.async_create_item({"res_type": "module", "url": card_url})
+                    _LOGGER.info("Auto-registered Task Manager Lovelace resource: %s", card_url)
+            except Exception as err:
+                _LOGGER.debug("Could not auto-register Lovelace resource: %s", err)
+
+        if getattr(hass, "is_running", True):
+            hass.async_create_task(_async_register_lovelace_resource())
+        else:
+            async def _on_ha_started(_event: Any) -> None:
+                await _async_register_lovelace_resource()
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _on_ha_started)
+
+    # 3. Register custom sidebar panel
+    panel_version = "1.0.16"
     try:
         js_file = os.path.join(FRONTEND_DIR, "task-manager-panel.js")
         if os.path.exists(js_file):
-            version_str = f"{version_str}.{int(os.path.getmtime(js_file))}"
+            panel_version = f"{panel_version}.{int(os.path.getmtime(js_file))}"
     except Exception:
         pass
 
@@ -232,11 +289,11 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
                 webcomponent_name="task-manager-panel",
                 sidebar_title="Task Manager",
                 sidebar_icon="mdi:checkbox-marked-circle-outline",
-                module_url=f"{URL_BASE}/task-manager-panel.js?v={version_str}",
+                module_url=f"{URL_BASE}/task-manager-panel.js?v={panel_version}",
                 embed_iframe=False,
                 require_admin=False,
             )
-            _LOGGER.info("Registered Task Manager sidebar panel at /task-manager (v=%s)", version_str)
+            _LOGGER.info("Registered Task Manager sidebar panel at /task-manager (v=%s)", panel_version)
         except Exception as err:
             _LOGGER.error("Failed to register Task Manager sidebar panel: %s", err)
 
@@ -263,4 +320,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     hass.data[f"{DOMAIN}_panel_registered"] = False
                 except Exception as err:
                     _LOGGER.debug("Could not remove panel: %s", err)
+            hass.data.pop(f"{DOMAIN}_card_registered", None)
     return unload_ok
