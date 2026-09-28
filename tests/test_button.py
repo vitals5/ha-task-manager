@@ -143,6 +143,7 @@ class TestTaskManagerButton(unittest.IsolatedAsyncioTestCase):
 
         await async_setup_entry(self.hass, self.entry, mock_add_entities)
 
-        self.assertEqual(len(added_entities), 2)
+        # 2 complete buttons + 2 skip buttons = 4
+        self.assertEqual(len(added_entities), 4)
         button_task_ids = {b._task_id for b in added_entities}
         self.assertEqual(button_task_ids, {t1["id"], t2["id"]})

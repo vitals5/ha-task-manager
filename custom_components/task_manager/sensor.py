@@ -24,7 +24,12 @@ from .const import (
     TASK_STATE_DUE_SOON,
     TASK_STATE_INACTIVE,
 )
-from .storage import TaskManagerStorage, is_thing_threshold_reached
+from .storage import (
+    TaskManagerStorage,
+    get_warranty_status,
+    is_part_low_stock,
+    is_thing_threshold_reached,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,12 +48,14 @@ async def async_setup_entry(
         current_uids = {f"{DOMAIN}_user_{u['id']}_points" for u in storage.data.users}
         current_tids = {f"{DOMAIN}_thing_{th['id']}" for th in storage.data.things}
         current_task_uids = {f"{DOMAIN}_task_{t['id']}_status" for t in storage.data.tasks}
+        current_part_uids = {f"{DOMAIN}_part_{p['id']}_stock" for p in storage.data.parts}
         valid_uids = {
             f"{DOMAIN}_total_tasks",
             f"{DOMAIN}_pending_tasks",
             f"{DOMAIN}_overdue_tasks",
             f"{DOMAIN}_completed_today_tasks",
-        } | current_uids | current_tids | current_task_uids
+            f"{DOMAIN}_parts_low_stock",
+        } | current_uids | current_tids | current_task_uids | current_part_uids
 
         for reg_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
             if reg_entry.domain == "sensor" and reg_entry.unique_id not in valid_uids:
@@ -63,20 +70,23 @@ async def async_setup_entry(
         TaskManagerSummarySensor(storage, "pending", "Task Manager Pending Tasks", "mdi:clipboard-clock-outline"),
         TaskManagerSummarySensor(storage, "overdue", "Task Manager Overdue Tasks", "mdi:alert-circle-outline"),
         TaskManagerSummarySensor(storage, "completed_today", "Task Manager Completed Today", "mdi:check-circle-outline"),
+        TaskManagerPartsLowSensor(storage),
     ]
     async_add_entities(summary_sensors)
 
     active_user_sensors: dict[str, TaskManagerUserSensor] = {}
     active_thing_sensors: dict[str, TaskManagerThingSensor] = {}
     active_task_sensors: dict[str, TaskManagerTaskSensor] = {}
+    active_part_sensors: dict[str, TaskManagerPartStockSensor] = {}
 
     @callback
     def update_dynamic_sensors() -> None:
-        """Add new sensors or remove deleted sensors for users, things, and tasks."""
+        """Add new sensors or remove deleted sensors for users, things, tasks, and parts."""
         new_entities = []
         current_user_ids = {u["id"] for u in storage.data.users}
         current_thing_ids = {th["id"] for th in storage.data.things}
         current_task_ids = {t["id"] for t in storage.data.tasks}
+        current_part_ids = {p["id"] for p in storage.data.parts}
 
         # 1. Add new users
         for user in storage.data.users:
@@ -140,6 +150,27 @@ async def async_setup_entry(
                         ent_reg.async_remove(reg_id)
                 except Exception as err:
                     _LOGGER.debug("Error removing task sensor from registry: %s", err)
+
+        # 7. Add new part sensors
+        for part in storage.data.parts:
+            p_id = part["id"]
+            if p_id not in active_part_sensors:
+                sensor = TaskManagerPartStockSensor(storage, p_id)
+                active_part_sensors[p_id] = sensor
+                new_entities.append(sensor)
+
+        # 8. Remove deleted part sensors
+        for p_id in list(active_part_sensors.keys()):
+            if p_id not in current_part_ids:
+                sensor = active_part_sensors.pop(p_id)
+                hass.async_create_task(sensor.async_remove())
+                try:
+                    ent_reg = er.async_get(hass)
+                    reg_id = ent_reg.async_get_entity_id("sensor", DOMAIN, f"{DOMAIN}_part_{p_id}_stock")
+                    if reg_id:
+                        ent_reg.async_remove(reg_id)
+                except Exception as err:
+                    _LOGGER.debug("Error removing part sensor from registry: %s", err)
 
         if new_entities:
             async_add_entities(new_entities)
@@ -329,6 +360,15 @@ class TaskManagerThingSensor(SensorEntity):
         return {
             "thing_id": self._thing_id,
             "category": thing.get("category", ""),
+            "area_id": thing.get("area_id"),
+            "manufacturer": thing.get("manufacturer", ""),
+            "model": thing.get("model", ""),
+            "serial_number": thing.get("serial_number", ""),
+            "installation_date": thing.get("installation_date", ""),
+            "warranty_expiry": thing.get("warranty_expiry", ""),
+            "warranty_status": get_warranty_status(thing),
+            "documentation_url": thing.get("documentation_url", ""),
+            "notes": thing.get("notes", ""),
             "target_value": target,
             "threshold_operator": thing.get("threshold_operator", ">="),
             "external_entity_id": thing.get("external_entity_id"),
@@ -392,4 +432,122 @@ class TaskManagerTaskSensor(SensorEntity):
         """Return task attributes."""
         _, attrs = self._storage.data.get_task_effective_state(self._task_id, self.hass)
         return attrs
+
+
+class TaskManagerPartsLowSensor(SensorEntity):
+    """Sensor tracking the count of parts requiring reorder."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:package-variant-closed-alert"
+
+    def __init__(self, storage: TaskManagerStorage) -> None:
+        """Initialize parts low sensor."""
+        self._storage = storage
+        self._attr_name = "Task Manager Parts Low Stock"
+        self._attr_unique_id = f"{DOMAIN}_parts_low_stock"
+        self._attr_native_unit_of_measurement = "parts"
+
+    async def async_added_to_hass(self) -> None:
+        """Register listener."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_TASK_MANAGER_UPDATED, self._handle_update
+            )
+        )
+
+    @callback
+    def _handle_update(self) -> None:
+        """Handle state update."""
+        self.async_write_ha_state()
+
+    def _get_low_parts(self) -> list[dict[str, Any]]:
+        """Return parts at or below min_stock threshold."""
+        return [p for p in self._storage.data.parts if is_part_low_stock(p)]
+
+    @property
+    def native_value(self) -> int:
+        """Return count of low stock parts."""
+        return len(self._get_low_parts())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return details of low stock parts."""
+        low = self._get_low_parts()
+        return {
+            "low_stock_parts": [
+                {
+                    "id": p.get("id"),
+                    "name": p.get("name"),
+                    "stock": p.get("stock"),
+                    "min_stock": p.get("min_stock"),
+                    "storage_location": p.get("storage_location"),
+                    "reorder_url": p.get("reorder_url"),
+                }
+                for p in low
+            ],
+            "total_parts": len(self._storage.data.parts),
+        }
+
+
+class TaskManagerPartStockSensor(SensorEntity):
+    """Sensor tracking the stock of an individual part/consumable."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, storage: TaskManagerStorage, part_id: str) -> None:
+        """Initialize part stock sensor."""
+        self._storage = storage
+        self._part_id = part_id
+        part = storage.data.get_part(part_id) or {}
+        name = part.get("name", "Part")
+        self._attr_name = f"Part {name} Stock"
+        self._attr_unique_id = f"{DOMAIN}_part_{part_id}_stock"
+        self._attr_icon = "mdi:archive-cog"
+        safe_name = slugify(name) or part_id[:8]
+        self.entity_id = f"sensor.task_manager_part_{safe_name}_stock"
+
+    async def async_added_to_hass(self) -> None:
+        """Register listener."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_TASK_MANAGER_UPDATED, self._handle_update
+            )
+        )
+
+    @callback
+    def _handle_update(self) -> None:
+        """Handle state update."""
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> float | int:
+        """Return current stock."""
+        part = self._storage.data.get_part(self._part_id)
+        return part.get("stock", 0) if part else 0
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return stock unit."""
+        part = self._storage.data.get_part(self._part_id)
+        return part.get("unit", "pcs") if part else "pcs"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return part attributes."""
+        part = self._storage.data.get_part(self._part_id)
+        if not part:
+            return {}
+        return {
+            "part_id": self._part_id,
+            "name": part.get("name", ""),
+            "thing_id": part.get("thing_id"),
+            "part_number": part.get("part_number", ""),
+            "min_stock": part.get("min_stock", 0),
+            "unit_price": part.get("unit_price", 0.0),
+            "storage_location": part.get("storage_location", ""),
+            "reorder_url": part.get("reorder_url", ""),
+            "notes": part.get("notes", ""),
+            "is_low_stock": is_part_low_stock(part),
+        }
+
 

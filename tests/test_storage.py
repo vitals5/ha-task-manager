@@ -80,6 +80,8 @@ TaskManagerData = storage_mod.TaskManagerData
 TaskManagerStorage = storage_mod.TaskManagerStorage
 calculate_next_due_date = storage_mod.calculate_next_due_date
 is_thing_threshold_reached = storage_mod.is_thing_threshold_reached
+get_warranty_status = storage_mod.get_warranty_status
+is_part_low_stock = storage_mod.is_part_low_stock
 FAR_FUTURE_DUE_DATE = const_mod.FAR_FUTURE_DUE_DATE
 
 
@@ -491,6 +493,155 @@ class TestTaskManagerStorage(unittest.TestCase):
         next_due = calculate_next_due_date("2026-09-28", rec)
         self.assertEqual(next_due, "2026-09-30")
 
+    def test_thing_warranty_status(self):
+        """Test calculating warranty status for things."""
+        thing_none = self.data.create_thing({"name": "No Warranty Thing"})
+        self.assertEqual(storage_mod.get_warranty_status(thing_none), const_mod.WARRANTY_STATUS_NONE)
+
+        thing_expired = self.data.create_thing({
+            "name": "Old Oven",
+            "warranty_expiry": "2026-09-01",
+        })
+        self.assertEqual(storage_mod.get_warranty_status(thing_expired), const_mod.WARRANTY_STATUS_EXPIRED)
+
+        thing_soon = self.data.create_thing({
+            "name": "Washing Machine",
+            "warranty_expiry": "2026-10-10",
+        })
+        self.assertEqual(storage_mod.get_warranty_status(thing_soon), const_mod.WARRANTY_STATUS_EXPIRING_SOON)
+
+        thing_valid = self.data.create_thing({
+            "name": "New Fridge",
+            "warranty_expiry": "2027-01-01",
+            "manufacturer": "Bosch",
+            "model": "KGN39",
+            "serial_number": "SN12345",
+        })
+        self.assertEqual(storage_mod.get_warranty_status(thing_valid), const_mod.WARRANTY_STATUS_VALID)
+        self.assertEqual(thing_valid["manufacturer"], "Bosch")
+        self.assertEqual(thing_valid["model"], "KGN39")
+
+    def test_parts_crud_and_stock_adjustment(self):
+        """Test spare parts CRUD operations and stock level adjustments."""
+        part = self.data.create_part({
+            "name": "HEPA Filter",
+            "stock": 5,
+            "min_stock": 2,
+            "unit": "pcs",
+            "unit_cost": 12.50,
+            "reorder_url": "https://example.com/filter",
+        })
+        self.assertIsNotNone(part)
+        self.assertEqual(part["name"], "HEPA Filter")
+        self.assertEqual(part["stock"], 5)
+        self.assertFalse(storage_mod.is_part_low_stock(part))
+
+        # Adjust stock - decrement by 4
+        updated = self.data.adjust_part_stock(part["id"], -4)
+        self.assertEqual(updated["stock"], 1)
+        self.assertTrue(storage_mod.is_part_low_stock(updated))
+
+        # Update part details
+        updated2 = self.data.update_part(part["id"], {"name": "HEPA Filter Pro", "min_stock": 1})
+        self.assertEqual(updated2["name"], "HEPA Filter Pro")
+        self.assertEqual(updated2["min_stock"], 1)
+
+        # Delete part
+        success = self.data.delete_part(part["id"])
+        self.assertTrue(success)
+        self.assertIsNone(self.data.get_part(part["id"]))
+
+    def test_complete_task_with_consumed_parts_and_cost(self):
+        """Test completing task deducts consumed parts and calculates total cost."""
+        part1 = self.data.create_part({
+            "name": "Engine Oil 5W30",
+            "stock": 10,
+            "min_stock": 3,
+            "unit_cost": 15.0,
+        })
+        part2 = self.data.create_part({
+            "name": "Oil Filter",
+            "stock": 4,
+            "min_stock": 1,
+            "unit_cost": 10.0,
+        })
+
+        task = self.data.create_task({
+            "title": "Oil Change",
+            "consumed_parts": [
+                {"part_id": part1["id"], "qty": 4},
+                {"part_id": part2["id"], "qty": 1},
+            ],
+            "default_cost": 20.0,
+        })
+
+        completed = self.data.complete_task(
+            task["id"],
+            duration_minutes=45,
+            notes="Changed oil and filter successfully",
+        )
+        self.assertIsNotNone(completed)
+        self.assertEqual(completed["status"], "completed")
+
+        # Verify parts stock was deducted
+        p1 = self.data.get_part(part1["id"])
+        p2 = self.data.get_part(part2["id"])
+        self.assertEqual(p1["stock"], 6)
+        self.assertEqual(p2["stock"], 3)
+
+        # Verify history entry recorded metadata
+        self.assertTrue(len(completed.get("history", [])) > 0)
+        hist = completed["history"][-1]
+        self.assertEqual(hist["duration_minutes"], 45)
+        self.assertEqual(hist["notes"], "Changed oil and filter successfully")
+        # cost = 4 * 15.0 + 1 * 10.0 + 20.0 default_cost = 90.0
+        self.assertEqual(hist["cost"], 90.0)
+
+    def test_complete_task_with_reading_delta(self):
+        """Test completing a reading task records reading value and delta."""
+        task = self.data.create_task({
+            "title": "Water Meter Reading",
+            "task_type": const_mod.TASK_TYPE_READING,
+            "reading_unit": "m³",
+            "last_reading_value": 150.0,
+        })
+
+        completed = self.data.complete_task(
+            task["id"],
+            reading_value=158.5,
+        )
+        self.assertEqual(completed["last_reading_value"], 158.5)
+        self.assertTrue(len(completed.get("history", [])) > 0)
+        hist = completed["history"][-1]
+        self.assertEqual(hist["reading_value"], 158.5)
+        self.assertEqual(hist["reading_delta"], 8.5)
+
+    def test_skip_task_advances_due_date_without_points(self):
+        """Test skipping task advances due date without awarding points or streak."""
+        user = self.data.get_users()[0]
+        initial_points = user.get("points", 0)
+
+        task = self.data.create_task({
+            "title": "Clean Windows",
+            "recurrence": {"type": "daily", "interval": 2},
+            "due_date": "2026-09-26",
+            "points": 50,
+            "assigned_to": user["id"],
+        })
+
+        skipped = self.data.skip_task(task["id"])
+        self.assertIsNotNone(skipped)
+        self.assertEqual(skipped["due_date"], "2026-09-28")
+
+        # Points unchanged
+        u_after = self.data.get_user(user["id"])
+        self.assertEqual(u_after["points"], initial_points)
+
+        # Check history contains skipped action
+        self.assertTrue(len(skipped.get("history", [])) > 0)
+        hist = skipped["history"][-1]
+        self.assertEqual(hist["action"], "skipped")
+
 
 class TestTaskManagerStorageAsync(unittest.IsolatedAsyncioTestCase):
     """Async test suite for Task Manager storage actions and script triggers."""
@@ -552,6 +703,26 @@ class TestTaskManagerStorageAsync(unittest.IsolatedAsyncioTestCase):
         await storage.async_complete_task(task["id"])
         hass.services.async_call.assert_called_once_with(
             "script", "custom_filter_reset", {}, blocking=False
+        )
+
+    async def test_task_on_complete_entity_action(self):
+        """Test completing a task triggers on_complete_entity_id action."""
+        hass = MagicMock()
+        hass.services = MagicMock()
+        hass.services.async_call = AsyncMock()
+
+        storage = TaskManagerStorage(hass)
+        storage.async_save = AsyncMock()
+
+        task = storage.data.create_task({
+            "title": "Vacuum Living Room",
+            "on_complete_entity_id": "button.vacuum_start",
+        })
+
+        await storage.async_complete_task(task["id"])
+
+        hass.services.async_call.assert_called_once_with(
+            "button", "press", {"entity_id": "button.vacuum_start"}, blocking=False
         )
 
     async def test_automation_events_fired(self):

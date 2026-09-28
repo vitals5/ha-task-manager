@@ -165,6 +165,40 @@ complete_task:
       required: false
       selector:
         text:
+    cost:
+      name: Cost
+      description: Monetary cost spent on this maintenance or task.
+      required: false
+      selector:
+        number:
+          step: any
+    duration_minutes:
+      name: Duration (Minutes)
+      description: Time spent performing the task in minutes.
+      required: false
+      selector:
+        number:
+          min: 0
+    notes:
+      name: Completion Notes
+      description: Optional notes or remarks recorded for this completion.
+      required: false
+      selector:
+        text:
+          multiline: true
+    completed_at:
+      name: Completed At
+      description: Optional ISO timestamp to backdate task completion.
+      required: false
+      selector:
+        text:
+    reading_value:
+      name: Reading Value
+      description: Counter or meter reading value if completing a reading task.
+      required: false
+      selector:
+        number:
+          step: any
 
 mark_as_done:
   name: Mark As Done (Alias)
@@ -501,3 +535,193 @@ award_points:
       example: "Special garden cleaning bonus"
       selector:
         text:
+
+skip_task:
+  name: Skip Task
+  description: Skips the current recurrence of a task without awarding points, advancing its due date to the next scheduled interval.
+  fields:
+    task_id:
+      name: Task ID
+      description: The unique identifier of the task.
+      required: false
+      example: "e34b9d0b-..."
+      selector:
+        text:
+    entity_id:
+      name: Task Sensor or Button Entity
+      description: Entity ID of the task sensor or button.
+      required: false
+      example: "sensor.task_manager_clean_kitchen"
+      selector:
+        entity:
+    task_title:
+      name: Task Title
+      description: Task title to match.
+      required: false
+      selector:
+        text:
+
+record_reading:
+  name: Record Reading
+  description: Records a counter or meter reading for a reading task and advances recurrence.
+  fields:
+    task_id:
+      name: Task ID
+      description: The unique identifier of the task.
+      required: false
+      selector:
+        text:
+    entity_id:
+      name: Task Sensor Entity
+      description: Entity ID of the task sensor.
+      required: false
+      selector:
+        entity:
+    task_title:
+      name: Task Title
+      description: Task title to match.
+      required: false
+      selector:
+        text:
+    reading_value:
+      name: Reading Value
+      description: The numeric value read from the meter or gauge.
+      required: true
+      example: 1450.5
+      selector:
+        number:
+          step: any
+    notes:
+      name: Notes
+      description: Optional notes about the reading.
+      required: false
+      selector:
+        text:
+    completed_at:
+      name: Completed Timestamp
+      description: Timestamp in ISO format if backdating the reading.
+      required: false
+      selector:
+        text:
+    user_id:
+      name: User ID
+      description: User who recorded the reading.
+      required: false
+      selector:
+        text:
+
+adjust_part_stock:
+  name: Adjust Part Stock
+  description: Adjusts or sets the inventory stock level of a spare part or consumable.
+  fields:
+    part_id:
+      name: Part ID
+      description: The unique identifier of the part.
+      required: true
+      selector:
+        text:
+    stock:
+      name: New Stock Value
+      description: Set absolute stock quantity directly.
+      required: false
+      selector:
+        number:
+          step: any
+    delta:
+      name: Delta Stock
+      description: Adjust stock by adding or subtracting (+/-).
+      required: false
+      selector:
+        number:
+          step: any
+
+save_part:
+  name: Save Part
+  description: Creates or updates a spare part or consumable in the parts shelf.
+  fields:
+    id:
+      name: Part ID
+      description: Unique ID (omit to create a new part).
+      required: false
+      selector:
+        text:
+    name:
+      name: Part Name
+      description: Name of the spare part or consumable.
+      required: true
+      example: "HEPA Filter Set"
+      selector:
+        text:
+    thing_id:
+      name: Linked Thing ID
+      description: Optional appliance or thing linked to this spare part.
+      required: false
+      selector:
+        text:
+    part_number:
+      name: Part Number
+      description: OEM or manufacturer part / article number.
+      required: false
+      selector:
+        text:
+    stock:
+      name: Stock Level
+      description: Current count in storage.
+      required: false
+      default: 0
+      selector:
+        number:
+          step: any
+    min_stock:
+      name: Minimum Stock (Reorder Threshold)
+      description: Alert when stock falls at or below this value.
+      required: false
+      default: 1
+      selector:
+        number:
+          step: any
+    unit:
+      name: Unit
+      description: Unit of measurement (e.g. pcs, rolls, liters).
+      required: false
+      default: "pcs"
+      selector:
+        text:
+    unit_price:
+      name: Unit Price
+      description: Estimated cost per single unit.
+      required: false
+      default: 0.0
+      selector:
+        number:
+          step: any
+    storage_location:
+      name: Storage Location
+      description: Where this part is stored (e.g. Basement Shelf 2).
+      required: false
+      selector:
+        text:
+    reorder_url:
+      name: Reorder URL
+      description: Web link to reorder this part.
+      required: false
+      selector:
+        text:
+    notes:
+      name: Notes
+      description: Additional comments.
+      required: false
+      selector:
+        text:
+
+delete_part:
+  name: Delete Part
+  description: Deletes a spare part from the inventory.
+  fields:
+    part_id:
+      name: Part ID
+      description: Unique ID of the part to remove.
+      required: true
+      selector:
+        text:
+

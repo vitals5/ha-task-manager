@@ -14,19 +14,24 @@ from .const import (
     PRIORITIES,
     PRIORITY_NONE,
     SERVICE_ADD_TASK,
+    SERVICE_ADJUST_PART_STOCK,
     SERVICE_ASSIGN_TASK,
     SERVICE_AWARD_POINTS,
     SERVICE_COMPLETE_TASK,
     SERVICE_CREATE_TASK,
+    SERVICE_DELETE_PART,
     SERVICE_DELETE_TASK,
     SERVICE_DUPLICATE_TASK,
     SERVICE_MARK_AS_DONE,
     SERVICE_MOVE_TASK,
     SERVICE_PAUSE_TASK,
+    SERVICE_RECORD_READING,
     SERVICE_REOPEN_TASK,
     SERVICE_RESET_TASK,
     SERVICE_RESUME_TASK,
+    SERVICE_SAVE_PART,
     SERVICE_SET_LAST_DONE_DATE,
+    SERVICE_SKIP_TASK,
     SERVICE_UPDATE_SUBTASK,
     SERVICE_UPDATE_TASK,
     SERVICE_UPDATE_THING,
@@ -50,6 +55,13 @@ SCHEMA_CREATE_TASK = vol.Schema({
     vol.Optional("labels"): vol.Any(cv.string, [cv.string]),
     vol.Optional("reminders"): vol.Any(cv.string, [vol.Coerce(int)]),
     vol.Optional("subtasks"): list,
+    vol.Optional("task_type"): cv.string,
+    vol.Optional("reading_unit"): cv.string,
+    vol.Optional("last_reading_value"): vol.Coerce(float),
+    vol.Optional("consumed_parts"): list,
+    vol.Optional("on_complete_entity_id"): cv.string,
+    vol.Optional("default_duration_minutes"): vol.Coerce(int),
+    vol.Optional("default_cost"): vol.Coerce(float),
 })
 
 SCHEMA_COMPLETE_TASK = vol.Schema({
@@ -58,6 +70,52 @@ SCHEMA_COMPLETE_TASK = vol.Schema({
     vol.Optional("task_title"): cv.string,
     vol.Optional("user_id"): cv.string,
     vol.Optional("tag"): cv.string,
+    vol.Optional("cost"): vol.Coerce(float),
+    vol.Optional("duration_minutes"): vol.Coerce(int),
+    vol.Optional("notes"): cv.string,
+    vol.Optional("completed_at"): cv.string,
+    vol.Optional("reading_value"): vol.Coerce(float),
+    vol.Optional("consumed_parts"): list,
+})
+
+SCHEMA_SKIP_TASK = vol.Schema({
+    vol.Optional("task_id"): cv.string,
+    vol.Optional("entity_id"): cv.string,
+    vol.Optional("task_title"): cv.string,
+})
+
+SCHEMA_RECORD_READING = vol.Schema({
+    vol.Optional("task_id"): cv.string,
+    vol.Optional("entity_id"): cv.string,
+    vol.Optional("task_title"): cv.string,
+    vol.Required("reading_value"): vol.Coerce(float),
+    vol.Optional("notes"): cv.string,
+    vol.Optional("completed_at"): cv.string,
+    vol.Optional("user_id"): cv.string,
+})
+
+SCHEMA_ADJUST_PART_STOCK = vol.Schema({
+    vol.Required("part_id"): cv.string,
+    vol.Optional("stock"): vol.Coerce(float),
+    vol.Optional("delta"): vol.Coerce(float),
+})
+
+SCHEMA_SAVE_PART = vol.Schema({
+    vol.Optional("id"): cv.string,
+    vol.Required("name"): cv.string,
+    vol.Optional("thing_id"): vol.Any(cv.string, None),
+    vol.Optional("part_number", default=""): cv.string,
+    vol.Optional("stock", default=0.0): vol.Coerce(float),
+    vol.Optional("min_stock", default=1.0): vol.Coerce(float),
+    vol.Optional("unit", default="pcs"): cv.string,
+    vol.Optional("unit_price", default=0.0): vol.Coerce(float),
+    vol.Optional("storage_location", default=""): cv.string,
+    vol.Optional("reorder_url", default=""): cv.string,
+    vol.Optional("notes", default=""): cv.string,
+})
+
+SCHEMA_DELETE_PART = vol.Schema({
+    vol.Required("part_id"): cv.string,
 })
 
 SCHEMA_SET_LAST_DONE_DATE = vol.Schema({
@@ -212,19 +270,86 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
         """Handle completing a task via service."""
         user_id = call.data.get("user_id")
         tag = call.data.get("tag")
+        cost = call.data.get("cost")
+        duration_minutes = call.data.get("duration_minutes")
+        notes = call.data.get("notes")
+        completed_at = call.data.get("completed_at")
+        reading_value = call.data.get("reading_value")
+        consumed_parts = call.data.get("consumed_parts")
+
+        kwargs: dict[str, Any] = {"user_id": user_id}
+        if cost is not None:
+            kwargs["cost"] = cost
+        if duration_minutes is not None:
+            kwargs["duration_minutes"] = duration_minutes
+        if notes is not None:
+            kwargs["notes"] = notes
+        if completed_at is not None:
+            kwargs["completed_at"] = completed_at
+        if reading_value is not None:
+            kwargs["reading_value"] = reading_value
+        if consumed_parts is not None:
+            kwargs["consumed_parts"] = consumed_parts
 
         if tag:
             all_tasks = storage.data.get_all_tasks(include_external=True)
             for t in all_tasks:
                 if t.get("status") == "pending" and (tag in t.get("labels", []) or tag in t.get("tags", [])):
-                    await storage.async_complete_task(t["id"], user_id=user_id)
+                    await storage.async_complete_task(t["id"], **kwargs)
             return
 
         target_id = resolve_task_id(call.data, storage, hass)
         if target_id:
-            await storage.async_complete_task(target_id, user_id=user_id)
+            await storage.async_complete_task(target_id, **kwargs)
         else:
             _LOGGER.warning("Task Manager: Task '%s' not found to complete", call.data.get("task_id") or call.data.get("task_title") or call.data.get("entity_id"))
+
+    async def handle_skip_task(call: ServiceCall) -> None:
+        """Handle skipping the current recurrence of a task via service."""
+        target_id = resolve_task_id(call.data, storage, hass)
+        if target_id:
+            await storage.async_skip_task(target_id)
+        else:
+            _LOGGER.warning("Task Manager: Task '%s' not found to skip", call.data.get("task_id") or call.data.get("task_title") or call.data.get("entity_id"))
+
+    async def handle_record_reading(call: ServiceCall) -> None:
+        """Handle recording a meter/utility reading for a task via service."""
+        target_id = resolve_task_id(call.data, storage, hass)
+        reading_value = call.data["reading_value"]
+        notes = call.data.get("notes")
+        completed_at = call.data.get("completed_at")
+        user_id = call.data.get("user_id")
+
+        if target_id:
+            await storage.async_record_reading(
+                task_id=target_id,
+                reading_value=reading_value,
+                notes=notes,
+                completed_at=completed_at,
+                user_id=user_id,
+            )
+        else:
+            _LOGGER.warning("Task Manager: Task '%s' not found to record reading", call.data.get("task_id") or call.data.get("task_title") or call.data.get("entity_id"))
+
+    async def handle_adjust_part_stock(call: ServiceCall) -> None:
+        """Handle adjusting or setting part stock via service."""
+        part_id = call.data["part_id"]
+        stock = call.data.get("stock")
+        delta = call.data.get("delta")
+        await storage.async_adjust_part_stock(part_id, delta=delta, stock=stock)
+
+    async def handle_save_part(call: ServiceCall) -> None:
+        """Handle creating or updating part via service."""
+        part_data = dict(call.data)
+        if part_data.get("id"):
+            await storage.async_update_part(part_data["id"], part_data)
+        else:
+            await storage.async_create_part(part_data)
+
+    async def handle_delete_part(call: ServiceCall) -> None:
+        """Handle deleting part via service."""
+        part_id = call.data["part_id"]
+        await storage.async_delete_part(part_id)
 
     async def handle_set_last_done_date(call: ServiceCall) -> None:
         """Handle setting the last completion date explicitly via service."""
@@ -343,6 +468,11 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
     hass.services.async_register(DOMAIN, SERVICE_CREATE_TASK, handle_create_task, schema=SCHEMA_CREATE_TASK)
     hass.services.async_register(DOMAIN, SERVICE_ADD_TASK, handle_create_task, schema=SCHEMA_CREATE_TASK)
     hass.services.async_register(DOMAIN, SERVICE_COMPLETE_TASK, handle_complete_task, schema=SCHEMA_COMPLETE_TASK)
+    hass.services.async_register(DOMAIN, SERVICE_SKIP_TASK, handle_skip_task, schema=SCHEMA_SKIP_TASK)
+    hass.services.async_register(DOMAIN, SERVICE_RECORD_READING, handle_record_reading, schema=SCHEMA_RECORD_READING)
+    hass.services.async_register(DOMAIN, SERVICE_ADJUST_PART_STOCK, handle_adjust_part_stock, schema=SCHEMA_ADJUST_PART_STOCK)
+    hass.services.async_register(DOMAIN, SERVICE_SAVE_PART, handle_save_part, schema=SCHEMA_SAVE_PART)
+    hass.services.async_register(DOMAIN, SERVICE_DELETE_PART, handle_delete_part, schema=SCHEMA_DELETE_PART)
     hass.services.async_register(DOMAIN, SERVICE_MARK_AS_DONE, handle_complete_task, schema=SCHEMA_COMPLETE_TASK)
     hass.services.async_register(DOMAIN, SERVICE_SET_LAST_DONE_DATE, handle_set_last_done_date, schema=SCHEMA_SET_LAST_DONE_DATE)
     hass.services.async_register(DOMAIN, SERVICE_PAUSE_TASK, handle_pause_task, schema=SCHEMA_PAUSE_RESUME_TASK)
@@ -363,6 +493,11 @@ def async_unregister_services(hass: HomeAssistant) -> None:
         SERVICE_CREATE_TASK,
         SERVICE_ADD_TASK,
         SERVICE_COMPLETE_TASK,
+        SERVICE_SKIP_TASK,
+        SERVICE_RECORD_READING,
+        SERVICE_ADJUST_PART_STOCK,
+        SERVICE_SAVE_PART,
+        SERVICE_DELETE_PART,
         SERVICE_MARK_AS_DONE,
         SERVICE_SET_LAST_DONE_DATE,
         SERVICE_PAUSE_TASK,

@@ -13,6 +13,12 @@
  */
 
 (function () {
+  // Standalone QR Code SVG generator
+  const QRCodeGen = (function () {
+/*! qrcode-svg v1.1.0 | https://github.com/papnkukn/qrcode-svg | MIT license */
+function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedData=[];for(var e=0,r=this.data.length;e<r;e++){var o=[],n=this.data.charCodeAt(e);n>65536?(o[0]=240|(1835008&n)>>>18,o[1]=128|(258048&n)>>>12,o[2]=128|(4032&n)>>>6,o[3]=128|63&n):n>2048?(o[0]=224|(61440&n)>>>12,o[1]=128|(4032&n)>>>6,o[2]=128|63&n):n>128?(o[0]=192|(1984&n)>>>6,o[1]=128|63&n):o[0]=n,this.parsedData.push(o)}this.parsedData=Array.prototype.concat.apply([],this.parsedData),this.parsedData.length!=this.data.length&&(this.parsedData.unshift(191),this.parsedData.unshift(187),this.parsedData.unshift(239))}function QRCodeModel(t,e){this.typeNumber=t,this.errorCorrectLevel=e,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}QR8bitByte.prototype={getLength:function(t){return this.parsedData.length},write:function(t){for(var e=0,r=this.parsedData.length;e<r;e++)t.put(this.parsedData[e],8)}},QRCodeModel.prototype={addData:function(t){var e=new QR8bitByte(t);this.dataList.push(e),this.dataCache=null},isDark:function(t,e){if(t<0||this.moduleCount<=t||e<0||this.moduleCount<=e)throw new Error(t+","+e);return this.modules[t][e]},getModuleCount:function(){return this.moduleCount},make:function(){this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(t,e){this.moduleCount=4*this.typeNumber+17,this.modules=new Array(this.moduleCount);for(var r=0;r<this.moduleCount;r++){this.modules[r]=new Array(this.moduleCount);for(var o=0;o<this.moduleCount;o++)this.modules[r][o]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(t,e),this.typeNumber>=7&&this.setupTypeNumber(t),null==this.dataCache&&(this.dataCache=QRCodeModel.createData(this.typeNumber,this.errorCorrectLevel,this.dataList)),this.mapData(this.dataCache,e)},setupPositionProbePattern:function(t,e){for(var r=-1;r<=7;r++)if(!(t+r<=-1||this.moduleCount<=t+r))for(var o=-1;o<=7;o++)e+o<=-1||this.moduleCount<=e+o||(this.modules[t+r][e+o]=0<=r&&r<=6&&(0==o||6==o)||0<=o&&o<=6&&(0==r||6==r)||2<=r&&r<=4&&2<=o&&o<=4)},getBestMaskPattern:function(){for(var t=0,e=0,r=0;r<8;r++){this.makeImpl(!0,r);var o=QRUtil.getLostPoint(this);(0==r||t>o)&&(t=o,e=r)}return e},createMovieClip:function(t,e,r){var o=t.createEmptyMovieClip(e,r);this.make();for(var n=0;n<this.modules.length;n++)for(var i=1*n,a=0;a<this.modules[n].length;a++){var s=1*a;this.modules[n][a]&&(o.beginFill(0,100),o.moveTo(s,i),o.lineTo(s+1,i),o.lineTo(s+1,i+1),o.lineTo(s,i+1),o.endFill())}return o},setupTimingPattern:function(){for(var t=8;t<this.moduleCount-8;t++)null==this.modules[t][6]&&(this.modules[t][6]=t%2==0);for(var e=8;e<this.moduleCount-8;e++)null==this.modules[6][e]&&(this.modules[6][e]=e%2==0)},setupPositionAdjustPattern:function(){for(var t=QRUtil.getPatternPosition(this.typeNumber),e=0;e<t.length;e++)for(var r=0;r<t.length;r++){var o=t[e],n=t[r];if(null==this.modules[o][n])for(var i=-2;i<=2;i++)for(var a=-2;a<=2;a++)this.modules[o+i][n+a]=-2==i||2==i||-2==a||2==a||0==i&&0==a}},setupTypeNumber:function(t){for(var e=QRUtil.getBCHTypeNumber(this.typeNumber),r=0;r<18;r++){var o=!t&&1==(e>>r&1);this.modules[Math.floor(r/3)][r%3+this.moduleCount-8-3]=o}for(r=0;r<18;r++){o=!t&&1==(e>>r&1);this.modules[r%3+this.moduleCount-8-3][Math.floor(r/3)]=o}},setupTypeInfo:function(t,e){for(var r=this.errorCorrectLevel<<3|e,o=QRUtil.getBCHTypeInfo(r),n=0;n<15;n++){var i=!t&&1==(o>>n&1);n<6?this.modules[n][8]=i:n<8?this.modules[n+1][8]=i:this.modules[this.moduleCount-15+n][8]=i}for(n=0;n<15;n++){i=!t&&1==(o>>n&1);n<8?this.modules[8][this.moduleCount-n-1]=i:n<9?this.modules[8][15-n-1+1]=i:this.modules[8][15-n-1]=i}this.modules[this.moduleCount-8][8]=!t},mapData:function(t,e){for(var r=-1,o=this.moduleCount-1,n=7,i=0,a=this.moduleCount-1;a>0;a-=2)for(6==a&&a--;;){for(var s=0;s<2;s++)if(null==this.modules[o][a-s]){var h=!1;i<t.length&&(h=1==(t[i]>>>n&1)),QRUtil.getMask(e,o,a-s)&&(h=!h),this.modules[o][a-s]=h,-1==--n&&(i++,n=7)}if((o+=r)<0||this.moduleCount<=o){o-=r,r=-r;break}}}},QRCodeModel.PAD0=236,QRCodeModel.PAD1=17,QRCodeModel.createData=function(t,e,r){for(var o=QRRSBlock.getRSBlocks(t,e),n=new QRBitBuffer,i=0;i<r.length;i++){var a=r[i];n.put(a.mode,4),n.put(a.getLength(),QRUtil.getLengthInBits(a.mode,t)),a.write(n)}var s=0;for(i=0;i<o.length;i++)s+=o[i].dataCount;if(n.getLengthInBits()>8*s)throw new Error("code length overflow. ("+n.getLengthInBits()+">"+8*s+")");for(n.getLengthInBits()+4<=8*s&&n.put(0,4);n.getLengthInBits()%8!=0;)n.putBit(!1);for(;!(n.getLengthInBits()>=8*s||(n.put(QRCodeModel.PAD0,8),n.getLengthInBits()>=8*s));)n.put(QRCodeModel.PAD1,8);return QRCodeModel.createBytes(n,o)},QRCodeModel.createBytes=function(t,e){for(var r=0,o=0,n=0,i=new Array(e.length),a=new Array(e.length),s=0;s<e.length;s++){var h=e[s].dataCount,l=e[s].totalCount-h;o=Math.max(o,h),n=Math.max(n,l),i[s]=new Array(h);for(var u=0;u<i[s].length;u++)i[s][u]=255&t.buffer[u+r];r+=h;var g=QRUtil.getErrorCorrectPolynomial(l),d=new QRPolynomial(i[s],g.getLength()-1).mod(g);a[s]=new Array(g.getLength()-1);for(u=0;u<a[s].length;u++){var f=u+d.getLength()-a[s].length;a[s][u]=f>=0?d.get(f):0}}var c=0;for(u=0;u<e.length;u++)c+=e[u].totalCount;var R=new Array(c),p=0;for(u=0;u<o;u++)for(s=0;s<e.length;s++)u<i[s].length&&(R[p++]=i[s][u]);for(u=0;u<n;u++)for(s=0;s<e.length;s++)u<a[s].length&&(R[p++]=a[s][u]);return R};for(var QRMode={MODE_NUMBER:1,MODE_ALPHA_NUM:2,MODE_8BIT_BYTE:4,MODE_KANJI:8},QRErrorCorrectLevel={L:1,M:0,Q:3,H:2},QRMaskPattern={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},QRUtil={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],G15:1335,G18:7973,G15_MASK:21522,getBCHTypeInfo:function(t){for(var e=t<<10;QRUtil.getBCHDigit(e)-QRUtil.getBCHDigit(QRUtil.G15)>=0;)e^=QRUtil.G15<<QRUtil.getBCHDigit(e)-QRUtil.getBCHDigit(QRUtil.G15);return(t<<10|e)^QRUtil.G15_MASK},getBCHTypeNumber:function(t){for(var e=t<<12;QRUtil.getBCHDigit(e)-QRUtil.getBCHDigit(QRUtil.G18)>=0;)e^=QRUtil.G18<<QRUtil.getBCHDigit(e)-QRUtil.getBCHDigit(QRUtil.G18);return t<<12|e},getBCHDigit:function(t){for(var e=0;0!=t;)e++,t>>>=1;return e},getPatternPosition:function(t){return QRUtil.PATTERN_POSITION_TABLE[t-1]},getMask:function(t,e,r){switch(t){case QRMaskPattern.PATTERN000:return(e+r)%2==0;case QRMaskPattern.PATTERN001:return e%2==0;case QRMaskPattern.PATTERN010:return r%3==0;case QRMaskPattern.PATTERN011:return(e+r)%3==0;case QRMaskPattern.PATTERN100:return(Math.floor(e/2)+Math.floor(r/3))%2==0;case QRMaskPattern.PATTERN101:return e*r%2+e*r%3==0;case QRMaskPattern.PATTERN110:return(e*r%2+e*r%3)%2==0;case QRMaskPattern.PATTERN111:return(e*r%3+(e+r)%2)%2==0;default:throw new Error("bad maskPattern:"+t)}},getErrorCorrectPolynomial:function(t){for(var e=new QRPolynomial([1],0),r=0;r<t;r++)e=e.multiply(new QRPolynomial([1,QRMath.gexp(r)],0));return e},getLengthInBits:function(t,e){if(1<=e&&e<10)switch(t){case QRMode.MODE_NUMBER:return 10;case QRMode.MODE_ALPHA_NUM:return 9;case QRMode.MODE_8BIT_BYTE:case QRMode.MODE_KANJI:return 8;default:throw new Error("mode:"+t)}else if(e<27)switch(t){case QRMode.MODE_NUMBER:return 12;case QRMode.MODE_ALPHA_NUM:return 11;case QRMode.MODE_8BIT_BYTE:return 16;case QRMode.MODE_KANJI:return 10;default:throw new Error("mode:"+t)}else{if(!(e<41))throw new Error("type:"+e);switch(t){case QRMode.MODE_NUMBER:return 14;case QRMode.MODE_ALPHA_NUM:return 13;case QRMode.MODE_8BIT_BYTE:return 16;case QRMode.MODE_KANJI:return 12;default:throw new Error("mode:"+t)}}},getLostPoint:function(t){for(var e=t.getModuleCount(),r=0,o=0;o<e;o++)for(var n=0;n<e;n++){for(var i=0,a=t.isDark(o,n),s=-1;s<=1;s++)if(!(o+s<0||e<=o+s))for(var h=-1;h<=1;h++)n+h<0||e<=n+h||0==s&&0==h||a==t.isDark(o+s,n+h)&&i++;i>5&&(r+=3+i-5)}for(o=0;o<e-1;o++)for(n=0;n<e-1;n++){var l=0;t.isDark(o,n)&&l++,t.isDark(o+1,n)&&l++,t.isDark(o,n+1)&&l++,t.isDark(o+1,n+1)&&l++,0!=l&&4!=l||(r+=3)}for(o=0;o<e;o++)for(n=0;n<e-6;n++)t.isDark(o,n)&&!t.isDark(o,n+1)&&t.isDark(o,n+2)&&t.isDark(o,n+3)&&t.isDark(o,n+4)&&!t.isDark(o,n+5)&&t.isDark(o,n+6)&&(r+=40);for(n=0;n<e;n++)for(o=0;o<e-6;o++)t.isDark(o,n)&&!t.isDark(o+1,n)&&t.isDark(o+2,n)&&t.isDark(o+3,n)&&t.isDark(o+4,n)&&!t.isDark(o+5,n)&&t.isDark(o+6,n)&&(r+=40);var u=0;for(n=0;n<e;n++)for(o=0;o<e;o++)t.isDark(o,n)&&u++;return r+=10*(Math.abs(100*u/e/e-50)/5)}},QRMath={glog:function(t){if(t<1)throw new Error("glog("+t+")");return QRMath.LOG_TABLE[t]},gexp:function(t){for(;t<0;)t+=255;for(;t>=256;)t-=255;return QRMath.EXP_TABLE[t]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)},i=0;i<8;i++)QRMath.EXP_TABLE[i]=1<<i;for(i=8;i<256;i++)QRMath.EXP_TABLE[i]=QRMath.EXP_TABLE[i-4]^QRMath.EXP_TABLE[i-5]^QRMath.EXP_TABLE[i-6]^QRMath.EXP_TABLE[i-8];for(i=0;i<255;i++)QRMath.LOG_TABLE[QRMath.EXP_TABLE[i]]=i;function QRPolynomial(t,e){if(null==t.length)throw new Error(t.length+"/"+e);for(var r=0;r<t.length&&0==t[r];)r++;this.num=new Array(t.length-r+e);for(var o=0;o<t.length-r;o++)this.num[o]=t[o+r]}function QRRSBlock(t,e){this.totalCount=t,this.dataCount=e}function QRBitBuffer(){this.buffer=[],this.length=0}QRPolynomial.prototype={get:function(t){return this.num[t]},getLength:function(){return this.num.length},multiply:function(t){for(var e=new Array(this.getLength()+t.getLength()-1),r=0;r<this.getLength();r++)for(var o=0;o<t.getLength();o++)e[r+o]^=QRMath.gexp(QRMath.glog(this.get(r))+QRMath.glog(t.get(o)));return new QRPolynomial(e,0)},mod:function(t){if(this.getLength()-t.getLength()<0)return this;for(var e=QRMath.glog(this.get(0))-QRMath.glog(t.get(0)),r=new Array(this.getLength()),o=0;o<this.getLength();o++)r[o]=this.get(o);for(o=0;o<t.getLength();o++)r[o]^=QRMath.gexp(QRMath.glog(t.get(o))+e);return new QRPolynomial(r,0).mod(t)}},QRRSBlock.RS_BLOCK_TABLE=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],QRRSBlock.getRSBlocks=function(t,e){var r=QRRSBlock.getRsBlockTable(t,e);if(null==r)throw new Error("bad rs block @ typeNumber:"+t+"/errorCorrectLevel:"+e);for(var o=r.length/3,n=[],i=0;i<o;i++)for(var a=r[3*i+0],s=r[3*i+1],h=r[3*i+2],l=0;l<a;l++)n.push(new QRRSBlock(s,h));return n},QRRSBlock.getRsBlockTable=function(t,e){switch(e){case QRErrorCorrectLevel.L:return QRRSBlock.RS_BLOCK_TABLE[4*(t-1)+0];case QRErrorCorrectLevel.M:return QRRSBlock.RS_BLOCK_TABLE[4*(t-1)+1];case QRErrorCorrectLevel.Q:return QRRSBlock.RS_BLOCK_TABLE[4*(t-1)+2];case QRErrorCorrectLevel.H:return QRRSBlock.RS_BLOCK_TABLE[4*(t-1)+3];default:return}},QRBitBuffer.prototype={get:function(t){var e=Math.floor(t/8);return 1==(this.buffer[e]>>>7-t%8&1)},put:function(t,e){for(var r=0;r<e;r++)this.putBit(1==(t>>>e-r-1&1))},getLengthInBits:function(){return this.length},putBit:function(t){var e=Math.floor(this.length/8);this.buffer.length<=e&&this.buffer.push(0),t&&(this.buffer[e]|=128>>>this.length%8),this.length++}};var QRCodeLimitLength=[[17,14,11,7],[32,26,20,14],[53,42,32,24],[78,62,46,34],[106,84,60,44],[134,106,74,58],[154,122,86,64],[192,152,108,84],[230,180,130,98],[271,213,151,119],[321,251,177,137],[367,287,203,155],[425,331,241,177],[458,362,258,194],[520,412,292,220],[586,450,322,250],[644,504,364,280],[718,560,394,310],[792,624,442,338],[858,666,482,382],[929,711,509,403],[1003,779,565,439],[1091,857,611,461],[1171,911,661,511],[1273,997,715,535],[1367,1059,751,593],[1465,1125,805,625],[1528,1190,868,658],[1628,1264,908,698],[1732,1370,982,742],[1840,1452,1030,790],[1952,1538,1112,842],[2068,1628,1168,898],[2188,1722,1228,958],[2303,1809,1283,983],[2431,1911,1351,1051],[2563,1989,1423,1093],[2699,2099,1499,1139],[2809,2213,1579,1219],[2953,2331,1663,1273]];function QRCode(t){if(this.options={padding:4,width:256,height:256,typeNumber:4,color:"#000000",background:"#ffffff",ecl:"M"},"string"==typeof t&&(t={content:t}),t)for(var e in t)this.options[e]=t[e];if("string"!=typeof this.options.content)throw new Error("Expected 'content' as string!");if(0===this.options.content.length)throw new Error("Expected 'content' to be non-empty!");if(!(this.options.padding>=0))throw new Error("Expected 'padding' value to be non-negative!");if(!(this.options.width>0&&this.options.height>0))throw new Error("Expected 'width' or 'height' value to be higher than zero!");var r=this.options.content,o=function(t,e){for(var r=function(t){var e=encodeURI(t).toString().replace(/\%[0-9a-fA-F]{2}/g,"a");return e.length+(e.length!=t?3:0)}(t),o=1,n=0,i=0,a=QRCodeLimitLength.length;i<=a;i++){var s=QRCodeLimitLength[i];if(!s)throw new Error("Content too long: expected "+n+" but got "+r);switch(e){case"L":n=s[0];break;case"M":n=s[1];break;case"Q":n=s[2];break;case"H":n=s[3];break;default:throw new Error("Unknwon error correction level: "+e)}if(r<=n)break;o++}if(o>QRCodeLimitLength.length)throw new Error("Content too long");return o}(r,this.options.ecl),n=function(t){switch(t){case"L":return QRErrorCorrectLevel.L;case"M":return QRErrorCorrectLevel.M;case"Q":return QRErrorCorrectLevel.Q;case"H":return QRErrorCorrectLevel.H;default:throw new Error("Unknwon error correction level: "+t)}}(this.options.ecl);this.qrcode=new QRCodeModel(o,n),this.qrcode.addData(r),this.qrcode.make()}QRCode.prototype.svg=function(t){var e=this.options||{},r=this.qrcode.modules;void 0===t&&(t={container:e.container||"svg"});for(var o=void 0===e.pretty||!!e.pretty,n=o?"  ":"",i=o?"\r\n":"",a=e.width,s=e.height,h=r.length,l=a/(h+2*e.padding),u=s/(h+2*e.padding),g=void 0!==e.join&&!!e.join,d=void 0!==e.swap&&!!e.swap,f=void 0===e.xmlDeclaration||!!e.xmlDeclaration,c=void 0!==e.predefined&&!!e.predefined,R=c?n+'<defs><path id="qrmodule" d="M0 0 h'+u+" v"+l+' H0 z" style="fill:'+e.color+';shape-rendering:crispEdges;" /></defs>'+i:"",p=n+'<rect x="0" y="0" width="'+a+'" height="'+s+'" style="fill:'+e.background+';shape-rendering:crispEdges;"/>'+i,m="",Q="",v=0;v<h;v++)for(var E=0;E<h;E++){if(r[E][v]){var M=E*l+e.padding*l,C=v*u+e.padding*u;if(d){var B=M;M=C,C=B}if(g){var w=l+M,L=u+C;M=Number.isInteger(M)?Number(M):M.toFixed(2),C=Number.isInteger(C)?Number(C):C.toFixed(2),w=Number.isInteger(w)?Number(w):w.toFixed(2),Q+="M"+M+","+C+" V"+(L=Number.isInteger(L)?Number(L):L.toFixed(2))+" H"+w+" V"+C+" H"+M+" Z "}else m+=c?n+'<use x="'+M.toString()+'" y="'+C.toString()+'" href="#qrmodule" />'+i:n+'<rect x="'+M.toString()+'" y="'+C.toString()+'" width="'+l+'" height="'+u+'" style="fill:'+e.color+';shape-rendering:crispEdges;"/>'+i}}g&&(m=n+'<path x="0" y="0" style="fill:'+e.color+';shape-rendering:crispEdges;" d="'+Q+'" />');var T="";switch(t.container){case"svg":f&&(T+='<?xml version="1.0" standalone="yes"?>'+i),T+='<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="'+a+'" height="'+s+'">'+i,T+=R+p+m,T+="</svg>";break;case"svg-viewbox":f&&(T+='<?xml version="1.0" standalone="yes"?>'+i),T+='<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 '+a+" "+s+'">'+i,T+=R+p+m,T+="</svg>";break;case"g":T+='<g width="'+a+'" height="'+s+'">'+i,T+=R+p+m,T+="</g>";break;default:T+=(R+p+m).replace(/^\s+/,"")}return T},QRCode.prototype.save=function(t,e){var r=this.svg();"function"!=typeof e&&(e=function(t,e){});try{require("fs").writeFile(t,r,e)}catch(t){e(t)}},"undefined"!=typeof module&&(module.exports=QRCode);
+    return QRCode;
+  })();
   const I18N = {
     en: {
       appName: "Task Manager",
@@ -227,7 +233,66 @@
       dueSoonOverride: "HA Due-Soon Override Entity (optional)",
       setLastDoneDate: "Set Completion Date",
       lastDoneDate: "Last Done Date",
-      advancedOptions: "Advanced & Overrides"
+      advancedOptions: "Advanced & Overrides",
+      parts: "Spare Parts & Supplies",
+      addPart: "New Spare Part",
+      editPart: "Edit Spare Part",
+      deletePart: "Delete Spare Part",
+      partNameLabel: "Part Name *",
+      partNamePlaceholder: "e.g. HEPA Filter, Mop Pad, Water Filter",
+      partNumberLabel: "Part Number / SKU",
+      partNumberPlaceholder: "e.g. HF-2024-X",
+      stockLabel: "Current Stock",
+      minStockLabel: "Min Stock / Reorder Threshold",
+      unitPriceLabel: "Unit Price / Cost",
+      storageLocationLabel: "Storage Location",
+      storageLocationPlaceholder: "e.g. Basement Shelf 2, Utility Closet",
+      reorderUrlLabel: "Reorder Web Link",
+      reorderUrlPlaceholder: "https://amazon.com/...",
+      reorder: "Reorder",
+      lowStock: "Low Stock!",
+      inStock: "In Stock",
+      noParts: "No spare parts recorded yet. Add items like HEPA filters, detergent, bags, or oils!",
+      partsSubtitle: "Track supplies and spare parts inventory. Automatic stock deduction and reorder warnings when completing maintenance!",
+      warranty: "Warranty",
+      warrantyValid: "Warranty Valid",
+      warrantyExpiringSoon: "Warranty Expiring Soon",
+      warrantyExpired: "Warranty Expired",
+      warrantyExpiryLabel: "Warranty Expiry Date",
+      installationDateLabel: "Installation / Purchase Date",
+      manufacturerLabel: "Manufacturer",
+      manufacturerPlaceholder: "e.g. Miele, Roborock, Bosch",
+      modelLabel: "Model",
+      modelPlaceholder: "e.g. S7 MaxV Ultra",
+      serialNumberLabel: "Serial Number",
+      serialNumberPlaceholder: "e.g. SN-987654321",
+      documentationUrlLabel: "Manual / Documentation Link",
+      documentationUrlPlaceholder: "https://...",
+      viewManual: "Manual",
+      taskTypeLabel: "Task Type",
+      taskTypeChore: "Maintenance / Regular Chore",
+      taskTypeReading: "Meter / Utility Reading",
+      readingUnitLabel: "Reading Unit (e.g. m³, kWh, L, bar)",
+      lastReadingLabel: "Last Reading Value",
+      readingValueLabel: "Current Meter Reading",
+      consumptionDelta: "Consumption / Delta",
+      consumedPartsLabel: "Consumed Spare Parts",
+      durationMinutesLabel: "Duration (minutes)",
+      costLabel: "Total Cost (€ / $)",
+      notesLabel: "Notes / Work Log",
+      completedAtLabel: "Completion Date & Time",
+      completeWithDetails: "Complete with Details",
+      skip: "Skip",
+      skipTask: "Skip Task",
+      skipConfirm: "Skip this task recurrence? Next due date will be calculated without awarding points.",
+      onCompleteEntityLabel: "Action Entity on Completion (button/script/switch)",
+      onCompleteEntityPlaceholder: "e.g. button.vacuum_start or script.clean",
+      qrCode: "QR Code",
+      scanQr: "Scan with phone camera or Home Assistant Companion App",
+      printTag: "Print Tag",
+      copyLink: "Copy Link",
+      linkCopied: "Link copied to clipboard!",
+      close: "Close",
     },
     de: {
       appName: "Task Manager",
@@ -442,7 +507,66 @@
       dueSoonOverride: "HA Bald-Fällig-Override Entität (optional)",
       setLastDoneDate: "Erledigt-Datum manuell setzen",
       lastDoneDate: "Letztes Erledigt-Datum",
-      advancedOptions: "Erweitert & HA Overrides"
+      advancedOptions: "Erweitert & HA Overrides",
+      parts: "Ersatzteile & Vorrat",
+      addPart: "Neues Ersatzteil",
+      editPart: "Ersatzteil bearbeiten",
+      deletePart: "Ersatzteil löschen",
+      partNameLabel: "Bezeichnung *",
+      partNamePlaceholder: "z. B. HEPA-Filter, Wischtuch, Entkalker",
+      partNumberLabel: "Teilenummer / Artikelnummer",
+      partNumberPlaceholder: "z. B. HF-2024-X",
+      stockLabel: "Aktueller Bestand",
+      minStockLabel: "Mindestbestand / Meldeschwelle",
+      unitPriceLabel: "Stückpreis / Kosten",
+      storageLocationLabel: "Lagerort",
+      storageLocationPlaceholder: "z. B. Keller Regal 2, Hauswirtschaftsraum",
+      reorderUrlLabel: "Nachbestell-Link",
+      reorderUrlPlaceholder: "https://amazon.de/...",
+      reorder: "Nachbestellen",
+      lowStock: "Geringer Bestand!",
+      inStock: "Auf Lager",
+      noParts: "Noch keine Ersatzteile hinterlegt. Erfasse Filter, Beutel, Reinigungsmittel oder Öle!",
+      partsSubtitle: "Verwalte Verbrauchsgüter und Ersatzteile. Automatische Bestandsabbuchung und Nachbestell-Warnungen bei Wartungsarbeiten!",
+      warranty: "Garantie",
+      warrantyValid: "Garantie gültig",
+      warrantyExpiringSoon: "Garantie läuft bald ab",
+      warrantyExpired: "Garantie abgelaufen",
+      warrantyExpiryLabel: "Garantie bis",
+      installationDateLabel: "Installations- / Kaufdatum",
+      manufacturerLabel: "Hersteller",
+      manufacturerPlaceholder: "z. B. Miele, Roborock, Bosch",
+      modelLabel: "Modell",
+      modelPlaceholder: "z. B. S7 MaxV Ultra",
+      serialNumberLabel: "Seriennummer",
+      serialNumberPlaceholder: "z. B. SN-987654321",
+      documentationUrlLabel: "Handbuch / Doku-Link",
+      documentationUrlPlaceholder: "https://...",
+      viewManual: "Handbuch",
+      taskTypeLabel: "Aufgabentyp",
+      taskTypeChore: "Wartung / Reguläre Aufgabe",
+      taskTypeReading: "Zählerablesung",
+      readingUnitLabel: "Ableseeinheit (z. B. m³, kWh, L, bar)",
+      lastReadingLabel: "Letzter Zählerstand",
+      readingValueLabel: "Aktueller Zählerstand",
+      consumptionDelta: "Verbrauch / Differenz",
+      consumedPartsLabel: "Verbrauchte Ersatzteile",
+      durationMinutesLabel: "Dauer (Minuten)",
+      costLabel: "Gesamtkosten (€)",
+      notesLabel: "Notizen / Arbeitsbericht",
+      completedAtLabel: "Erledigungszeitpunkt",
+      completeWithDetails: "Mit Details erledigen",
+      skip: "Überspringen",
+      skipTask: "Aufgabe überspringen",
+      skipConfirm: "Diese Fälligkeit überspringen? Der nächste Termin wird berechnet, ohne Punkte zu vergeben.",
+      onCompleteEntityLabel: "Aktions-Entität bei Erledigung (Button/Skript/Schalter)",
+      onCompleteEntityPlaceholder: "z. B. button.vacuum_start oder script.clean",
+      qrCode: "QR-Code",
+      scanQr: "Mit Smartphone-Kamera oder Home Assistant Companion App scannen",
+      printTag: "Etikett drucken",
+      copyLink: "Link kopieren",
+      linkCopied: "Link in die Zwischenablage kopiert!",
+      close: "Schließen",
     }
   };
 
@@ -458,7 +582,8 @@
         labels: [],
         settings: {},
         activity_log: [],
-        providers: []
+        providers: [],
+        parts: []
       };
       this._currentTab = "chores";
       this._filterStatus = "all";
@@ -685,13 +810,101 @@
       }
     }
 
-    async completeTask(taskId) {
+    
+    _getWarrantyStatus(thing) {
+      if (!thing || !thing.warranty_expiry) return "none";
+      try {
+        const exp = new Date(thing.warranty_expiry.slice(0, 10));
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) return "expired";
+        if (diffDays <= 30) return "expiring_soon";
+        return "valid";
+      } catch (e) {
+        return "none";
+      }
+    }
+
+    openCompleteModal(task) {
+      this._modalState = { type: "complete_details", task };
+      this._render();
+    }
+
+    openQrModal(item, itemType) {
+      this._modalState = { type: "qr_code", item, itemType };
+      this._render();
+    }
+
+    openPartModal(part = null) {
+      this._modalState = {
+        type: "part",
+        part: part || {
+          name: "",
+          part_number: "",
+          thing_id: null,
+          stock: 1,
+          min_stock: 1,
+          unit: "pcs",
+          unit_price: 0.0,
+          storage_location: "",
+          reorder_url: "",
+          notes: ""
+        }
+      };
+      this._render();
+    }
+
+    async savePart(partData) {
+      await this._callWS("task_manager/save_part", { part_data: partData });
+      this.closeModal();
+    }
+
+    async deletePart(partId) {
+      if (confirm(this.t("confirmDelete"))) {
+        await this._callWS("task_manager/delete_part", { part_id: partId });
+      }
+    }
+
+    async adjustPartStock(partId, delta) {
+      await this._callWS("task_manager/adjust_part_stock", { part_id: partId, delta: delta });
+    }
+
+    async skipTask(taskId) {
+      if (confirm(this.t("skipConfirm"))) {
+        await this._callWS("task_manager/skip_task", { task_id: taskId });
+      }
+    }
+
+    async completeTask(taskId, details = null) {
       this._playSuccessSound();
       this._triggerConfetti();
-      await this._callWS("task_manager/complete_task", {
+      const payload = {
         task_id: taskId,
         user_id: this._activeUser
-      });
+      };
+      if (details) {
+        if (details.reading_value !== undefined && details.reading_value !== null && details.reading_value !== "") {
+          payload.reading_value = parseFloat(details.reading_value);
+        }
+        if (details.consumed_parts && details.consumed_parts.length > 0) {
+          payload.consumed_parts = details.consumed_parts;
+        }
+        if (details.duration_minutes !== undefined && details.duration_minutes !== null && details.duration_minutes !== "") {
+          payload.duration_minutes = parseInt(details.duration_minutes, 10);
+        }
+        if (details.cost !== undefined && details.cost !== null && details.cost !== "") {
+          payload.cost = parseFloat(details.cost);
+        }
+        if (details.notes) {
+          payload.notes = details.notes;
+        }
+        if (details.completed_at) {
+          payload.completed_at = details.completed_at;
+        }
+      }
+      await this._callWS("task_manager/complete_task", payload);
+      this.closeModal();
     }
 
     async resetTask(taskId) {
@@ -1582,6 +1795,47 @@
             color: var(--primary-text-color, inherit);
           }
 
+          
+          /* Parts Shelf & Warranty Styles */
+          .parts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+          }
+
+          .part-card {
+            background: var(--card-background-color, #ffffff);
+            border-radius: 14px;
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.2)));
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .warranty-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+          }
+          .warranty-badge.valid {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success-color, #10b981);
+          }
+          .warranty-badge.expiring_soon {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning-color, #f59e0b);
+          }
+          .warranty-badge.expired {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--error-color, #ef4444);
+          }
+
           /* Things grid */
           .things-grid {
             display: grid;
@@ -2388,6 +2642,9 @@
           <div class="nav-tab ${this._currentTab === "things" ? "active" : ""}" data-tab="things">
             ⚙️ ${this.t("things")} <span class="badge-pill">${this._data.things.length}</span>
           </div>
+          <div class="nav-tab ${this._currentTab === "parts" ? "active" : ""}" data-tab="parts">
+            📦 ${this.t("parts")} <span class="badge-pill">${(this._data.parts || []).length}</span>
+          </div>
           ${isGamification ? `
             <div class="nav-tab ${this._currentTab === "leaderboard" ? "active" : ""}" data-tab="leaderboard">
               🏆 ${this.t("leaderboard")}
@@ -2444,6 +2701,8 @@
           return this._renderCalendarView();
         case "things":
           return this._renderThingsView();
+        case "parts":
+          return this._renderPartsView();
         case "leaderboard":
           return this._renderLeaderboardView();
         case "settings":
@@ -2536,6 +2795,18 @@
               ${task.description ? `<p class="task-desc">${this._escape(task.description)}</p>` : ""}
 
               <div class="task-meta">
+                ${task.task_type === "reading" ? `
+                  <span class="meta-chip" style="background:rgba(6, 182, 212, 0.15); color:#0891b2;">
+                    📟 ${this.t("taskTypeReading")} ${task.last_reading_value !== undefined && task.last_reading_value !== null ? `(${task.last_reading_value} ${task.reading_unit || ""})` : ""}
+                  </span>
+                ` : ""}
+
+                ${task.consumed_parts && task.consumed_parts.length ? `
+                  <span class="meta-chip" style="background:rgba(249, 115, 22, 0.15); color:#ea580c;">
+                    📦 ${task.consumed_parts.length} ${this.t("parts")}
+                  </span>
+                ` : ""}
+
                 ${task.is_external ? `
                   <span class="meta-chip" style="background:var(--secondary-background-color, rgba(127,127,127,0.12)); color:var(--primary-text-color, inherit); border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); font-weight:600;">
                     🔗 ${this._escape(task.provider_name || this.t("externalTask"))}
@@ -2628,7 +2899,12 @@
               ` : `<span style="color:var(--secondary-text-color, #94a3b8);">${this.t("none")}</span>`}
             </div>
 
-            <div style="display:flex; gap:6px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              ${!isCompleted ? `
+                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-skip-task="${task.id}" title="${this.t("skipTask")}">⏭️</button>
+                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-details-complete-task="${task.id}" title="${this.t("completeWithDetails")}">📝</button>
+              ` : ""}
+              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-qr-task="${task.id}" title="${this.t("qrCode")}">📱</button>
               <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-toggle-active-task="${task.id}" title="${task.is_active === false ? this.t("resume") : this.t("pause")}">
                 ${task.is_active === false ? "▶️" : "⏸️"}
               </button>
@@ -2790,9 +3066,43 @@
               </div>
             </div>
             <div style="display:flex; gap:4px;">
+              ${thing.documentation_url ? `
+                <a href="${this._escape(thing.documentation_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="padding:4px 6px; font-size:11px; text-decoration:none;" title="${this.t("viewManual")}">📖</a>
+              ` : ""}
+              <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px;" data-qr-thing="${thing.id}" title="${this.t("qrCode")}">📱</button>
               <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px;" data-edit-thing="${thing.id}" title="${this.t("edit")}">✏️</button>
               <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px; color:var(--error-color, #ef4444);" data-delete-thing="${thing.id}" title="${this.t("delete")}">🗑️</button>
             </div>
+          </div>
+
+          <!-- Warranty & Specs -->
+          <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+            ${(() => {
+              const wStatus = this._getWarrantyStatus(thing);
+              if (wStatus === "valid") {
+                return `<span class="warranty-badge valid">🛡️ ${this.t("warrantyValid")} (${thing.warranty_expiry})</span>`;
+              } else if (wStatus === "expiring_soon") {
+                return `<span class="warranty-badge expiring_soon">⚠️ ${this.t("warrantyExpiringSoon")} (${thing.warranty_expiry})</span>`;
+              } else if (wStatus === "expired") {
+                return `<span class="warranty-badge expired">❌ ${this.t("warrantyExpired")} (${thing.warranty_expiry})</span>`;
+              }
+              return "";
+            })()}
+            ${thing.manufacturer || thing.model ? `
+              <span class="meta-chip" style="background:var(--secondary-background-color, rgba(127,127,127,0.1));">
+                🏭 ${this._escape([thing.manufacturer, thing.model].filter(Boolean).join(" "))}
+              </span>
+            ` : ""}
+            ${thing.serial_number ? `
+              <span class="meta-chip" style="background:var(--secondary-background-color, rgba(127,127,127,0.1)); font-family:monospace; font-size:10px;">
+                SN: ${this._escape(thing.serial_number)}
+              </span>
+            ` : ""}
+            ${thing.installation_date ? `
+              <span class="meta-chip" style="background:var(--secondary-background-color, rgba(127,127,127,0.1));">
+                📅 ${this._escape(thing.installation_date)}
+              </span>
+            ` : ""}
           </div>
 
           <div>
@@ -3054,6 +3364,9 @@
 
       if (type === "task") return this._renderTaskModal();
       if (type === "thing") return this._renderThingModal();
+      if (type === "part") return this._renderPartModal();
+      if (type === "complete_details") return this._renderCompleteDetailsModal();
+      if (type === "qr_code") return this._renderQrCodeModal();
       if (type === "user") return this._renderUserModal();
       if (type === "label") return this._renderLabelModal();
       if (type === "link_provider") return this._renderLinkProviderModal();
@@ -3186,6 +3499,38 @@
             <div class="form-group">
               <label class="form-label">${this.t("descriptionLabel")}</label>
               <textarea class="text-input" id="m-task-desc" rows="2" placeholder="${this.t("descriptionPlaceholder")}">${this._escape(task.description)}</textarea>
+            </div>
+
+            <!-- Task Type (Chore vs Reading) -->
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">${this.t("taskTypeLabel")}</label>
+                <select class="select-input" id="m-task-type">
+                  <option value="chore" ${task.task_type !== "reading" ? "selected" : ""}>🧹 ${this.t("taskTypeChore")}</option>
+                  <option value="reading" ${task.task_type === "reading" ? "selected" : ""}>📟 ${this.t("taskTypeReading")}</option>
+                </select>
+              </div>
+              <div class="form-group" id="m-task-reading-unit-group" style="display:${task.task_type === "reading" ? "block" : "none"};">
+                <label class="form-label">${this.t("readingUnitLabel")}</label>
+                <input type="text" class="text-input" id="m-task-reading-unit" value="${this._escape(task.reading_unit || "")}" placeholder="m³, kWh, L, bar">
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">⏱️ ${this.t("durationMinutesLabel")}</label>
+                <input type="number" class="text-input" id="m-task-duration" value="${task.default_duration_minutes || ""}" placeholder="30">
+              </div>
+              <div class="form-group">
+                <label class="form-label">💰 ${this.t("costLabel")}</label>
+                <input type="number" step="0.01" class="text-input" id="m-task-cost" value="${task.default_cost || ""}" placeholder="0.00">
+              </div>
+            </div>
+
+            <!-- Action on Completion -->
+            <div class="form-group">
+              <label class="form-label">⚡ ${this.t("onCompleteEntityLabel")}</label>
+              <input type="text" class="text-input" id="m-task-on-complete-entity" value="${this._escape(task.on_complete_entity_id || "")}" placeholder="${this.t("onCompleteEntityPlaceholder")}">
             </div>
 
             <!-- Tags -->
@@ -3528,6 +3873,40 @@
               <div class="form-group">
                 <label class="form-label">${this.t("unitLabel")}</label>
                 <input type="text" class="text-input" id="m-thing-unit" value="${this._escape(thing.unit)}" placeholder="${this.t("unitPlaceholder")}">
+              </div>
+            </div>
+
+            <!-- Hardware Specs & Warranty -->
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">${this.t("manufacturerLabel")}</label>
+                <input type="text" class="text-input" id="m-thing-manufacturer" value="${this._escape(thing.manufacturer || "")}" placeholder="${this.t("manufacturerPlaceholder")}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">${this.t("modelLabel")}</label>
+                <input type="text" class="text-input" id="m-thing-model" value="${this._escape(thing.model || "")}" placeholder="${this.t("modelPlaceholder")}">
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">${this.t("serialNumberLabel")}</label>
+                <input type="text" class="text-input" id="m-thing-serial" value="${this._escape(thing.serial_number || "")}" placeholder="${this.t("serialNumberPlaceholder")}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">${this.t("installationDateLabel")}</label>
+                <input type="date" class="text-input" id="m-thing-install-date" value="${thing.installation_date || ""}">
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">${this.t("warrantyExpiryLabel")}</label>
+                <input type="date" class="text-input" id="m-thing-warranty-expiry" value="${thing.warranty_expiry || ""}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">${this.t("documentationUrlLabel")}</label>
+                <input type="url" class="text-input" id="m-thing-doc-url" value="${this._escape(thing.documentation_url || "")}" placeholder="${this.t("documentationUrlPlaceholder")}">
               </div>
             </div>
 
@@ -4073,6 +4452,12 @@
           const recEveryNthWeekday = parseInt(root.getElementById("m-task-every-nth-weekday") ? root.getElementById("m-task-every-nth-weekday").value : "0", 10);
           const recEveryDaysBefore = parseInt(root.getElementById("m-task-every-days-before") ? root.getElementById("m-task-every-days-before").value : "1", 10);
 
+          const taskType = root.getElementById("m-task-type") ? root.getElementById("m-task-type").value : "chore";
+          const readingUnit = root.getElementById("m-task-reading-unit") ? root.getElementById("m-task-reading-unit").value.trim() : "";
+          const durMin = root.getElementById("m-task-duration") ? parseInt(root.getElementById("m-task-duration").value, 10) || 0 : 0;
+          const defCost = root.getElementById("m-task-cost") ? parseFloat(root.getElementById("m-task-cost").value) || 0.0 : 0.0;
+          const onCompleteEnt = root.getElementById("m-task-on-complete-entity") ? root.getElementById("m-task-on-complete-entity").value.trim() || null : null;
+
           const taskPayload = {
             id: this._modalState.task.id || undefined,
             title: title,
@@ -4094,6 +4479,11 @@
             active_override: root.getElementById("m-task-active-override") ? root.getElementById("m-task-active-override").value.trim() || null : null,
             task_interval_override: root.getElementById("m-task-interval-override") ? root.getElementById("m-task-interval-override").value.trim() || null : null,
             due_soon_override: root.getElementById("m-task-due-soon-override") ? root.getElementById("m-task-due-soon-override").value.trim() || null : null,
+            task_type: taskType,
+            reading_unit: readingUnit,
+            default_duration_minutes: durMin,
+            default_cost: defCost,
+            on_complete_entity_id: onCompleteEnt,
             recurrence: {
               enabled: recEnabled,
               repeat_mode: recMode,
@@ -4115,6 +4505,15 @@
 
           await this._callWS("task_manager/save_task", { task: taskPayload });
           this.closeModal();
+        });
+      }
+
+            // Modal Task Type Change
+      const mTaskType = root.getElementById("m-task-type");
+      if (mTaskType) {
+        mTaskType.addEventListener("change", (e) => {
+          const grp = root.getElementById("m-task-reading-unit-group");
+          if (grp) grp.style.display = e.target.value === "reading" ? "block" : "none";
         });
       }
 
@@ -4236,6 +4635,13 @@
           const operator = root.getElementById("m-thing-operator") ? root.getElementById("m-thing-operator").value : ">=";
           const extEntity = root.getElementById("m-thing-external-entity") ? root.getElementById("m-thing-external-entity").value.trim() || null : null;
 
+          const manufacturer = root.getElementById("m-thing-manufacturer") ? root.getElementById("m-thing-manufacturer").value.trim() : "";
+          const model = root.getElementById("m-thing-model") ? root.getElementById("m-thing-model").value.trim() : "";
+          const serialNum = root.getElementById("m-thing-serial") ? root.getElementById("m-thing-serial").value.trim() : "";
+          const installDate = root.getElementById("m-thing-install-date") ? root.getElementById("m-thing-install-date").value : "";
+          const warrantyExp = root.getElementById("m-thing-warranty-expiry") ? root.getElementById("m-thing-warranty-expiry").value : "";
+          const docUrl = root.getElementById("m-thing-doc-url") ? root.getElementById("m-thing-doc-url").value.trim() : "";
+
           const thingPayload = {
             id: this._modalState.thing.id || undefined,
             name: name,
@@ -4246,12 +4652,152 @@
             threshold_operator: operator,
             external_entity_id: extEntity,
             script_entity_id: root.getElementById("m-thing-script") ? root.getElementById("m-thing-script").value.trim() || null : null,
+            manufacturer: manufacturer,
+            model: model,
+            serial_number: serialNum,
+            installation_date: installDate,
+            warranty_expiry: warrantyExp,
+            documentation_url: docUrl,
             auto_task_creation: false,
             auto_task_title: ""
           };
 
           await this._callWS("task_manager/save_thing", { thing: thingPayload });
           this.closeModal();
+        });
+      }
+
+      
+      // Modal Save Part
+      const btnSavePart = root.getElementById("modal-save-part");
+      if (btnSavePart) {
+        btnSavePart.addEventListener("click", async () => {
+          const name = root.getElementById("m-part-name").value.trim();
+          if (!name) {
+            alert(this.t("titleRequired"));
+            return;
+          }
+          const stock = parseFloat(root.getElementById("m-part-stock").value) || 0;
+          const minStock = parseFloat(root.getElementById("m-part-min-stock").value) || 0;
+          const unitPrice = parseFloat(root.getElementById("m-part-unit-price").value) || 0;
+
+          const partPayload = {
+            id: (this._modalState.part && this._modalState.part.id) || undefined,
+            name: name,
+            part_number: root.getElementById("m-part-number").value.trim(),
+            thing_id: root.getElementById("m-part-thing-id").value || null,
+            stock: stock,
+            min_stock: minStock,
+            unit: root.getElementById("m-part-unit").value.trim() || "pcs",
+            unit_price: unitPrice,
+            storage_location: root.getElementById("m-part-location").value.trim(),
+            reorder_url: root.getElementById("m-part-reorder-url").value.trim(),
+            notes: root.getElementById("m-part-notes").value.trim()
+          };
+
+          await this.savePart(partPayload);
+        });
+      }
+
+      // Modal Submit Complete Details
+      const btnSubmitComplete = root.getElementById("modal-submit-complete");
+      if (btnSubmitComplete) {
+        btnSubmitComplete.addEventListener("click", async () => {
+          const task = this._modalState.task;
+          if (!task) return;
+
+          const readingInput = root.getElementById("m-comp-reading");
+          const readingVal = readingInput ? readingInput.value.trim() : null;
+
+          const consumedParts = [];
+          root.querySelectorAll(".m-comp-part-cb:checked").forEach(cb => {
+            const pId = cb.value;
+            const qtyInput = root.querySelector(`.m-comp-part-qty[data-part-id="${pId}"]`);
+            const qty = qtyInput ? parseFloat(qtyInput.value) || 1 : 1;
+            consumedParts.push({ part_id: pId, quantity: qty });
+          });
+
+          const dur = root.getElementById("m-comp-duration") ? root.getElementById("m-comp-duration").value : null;
+          const cost = root.getElementById("m-comp-cost") ? root.getElementById("m-comp-cost").value : null;
+          const notes = root.getElementById("m-comp-notes") ? root.getElementById("m-comp-notes").value.trim() : null;
+          const compDate = root.getElementById("m-comp-date") ? root.getElementById("m-comp-date").value : null;
+
+          await this.completeTask(task.id, {
+            reading_value: readingVal,
+            consumed_parts: consumedParts,
+            duration_minutes: dur,
+            cost: cost,
+            notes: notes,
+            completed_at: compDate ? new Date(compDate).toISOString() : null
+          });
+        });
+      }
+
+      // Live reading delta preview in complete modal
+      const mCompReading = root.getElementById("m-comp-reading");
+      if (mCompReading && this._modalState && this._modalState.task) {
+        const lastVal = this._modalState.task.last_reading_value;
+        const unit = this._modalState.task.reading_unit || "";
+        mCompReading.addEventListener("input", (e) => {
+          const deltaEl = root.getElementById("m-comp-reading-delta");
+          if (!deltaEl) return;
+          const curVal = parseFloat(e.target.value);
+          if (!isNaN(curVal) && lastVal !== undefined && lastVal !== null && !isNaN(parseFloat(lastVal))) {
+            const diff = curVal - parseFloat(lastVal);
+            deltaEl.textContent = `${this.t("consumptionDelta")}: ${diff >= 0 ? "+" : ""}${diff.toFixed(2)} ${unit}`;
+          } else {
+            deltaEl.textContent = "";
+          }
+        });
+      }
+
+      // Copy QR Link
+      const btnCopyQr = root.getElementById("btn-copy-qr-link");
+      if (btnCopyQr) {
+        btnCopyQr.addEventListener("click", () => {
+          const item = this._modalState.item || {};
+          const itemType = this._modalState.itemType || "task";
+          const targetUrl = itemType === "thing" 
+            ? `${window.location.origin}/task-manager?thing_id=${item.id}`
+            : `${window.location.origin}/task-manager?task_id=${item.id}`;
+          navigator.clipboard.writeText(targetUrl).then(() => {
+            alert(this.t("linkCopied"));
+          }).catch(() => {
+            prompt(this.t("copyLink"), targetUrl);
+          });
+        });
+      }
+
+      // Print QR Tag
+      const btnPrintQr = root.getElementById("btn-print-qr-tag");
+      if (btnPrintQr) {
+        btnPrintQr.addEventListener("click", () => {
+          const qrContainer = root.getElementById("qr-container");
+          if (!qrContainer) return;
+          const item = this._modalState.item || {};
+          const printWindow = window.open("", "_blank");
+          if (printWindow) {
+            printWindow.document.write(`
+              <html>
+                <head>
+                  <title>QR Tag - ${this._escape(item.title || item.name || "")}</title>
+                  <style>
+                    body { font-family: sans-serif; text-align: center; padding: 20px; }
+                    .tag-box { border: 2px dashed #000; padding: 20px; display: inline-block; border-radius: 8px; }
+                    h2 { margin: 0 0 10px 0; font-size: 18px; }
+                  </style>
+                </head>
+                <body onload="window.print(); window.close();">
+                  <div class="tag-box">
+                    <h2>${this._escape(item.title || item.name || "")}</h2>
+                    ${qrContainer.innerHTML}
+                    <div style="font-size: 12px; margin-top: 8px; color: #555;">Task Manager • Home Assistant</div>
+                  </div>
+                </body>
+              </html>
+            `);
+            printWindow.document.close();
+          }
         });
       }
 

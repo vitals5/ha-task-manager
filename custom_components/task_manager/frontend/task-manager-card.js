@@ -3,7 +3,7 @@
  * Type: custom:task-manager-card
  */
 
-const CARD_VERSION = "1.0.17";
+const CARD_VERSION = "1.0.18";
 
 class TaskManagerCard extends HTMLElement {
   constructor() {
@@ -430,11 +430,22 @@ class TaskManagerCard extends HTMLElement {
                     ${t.dependencies && t.dependencies.length > 0 ? `
                       <span class="badge" style="background:rgba(234,179,8,0.15); color:#ca8a04;">🔗 ${t.dependencies.length} ${de ? "Abh." : "deps"}</span>
                     ` : ""}
+                    ${t.task_type === "reading" ? `
+                      <span class="badge" style="background:rgba(6,182,212,0.15); color:#0891b2;">📟 ${t.last_reading_value !== undefined && t.last_reading_value !== null ? `${t.last_reading_value} ${t.reading_unit || ""}` : (de ? "Zählerablesung" : "Reading")}</span>
+                    ` : ""}
+                    ${t.consumed_parts && t.consumed_parts.length > 0 ? `
+                      <span class="badge" style="background:rgba(249,115,22,0.15); color:#ea580c;">📦 ${t.consumed_parts.length} ${de ? "Teile" : "parts"}</span>
+                    ` : ""}
                     ${t.tags && t.tags.length > 0 ? t.tags.map(tg => `
                       <span class="badge" style="background:rgba(139,92,246,0.12); color:#8b5cf6;">🏷️ ${this._escape(tg)}</span>
                     `).join("") : ""}
                   </div>
                 </div>
+                ${!isDone ? `
+                  <button class="task-skip-btn" data-id="${t.id}" title="${de ? "Überspringen" : "Skip"}" style="background:transparent; border:none; color:var(--secondary-text-color, #64748b); cursor:pointer; font-size:14px; padding:4px 6px; border-radius:4px;" onmouseover="this.style.color='var(--primary-color, #2563eb)'" onmouseout="this.style.color='var(--secondary-text-color, #64748b)'">
+                    ⏭️
+                  </button>
+                ` : ""}
               </div>
             `;
           }).join("")}
@@ -454,6 +465,21 @@ class TaskManagerCard extends HTMLElement {
       btn.addEventListener("click", () => {
         this._currentFilter = btn.getAttribute("data-filter") || "all";
         this._render();
+      });
+    });
+
+    // Skip Task
+    root.querySelectorAll(".task-skip-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const taskId = btn.getAttribute("data-id");
+        if (taskId && this._hass) {
+          try {
+            await this._hass.callWS({ type: "task_manager/skip_task", task_id: taskId });
+          } catch (e) {
+            await this._hass.callService("task_manager", "skip_task", { task_id: taskId });
+          }
+          await this._fetchTasks();
+        }
       });
     });
 

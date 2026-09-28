@@ -19,6 +19,7 @@ from .const import (
     DEFAULT_SETTINGS,
     DEFAULT_THINGS,
     DEFAULT_USERS,
+    EVENT_PART_LOW_STOCK,
     EVENT_TASK_ASSIGNED,
     EVENT_TASK_COMPLETED,
     EVENT_TASK_CREATED,
@@ -26,6 +27,7 @@ from .const import (
     EVENT_TASK_OVERDUE,
     EVENT_TASK_REMINDER,
     EVENT_TASK_REOPENED,
+    EVENT_TASK_SKIPPED,
     FAR_FUTURE_DUE_DATE,
     PRIORITIES,
     PRIORITY_NONE,
@@ -54,11 +56,18 @@ from .const import (
     TASK_STATE_DUE,
     TASK_STATE_DUE_SOON,
     TASK_STATE_INACTIVE,
+    TASK_TYPE_CHORE,
+    TASK_TYPE_READING,
+    TASK_TYPES,
     THING_ACTION_DECREMENT,
     THING_ACTION_INCREMENT,
     THING_ACTION_RESET,
     THRESHOLD_OP_GTE,
     THRESHOLD_OP_LTE,
+    WARRANTY_STATUS_EXPIRED,
+    WARRANTY_STATUS_EXPIRING_SOON,
+    WARRANTY_STATUS_NONE,
+    WARRANTY_STATUS_VALID,
 )
 from .providers import (
     async_create_external_task,
@@ -86,6 +95,35 @@ def is_thing_threshold_reached(thing: dict[str, Any]) -> bool:
     if operator in (THRESHOLD_OP_LTE, "lte", "down", "countdown", "<"):
         return current <= threshold
     return current >= threshold
+
+
+def get_warranty_status(thing: dict[str, Any]) -> str:
+    """Calculate warranty status for a thing: 'valid', 'expiring_soon', 'expired', or 'none'."""
+    expiry_str = thing.get("warranty_expiry")
+    if not expiry_str:
+        return WARRANTY_STATUS_NONE
+    try:
+        expiry_date = datetime.strptime(str(expiry_str)[:10], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return WARRANTY_STATUS_NONE
+
+    today = dt_util.now().date()
+    days_left = (expiry_date - today).days
+    if days_left < 0:
+        return WARRANTY_STATUS_EXPIRED
+    if days_left <= 30:
+        return WARRANTY_STATUS_EXPIRING_SOON
+    return WARRANTY_STATUS_VALID
+
+
+def is_part_low_stock(part: dict[str, Any]) -> bool:
+    """Return True if part stock is at or below min_stock / reorder_threshold."""
+    try:
+        stock = float(part.get("stock", 0))
+        min_stock = float(part.get("min_stock", part.get("reorder_threshold", 0)))
+        return stock <= min_stock
+    except (ValueError, TypeError):
+        return False
 
 
 def add_months(d: date, months: int) -> date:
@@ -416,6 +454,7 @@ class TaskManagerData:
             self.users: list[dict[str, Any]] = list(DEFAULT_USERS)
             self.labels: list[dict[str, Any]] = list(DEFAULT_LABELS)
             self.settings: dict[str, Any] = dict(DEFAULT_SETTINGS)
+            self.parts: list[dict[str, Any]] = []
             self.activity_log: list[dict[str, Any]] = []
             self.providers: list[dict[str, Any]] = []
             self.external_overlays: dict[str, dict[str, Any]] = {}
@@ -425,6 +464,7 @@ class TaskManagerData:
             self.users = raw.get("users", list(DEFAULT_USERS))
             self.labels = raw.get("labels", list(DEFAULT_LABELS))
             self.settings = {**DEFAULT_SETTINGS, **raw.get("settings", {})}
+            self.parts = raw.get("parts", [])
             self.activity_log = raw.get("activity_log", [])
             self.providers = raw.get("providers", [])
             self.external_overlays = raw.get("external_overlays", {})
@@ -439,6 +479,7 @@ class TaskManagerData:
             "users": self.users,
             "labels": self.labels,
             "settings": self.settings,
+            "parts": self.parts,
             "activity_log": self.activity_log[-100:],  # keep last 100 activity entries
             "providers": self.providers,
             "external_overlays": self.external_overlays,
@@ -488,13 +529,19 @@ class TaskManagerData:
                 })
 
         linked_thing_id = task_data.get("linked_thing_id")
-        rec = task_data.get("recurrence", {
-            "enabled": False,
-            "type": RECURRENCE_NONE,
-            "interval": 1,
-            "days_of_week": [],
-            "based_on": RECURRENCE_BASED_DUE_DATE,
-        })
+        rec = task_data.get("recurrence")
+        if rec is None:
+            rec = {
+                "enabled": False,
+                "type": RECURRENCE_NONE,
+                "interval": 1,
+                "days_of_week": [],
+                "based_on": RECURRENCE_BASED_DUE_DATE,
+            }
+        else:
+            rec = dict(rec)
+            if "enabled" not in rec and rec.get("type", RECURRENCE_NONE) not in (RECURRENCE_NONE, "none", ""):
+                rec["enabled"] = True
         has_time_fallback = (
             rec.get("enabled", False)
             and rec.get("type", RECURRENCE_NONE) not in (RECURRENCE_NONE, "none", "")
@@ -537,6 +584,14 @@ class TaskManagerData:
             "reminders": task_data.get("reminders", []),
             "repetition_count": int(task_data.get("repetition_count", 0)),
             "points": int(task_data.get("points", self.settings.get("default_points", 10))),
+            "task_type": task_data.get("task_type", TASK_TYPE_CHORE),
+            "reading_unit": task_data.get("reading_unit", ""),
+            "last_reading_value": task_data.get("last_reading_value"),
+            "consumed_parts": task_data.get("consumed_parts", []),
+            "on_complete_entity_id": task_data.get("on_complete_entity_id") or None,
+            "require_tag_scan": bool(task_data.get("require_tag_scan", False)),
+            "default_duration_minutes": max(0, int(task_data.get("default_duration_minutes", 0))),
+            "default_cost": float(task_data.get("default_cost", 0.0)),
             "linked_thing_id": linked_thing_id,
             "thing_action": task_data.get("thing_action", THING_ACTION_RESET),
             "completion_restriction": task_data.get("completion_restriction", {
@@ -626,15 +681,35 @@ class TaskManagerData:
             st["id"] = str(uuid.uuid4())
         return self.create_task(clone_data)
 
-    def complete_task(self, task_id: str, user_id: str | None = None) -> dict[str, Any] | None:
+    def complete_task(
+        self,
+        task_id: str,
+        user_id: str | None = None,
+        cost: float | None = None,
+        duration_minutes: int | None = None,
+        notes: str | None = None,
+        completed_at: str | None = None,
+        reading_value: float | None = None,
+        consumed_parts: list[dict[str, Any]] | None = None,
+        hass: HomeAssistant | None = None,
+    ) -> dict[str, Any] | None:
         """Mark a task complete, apply points, rotate assignee, and calculate recurrence."""
         task = self.get_task(task_id)
         if not task:
             return None
 
         now = dt_util.now()
-        now_str = now.isoformat()
-        today_date_str = now.date().strftime("%Y-%m-%d")
+        if completed_at:
+            try:
+                comp_dt = datetime.fromisoformat(completed_at)
+                now_str = comp_dt.isoformat()
+                today_date_str = comp_dt.date().strftime("%Y-%m-%d")
+            except (ValueError, TypeError):
+                now_str = str(completed_at)
+                today_date_str = str(completed_at)[:10]
+        else:
+            now_str = now.isoformat()
+            today_date_str = now.date().strftime("%Y-%m-%d")
 
         effective_user_id = user_id or task.get("current_assignee")
         points_awarded = int(task.get("points", self.settings.get("default_points", 10)))
@@ -651,7 +726,7 @@ class TaskManagerData:
                 if last_completed:
                     try:
                         last_date = datetime.strptime(last_completed, "%Y-%m-%d").date()
-                        diff_days = (now.date() - last_date).days
+                        diff_days = (datetime.strptime(today_date_str, "%Y-%m-%d").date() - last_date).days
                         if diff_days == 1:
                             user["streak"] = user.get("streak", 0) + 1
                         elif diff_days > 1:
@@ -663,12 +738,72 @@ class TaskManagerData:
 
                 user["last_completed_date"] = today_date_str
 
+        # Reading Task calculation
+        reading_entry = None
+        reading_delta = None
+        if reading_value is not None:
+            try:
+                cur_val = float(reading_value)
+                prev_val = task.get("last_reading_value")
+                if prev_val is not None:
+                    reading_delta = round(cur_val - float(prev_val), 4)
+                else:
+                    reading_delta = 0.0
+                task["last_reading_value"] = cur_val
+                reading_entry = cur_val
+            except (ValueError, TypeError):
+                pass
+
+        # Consumed Parts Inventory Deduction & Cost
+        actual_consumed = consumed_parts if consumed_parts is not None else task.get("consumed_parts", [])
+        calculated_cost = 0.0
+        used_parts_list = []
+        if actual_consumed:
+            for item in actual_consumed:
+                p_id = item.get("part_id") if isinstance(item, dict) else item
+                qty = float(item.get("quantity", item.get("qty", 1))) if isinstance(item, dict) else 1.0
+                part = self.get_part(p_id)
+                if part:
+                    part["stock"] = max(0.0, float(part.get("stock", 0)) - qty)
+                    unit_p = float(part.get("unit_price", part.get("unit_cost", 0.0)))
+                    calculated_cost += (unit_p * qty)
+                    used_parts_list.append({
+                        "part_id": p_id,
+                        "name": part.get("name", ""),
+                        "quantity": qty,
+                        "unit_price": unit_p,
+                    })
+                    if hass and is_part_low_stock(part):
+                        hass.bus.async_fire(EVENT_PART_LOW_STOCK, {
+                            "part_id": part["id"],
+                            "name": part["name"],
+                            "stock": part["stock"],
+                            "min_stock": part.get("min_stock", 0),
+                        })
+
+        final_cost = cost if cost is not None else round(calculated_cost + float(task.get("default_cost", 0.0)), 2)
+        final_duration = duration_minutes if duration_minutes is not None else int(task.get("default_duration_minutes", 0))
+
         # 2. Record completion history
-        task.setdefault("history", []).append({
+        history_item: dict[str, Any] = {
             "completed_at": now_str,
             "user_id": effective_user_id,
             "points": points_awarded,
-        })
+        }
+        if final_cost:
+            history_item["cost"] = round(final_cost, 2)
+        if final_duration:
+            history_item["duration_minutes"] = final_duration
+        if notes:
+            history_item["notes"] = notes
+        if reading_entry is not None:
+            history_item["reading_value"] = reading_entry
+            history_item["reading_delta"] = reading_delta
+            history_item["reading_unit"] = task.get("reading_unit", "")
+        if used_parts_list:
+            history_item["consumed_parts"] = used_parts_list
+
+        task.setdefault("history", []).append(history_item)
 
         # 3. Linked "Thing" Action (e.g. Filter reset, Dustbin empty)
         linked_thing_id = task.get("linked_thing_id")
@@ -809,6 +944,52 @@ class TaskManagerData:
             "user_id": effective_user_id,
             "points": points_awarded,
             "recurring": is_recurring,
+        })
+        return task
+
+    def skip_task(self, task_id: str) -> dict[str, Any] | None:
+        """Skip the current recurrence of a task without awarding points."""
+        task = self.get_task(task_id)
+        if not task:
+            return None
+
+        now = dt_util.now()
+        now_str = now.isoformat()
+        today_date_str = now.date().strftime("%Y-%m-%d")
+
+        rec = task.get("recurrence", {})
+        rec_enabled = rec.get("enabled", rec.get("type", RECURRENCE_NONE) not in (RECURRENCE_NONE, "none", ""))
+        has_time_fallback = (
+            rec_enabled
+            and rec.get("type", RECURRENCE_NONE) not in (RECURRENCE_NONE, "none", "")
+            and int(rec.get("interval", 1)) > 0
+        )
+        is_recurring = (rec_enabled and has_time_fallback) or bool(task.get("linked_thing_id"))
+
+        prev_due = task.get("due_date", today_date_str)
+        if is_recurring:
+            next_due = calculate_next_due_date(
+                current_due_date_str=prev_due,
+                recurrence=rec,
+                completion_date_str=today_date_str,
+            )
+            task["due_date"] = next_due
+            task["status"] = "pending"
+        else:
+            task["status"] = "completed"
+            task["completed_at"] = now_str
+
+        task.setdefault("history", []).append({
+            "action": "skipped",
+            "completed_at": now_str,
+            "skipped_at": now_str,
+            "previous_due_date": prev_due,
+        })
+
+        self._log_activity("task_skipped", {
+            "task_id": task_id,
+            "title": task.get("title", ""),
+            "new_due_date": task.get("due_date"),
         })
         return task
 
@@ -973,6 +1154,15 @@ class TaskManagerData:
             "assignee": task.get("current_assignee"),
             "points": task.get("points", 10),
             "recurrence": task.get("recurrence", {}),
+            "task_type": task.get("task_type", TASK_TYPE_CHORE),
+            "reading_unit": task.get("reading_unit", ""),
+            "last_reading_value": task.get("last_reading_value"),
+            "consumed_parts": task.get("consumed_parts", []),
+            "on_complete_entity_id": task.get("on_complete_entity_id"),
+            "require_tag_scan": task.get("require_tag_scan", False),
+            "default_duration_minutes": task.get("default_duration_minutes", 0),
+            "default_cost": task.get("default_cost", 0.0),
+            "linked_thing_id": task.get("linked_thing_id"),
         }
         return native_state, attrs
 
@@ -1050,6 +1240,14 @@ class TaskManagerData:
             "script_entity_id": thing_data.get("script_entity_id") or None,
             "initial_value": float(thing_data.get("initial_value", 100 if operator == THRESHOLD_OP_LTE else 0)),
             "unit": thing_data.get("unit", "units"),
+            "area_id": thing_data.get("area_id") or None,
+            "manufacturer": thing_data.get("manufacturer", ""),
+            "model": thing_data.get("model", ""),
+            "serial_number": thing_data.get("serial_number", ""),
+            "installation_date": thing_data.get("installation_date", ""),
+            "warranty_expiry": thing_data.get("warranty_expiry", ""),
+            "documentation_url": thing_data.get("documentation_url", ""),
+            "notes": thing_data.get("notes", ""),
             "auto_task_creation": bool(thing_data.get("auto_task_creation", False)),
             "auto_task_title": thing_data.get("auto_task_title", f"Maintain {thing_data.get('name', 'Thing')}"),
             "last_reset": thing_data.get("last_reset", ""),
@@ -1177,7 +1375,113 @@ class TaskManagerData:
                 return True
         return False
 
+    # ================= PARTS OPERATIONS =================
+
+    def get_parts(self, thing_id: str | None = None) -> list[dict[str, Any]]:
+        """Retrieve all parts, optionally filtered by thing_id."""
+        if thing_id is not None:
+            return [p for p in self.parts if p.get("thing_id") == thing_id]
+        return list(self.parts)
+
+    def get_part(self, part_id: str) -> dict[str, Any] | None:
+        """Retrieve part by id."""
+        for p in self.parts:
+            if p.get("id") == part_id:
+                return p
+        return None
+
+    def create_part(self, part_data: dict[str, Any]) -> dict[str, Any]:
+        """Create a new spare part or consumable."""
+        part_id = part_data.get("id") or str(uuid.uuid4())
+        try:
+            stock = float(part_data.get("stock", 0))
+        except (ValueError, TypeError):
+            stock = 0.0
+
+        try:
+            min_stock = float(part_data.get("min_stock", part_data.get("reorder_threshold", 1)))
+        except (ValueError, TypeError):
+            min_stock = 1.0
+
+        raw_unit_price = part_data.get("unit_price")
+        if raw_unit_price is None:
+            raw_unit_price = part_data.get("unit_cost", 0.0)
+        try:
+            unit_price = float(raw_unit_price)
+        except (ValueError, TypeError):
+            unit_price = 0.0
+
+        new_part = {
+            "id": part_id,
+            "name": part_data.get("name", "New Part"),
+            "thing_id": part_data.get("thing_id") or None,
+            "part_number": part_data.get("part_number", ""),
+            "stock": stock,
+            "min_stock": min_stock,
+            "unit": part_data.get("unit", "pcs"),
+            "unit_price": unit_price,
+            "storage_location": part_data.get("storage_location", ""),
+            "reorder_url": part_data.get("reorder_url", ""),
+            "notes": part_data.get("notes", ""),
+        }
+        self.parts.append(new_part)
+        self._log_activity("part_created", {"part_id": part_id, "name": new_part["name"]})
+        return new_part
+
+    def update_part(self, part_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
+        """Update part details."""
+        part = self.get_part(part_id)
+        if not part:
+            return None
+        for key, val in updates.items():
+            if key != "id":
+                if key in ("stock", "min_stock", "unit_price", "unit_cost"):
+                    target_key = "unit_price" if key == "unit_cost" else key
+                    try:
+                        part[target_key] = float(val)
+                    except (ValueError, TypeError):
+                        pass
+                else:
+                    part[key] = val
+        self._log_activity("part_updated", {"part_id": part_id, "name": part.get("name")})
+        return part
+
+    def delete_part(self, part_id: str) -> bool:
+        """Delete part by id."""
+        for i, p in enumerate(self.parts):
+            if p.get("id") == part_id:
+                name = p.get("name", "")
+                self.parts.pop(i)
+                self._log_activity("part_deleted", {"part_id": part_id, "name": name})
+                return True
+        return False
+
+    def adjust_part_stock(
+        self,
+        part_id: str,
+        delta: float | None = None,
+        stock: float | None = None,
+    ) -> dict[str, Any] | None:
+        """Adjust or set part stock directly."""
+        part = self.get_part(part_id)
+        if not part:
+            return None
+        if stock is not None:
+            part["stock"] = max(0.0, float(stock))
+        elif delta is not None:
+            part["stock"] = max(0.0, float(part.get("stock", 0)) + float(delta))
+        self._log_activity("part_stock_adjusted", {
+            "part_id": part_id,
+            "name": part.get("name"),
+            "stock": part.get("stock"),
+        })
+        return part
+
     # ================= USER OPERATIONS =================
+
+    def get_users(self) -> list[dict[str, Any]]:
+        """Retrieve all users."""
+        return list(self.users)
 
     def get_user(self, user_id: str) -> dict[str, Any] | None:
         """Retrieve user by id."""
@@ -1418,6 +1722,7 @@ class TaskManagerData:
             self.users = data.get("users", [])
             self.labels = data.get("labels", [])
             self.settings = {**DEFAULT_SETTINGS, **data.get("settings", {})}
+            self.parts = data.get("parts", [])
             self.activity_log = data.get("activity_log", [])
             self.providers = data.get("providers", [])
             self.external_overlays = data.get("external_overlays", {})
@@ -1432,6 +1737,11 @@ class TaskManagerData:
             for th in data.get("things", []):
                 if th.get("id") not in existing_thing_ids:
                     self.things.append(th)
+            # Merge parts
+            existing_part_ids = {p["id"] for p in self.parts}
+            for p in data.get("parts", []):
+                if p.get("id") not in existing_part_ids:
+                    self.parts.append(p)
 
 
 class TaskManagerStorage:
@@ -1625,7 +1935,15 @@ class TaskManagerStorage:
             return new_task
 
     async def async_complete_task(
-        self, task_id: str, user_id: str | None = None
+        self,
+        task_id: str,
+        user_id: str | None = None,
+        cost: float | None = None,
+        duration_minutes: int | None = None,
+        notes: str | None = None,
+        completed_at: str | None = None,
+        reading_value: float | None = None,
+        consumed_parts: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
         """Complete an internal or external task."""
         if task_id.startswith("ext:"):
@@ -1653,11 +1971,18 @@ class TaskManagerStorage:
             now_str = dt_util.now().isoformat()
             overlay["completed_at"] = now_str
             overlay["completed_by"] = effective_user
-            overlay.setdefault("history", []).append({
+            hist_item = {
                 "completed_at": now_str,
                 "user_id": effective_user,
                 "points": points,
-            })
+            }
+            if cost is not None:
+                hist_item["cost"] = cost
+            if duration_minutes is not None:
+                hist_item["duration_minutes"] = duration_minutes
+            if notes:
+                hist_item["notes"] = notes
+            overlay.setdefault("history", []).append(hist_item)
             self.data.set_overlay(uid, overlay)
 
             linked_thing_id = overlay.get("linked_thing_id")
@@ -1687,13 +2012,25 @@ class TaskManagerStorage:
             return None
 
         # Internal task
-        task = self.data.complete_task(task_id, user_id=user_id)
+        task = self.data.complete_task(
+            task_id,
+            user_id=user_id,
+            cost=cost,
+            duration_minutes=duration_minutes,
+            notes=notes,
+            completed_at=completed_at,
+            reading_value=reading_value,
+            consumed_parts=consumed_parts,
+            hass=self.hass,
+        )
         if task:
             linked_thing_id = task.get("linked_thing_id")
             if linked_thing_id:
                 thing = self.data.get_thing(linked_thing_id)
                 if thing and thing.get("script_entity_id"):
                     await self._async_run_thing_script(thing.get("script_entity_id"), thing)
+            if task.get("on_complete_entity_id"):
+                await self._async_trigger_entity_action(task.get("on_complete_entity_id"))
             await self.async_save()
             self.fire_task_event(EVENT_TASK_COMPLETED, task, {"user_id": user_id or task.get("current_assignee")})
         return task
@@ -1722,6 +2059,102 @@ class TaskManagerStorage:
             })
         except Exception as err:
             _LOGGER.error("Task Manager: Failed to run completion script '%s': %s", script_eid, err)
+
+    async def _async_trigger_entity_action(self, entity_id: str) -> None:
+        """Trigger an entity action (press button, run script, turn on switch) on completion."""
+        if not entity_id or not self.hass or not hasattr(self.hass, "services"):
+            return
+        entity_id = entity_id.strip()
+        try:
+            domain = entity_id.split(".", 1)[0]
+            if domain == "button":
+                await self.hass.services.async_call("button", "press", {"entity_id": entity_id}, blocking=False)
+            elif domain == "script":
+                await self.hass.services.async_call("script", "turn_on", {"entity_id": entity_id}, blocking=False)
+            elif domain == "input_button":
+                await self.hass.services.async_call("input_button", "press", {"entity_id": entity_id}, blocking=False)
+            else:
+                await self.hass.services.async_call("homeassistant", "turn_on", {"entity_id": entity_id}, blocking=False)
+        except Exception as err:
+            _LOGGER.error("Task Manager: Failed to trigger on_complete action '%s': %s", entity_id, err)
+
+    async def async_skip_task(self, task_id: str) -> dict[str, Any] | None:
+        """Skip the current recurrence of a task."""
+        task = self.data.skip_task(task_id)
+        if task:
+            await self.async_save()
+            self.fire_task_event(EVENT_TASK_SKIPPED, task)
+        return task
+
+    async def async_record_reading(
+        self,
+        task_id: str,
+        reading_value: float,
+        notes: str | None = None,
+        completed_at: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Record reading and complete task recurrence."""
+        return await self.async_complete_task(
+            task_id=task_id,
+            user_id=user_id,
+            notes=notes,
+            completed_at=completed_at,
+            reading_value=reading_value,
+        )
+
+    async def async_create_part(self, part_data: dict[str, Any]) -> dict[str, Any]:
+        """Create part and persist."""
+        part = self.data.create_part(part_data)
+        await self.async_save()
+        if is_part_low_stock(part) and self.hass:
+            self.hass.bus.async_fire(EVENT_PART_LOW_STOCK, {
+                "part_id": part["id"],
+                "name": part["name"],
+                "stock": part["stock"],
+                "min_stock": part["min_stock"],
+            })
+        return part
+
+    async def async_update_part(self, part_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
+        """Update part and persist."""
+        part = self.data.update_part(part_id, updates)
+        if part:
+            await self.async_save()
+            if is_part_low_stock(part) and self.hass:
+                self.hass.bus.async_fire(EVENT_PART_LOW_STOCK, {
+                    "part_id": part["id"],
+                    "name": part["name"],
+                    "stock": part["stock"],
+                    "min_stock": part["min_stock"],
+                })
+        return part
+
+    async def async_delete_part(self, part_id: str) -> bool:
+        """Delete part and persist."""
+        res = self.data.delete_part(part_id)
+        if res:
+            await self.async_save()
+        return res
+
+    async def async_adjust_part_stock(
+        self,
+        part_id: str,
+        delta: float | None = None,
+        stock: float | None = None,
+    ) -> dict[str, Any] | None:
+        """Adjust part stock and persist."""
+        part = self.data.adjust_part_stock(part_id, delta=delta, stock=stock)
+        if part:
+            await self.async_save()
+            if is_part_low_stock(part) and self.hass:
+                self.hass.bus.async_fire(EVENT_PART_LOW_STOCK, {
+                    "part_id": part["id"],
+                    "name": part["name"],
+                    "stock": part["stock"],
+                    "min_stock": part["min_stock"],
+                })
+        return part
 
     async def async_reset_task(self, task_id: str) -> dict[str, Any] | None:
         """Reset an internal or external task."""

@@ -44,13 +44,68 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         vol.Required("type"): "task_manager/complete_task",
         vol.Required("task_id"): str,
         vol.Optional("user_id"): vol.Any(str, None),
+        vol.Optional("cost"): vol.Any(vol.Coerce(float), None),
+        vol.Optional("duration_minutes"): vol.Any(vol.Coerce(int), None),
+        vol.Optional("notes"): vol.Any(str, None),
+        vol.Optional("completed_at"): vol.Any(str, None),
+        vol.Optional("reading_value"): vol.Any(vol.Coerce(float), None),
+        vol.Optional("consumed_parts"): vol.Any(list, None),
     })
     @websocket_api.async_response
     async def ws_complete_task(
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
     ) -> None:
         """Handle complete task command."""
-        result = await storage.async_complete_task(msg["task_id"], user_id=msg.get("user_id"))
+        result = await storage.async_complete_task(
+            msg["task_id"],
+            user_id=msg.get("user_id"),
+            cost=msg.get("cost"),
+            duration_minutes=msg.get("duration_minutes"),
+            notes=msg.get("notes"),
+            completed_at=msg.get("completed_at"),
+            reading_value=msg.get("reading_value"),
+            consumed_parts=msg.get("consumed_parts"),
+        )
+        if not result:
+            connection.send_error(msg["id"], "task_not_found", "Task not found")
+            return
+        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/skip_task",
+        vol.Required("task_id"): str,
+    })
+    @websocket_api.async_response
+    async def ws_skip_task(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle skip task command."""
+        result = await storage.async_skip_task(msg["task_id"])
+        if not result:
+            connection.send_error(msg["id"], "task_not_found", "Task not found")
+            return
+        connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/record_reading",
+        vol.Required("task_id"): str,
+        vol.Required("reading_value"): vol.Coerce(float),
+        vol.Optional("notes"): vol.Any(str, None),
+        vol.Optional("completed_at"): vol.Any(str, None),
+        vol.Optional("user_id"): vol.Any(str, None),
+    })
+    @websocket_api.async_response
+    async def ws_record_reading(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle record reading command."""
+        result = await storage.async_record_reading(
+            msg["task_id"],
+            reading_value=msg["reading_value"],
+            notes=msg.get("notes"),
+            completed_at=msg.get("completed_at"),
+            user_id=msg.get("user_id"),
+        )
         if not result:
             connection.send_error(msg["id"], "task_not_found", "Task not found")
             return
@@ -264,6 +319,56 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
                 _LOGGER.debug("Could not remove thing from entity registry: %s", err)
             await storage.async_save()
         connection.send_result(msg["id"], {"success": success, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/save_part",
+        vol.Required("part"): dict,
+    })
+    @websocket_api.async_response
+    async def ws_save_part(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle save or update part command."""
+        part_data = dict(msg["part"])
+        part_id = part_data.get("id")
+        if part_id and storage.data.get_part(part_id):
+            result = await storage.async_update_part(part_id, part_data)
+        else:
+            result = await storage.async_create_part(part_data)
+        connection.send_result(msg["id"], {"success": True, "part": result, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/delete_part",
+        vol.Required("part_id"): str,
+    })
+    @websocket_api.async_response
+    async def ws_delete_part(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle delete part command."""
+        success = await storage.async_delete_part(msg["part_id"])
+        connection.send_result(msg["id"], {"success": success, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/adjust_part_stock",
+        vol.Required("part_id"): str,
+        vol.Optional("stock"): vol.Any(int, float, None),
+        vol.Optional("delta"): vol.Any(int, float, None),
+    })
+    @websocket_api.async_response
+    async def ws_adjust_part_stock(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle adjust part stock command."""
+        result = await storage.async_adjust_part_stock(
+            msg["part_id"],
+            stock=msg.get("stock"),
+            delta=msg.get("delta"),
+        )
+        if not result:
+            connection.send_error(msg["id"], "part_not_found", "Part not found")
+            return
+        connection.send_result(msg["id"], {"success": True, "part": result, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/save_user",
@@ -499,6 +604,8 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
     websocket_api.async_register_command(hass, ws_get_data)
     websocket_api.async_register_command(hass, ws_save_task)
     websocket_api.async_register_command(hass, ws_complete_task)
+    websocket_api.async_register_command(hass, ws_skip_task)
+    websocket_api.async_register_command(hass, ws_record_reading)
     websocket_api.async_register_command(hass, ws_reset_task)
     websocket_api.async_register_command(hass, ws_delete_task)
     websocket_api.async_register_command(hass, ws_duplicate_task)
@@ -507,6 +614,9 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
     websocket_api.async_register_command(hass, ws_save_thing)
     websocket_api.async_register_command(hass, ws_update_thing_value)
     websocket_api.async_register_command(hass, ws_delete_thing)
+    websocket_api.async_register_command(hass, ws_save_part)
+    websocket_api.async_register_command(hass, ws_delete_part)
+    websocket_api.async_register_command(hass, ws_adjust_part_stock)
     websocket_api.async_register_command(hass, ws_save_user)
     websocket_api.async_register_command(hass, ws_delete_user)
     websocket_api.async_register_command(hass, ws_save_label)

@@ -116,11 +116,32 @@ THRESHOLD_OPERATORS = [
 # Far Future Due Date for threshold-driven tasks without time schedule
 FAR_FUTURE_DUE_DATE = "2099-12-31"
 
+# Task Types
+TASK_TYPE_CHORE = "chore"
+TASK_TYPE_READING = "reading"
+
+TASK_TYPES = [
+    TASK_TYPE_CHORE,
+    TASK_TYPE_READING,
+]
+
+# Warranty Statuses
+WARRANTY_STATUS_VALID = "valid"
+WARRANTY_STATUS_EXPIRING_SOON = "expiring_soon"
+WARRANTY_STATUS_EXPIRED = "expired"
+WARRANTY_STATUS_NONE = "none"
+
+# Additional Automation Events
+EVENT_TASK_SKIPPED = f"{DOMAIN}_task_skipped"
+EVENT_PART_LOW_STOCK = f"{DOMAIN}_part_low_stock"
+
 # Services
 SERVICE_CREATE_TASK = "create_task"
 SERVICE_ADD_TASK = "add_task"
 SERVICE_UPDATE_TASK = "update_task"
 SERVICE_COMPLETE_TASK = "complete_task"
+SERVICE_SKIP_TASK = "skip_task"
+SERVICE_RECORD_READING = "record_reading"
 SERVICE_RESET_TASK = "reset_task"
 SERVICE_REOPEN_TASK = "reopen_task"
 SERVICE_MARK_AS_DONE = "mark_as_done"
@@ -135,6 +156,9 @@ SERVICE_UPDATE_SUBTASK = "update_subtask"
 SERVICE_CREATE_THING = "create_thing"
 SERVICE_UPDATE_THING = "update_thing"
 SERVICE_DELETE_THING = "delete_thing"
+SERVICE_ADJUST_PART_STOCK = "adjust_part_stock"
+SERVICE_SAVE_PART = "save_part"
+SERVICE_DELETE_PART = "delete_part"
 SERVICE_AWARD_POINTS = "award_points"
 SERVICE_IMPORT_DATA = "import_data"
 

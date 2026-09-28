@@ -244,5 +244,5 @@ class TestTaskManagerSensors(unittest.IsolatedAsyncioTestCase):
 
         await async_setup_entry(self.hass, self.entry, mock_add_entities)
 
-        # 4 summary sensors + 1 user + 1 thing + 1 task = 7
-        self.assertEqual(len(added_entities), 7)
+        # 5 summary sensors (including parts low stock) + 1 user + 1 thing + 1 task = 8
+        self.assertEqual(len(added_entities), 8)
