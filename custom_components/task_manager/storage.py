@@ -504,6 +504,10 @@ class TaskManagerData:
         for t in self.tasks:
             if t.get("id") == task_id:
                 return t
+        if task_id.startswith("ext:"):
+            for t in self.get_all_tasks(include_external=True):
+                if t.get("id") == task_id:
+                    return t
         return None
 
     def create_task(self, task_data: dict[str, Any]) -> dict[str, Any]:
@@ -1019,6 +1023,16 @@ class TaskManagerData:
 
     def pause_task(self, task_id: str) -> dict[str, Any] | None:
         """Pause / deactivate a task."""
+        if task_id.startswith("ext:"):
+            parts = task_id.split(":", 2)
+            if len(parts) >= 3:
+                uid = parts[2]
+                self.set_overlay(uid, {"is_active": False})
+                self._log_activity("task_paused", {"task_id": task_id, "title": ""})
+                for t in self.get_all_tasks(include_external=True):
+                    if t.get("id") == task_id:
+                        return t
+            return None
         task = self.get_task(task_id)
         if not task:
             return None
@@ -1028,6 +1042,16 @@ class TaskManagerData:
 
     def resume_task(self, task_id: str) -> dict[str, Any] | None:
         """Resume / activate a paused task."""
+        if task_id.startswith("ext:"):
+            parts = task_id.split(":", 2)
+            if len(parts) >= 3:
+                uid = parts[2]
+                self.set_overlay(uid, {"is_active": True})
+                self._log_activity("task_resumed", {"task_id": task_id, "title": ""})
+                for t in self.get_all_tasks(include_external=True):
+                    if t.get("id") == task_id:
+                        return t
+            return None
         task = self.get_task(task_id)
         if not task:
             return None

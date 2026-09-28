@@ -215,7 +215,7 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
     else:
         hass.http.register_static_path(URL_BASE, FRONTEND_DIR, cache_headers=False)
 
-    version_str = "1.0.21"
+    version_str = "1.0.22"
     try:
         card_file = os.path.join(FRONTEND_DIR, "task-manager-card.js")
         if os.path.exists(card_file):
@@ -272,7 +272,7 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _on_ha_started)
 
     # 3. Register custom sidebar panel
-    panel_version = "1.0.21"
+    panel_version = "1.0.22"
     try:
         js_file = os.path.join(FRONTEND_DIR, "task-manager-panel.js")
         if os.path.exists(js_file):

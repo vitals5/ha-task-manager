@@ -849,6 +849,26 @@ class TestTaskManagerStorageAsync(unittest.IsolatedAsyncioTestCase):
         state, _ = data.get_task_effective_state(task["id"])
         self.assertEqual(state, const_mod.TASK_STATE_DUE)
 
+        # External task pause & resume
+        data.add_provider("todo.external_list", "External List", "generic", "mdi:check")
+        data.external_tasks_cache["todo.external_list"] = [
+            {"uid": "ext-123", "title": "External Task 1", "status": "needs_action", "due_date": "2026-09-26"}
+        ]
+        ext_task_id = "ext:todo.external_list:ext-123"
+        ext_task = data.get_task(ext_task_id)
+        self.assertIsNotNone(ext_task)
+        self.assertTrue(ext_task["is_active"])
+
+        ext_paused = data.pause_task(ext_task_id)
+        self.assertIsNotNone(ext_paused)
+        self.assertFalse(ext_paused["is_active"])
+        self.assertFalse(data.get_task(ext_task_id)["is_active"])
+
+        ext_resumed = data.resume_task(ext_task_id)
+        self.assertIsNotNone(ext_resumed)
+        self.assertTrue(ext_resumed["is_active"])
+        self.assertTrue(data.get_task(ext_task_id)["is_active"])
+
     def test_set_last_done_date(self):
         """Test setting explicit last done date on a recurring task."""
         data = TaskManagerData()

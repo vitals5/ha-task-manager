@@ -220,6 +220,10 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       isPaused: "Paused",
       pause: "Pause Task",
       resume: "Resume Task",
+      pauseTask: "Pause Task",
+      resumeTask: "Resume Task",
+      taskPaused: "Task \"{title}\" paused",
+      taskResumed: "Task \"{title}\" resumed",
       timesCompleted: "{count}x completed",
       repeatMode: "Recurrence Mode",
       repeatModeAfter: "Interval after completion",
@@ -505,6 +509,10 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       isPaused: "Pausiert",
       pause: "Aufgabe pausieren",
       resume: "Aufgabe fortsetzen",
+      pauseTask: "Aufgabe pausieren",
+      resumeTask: "Aufgabe fortsetzen",
+      taskPaused: "Aufgabe \"{title}\" pausiert",
+      taskResumed: "Aufgabe \"{title}\" fortgesetzt",
       timesCompleted: "{count}x erledigt",
       repeatMode: "Wiederholungsmodus",
       repeatModeAfter: "Intervall nach Erledigung",
@@ -1276,6 +1284,24 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       await this._callWS("task_manager/duplicate_task", { task_id: taskId });
     }
 
+    async pauseTask(taskId) {
+      const task = (this._data.tasks || []).find(t => t.id === taskId);
+      const res = await this._callWS("task_manager/pause_task", { task_id: taskId });
+      if (res && res.success) {
+        const title = task ? task.title : "";
+        this._showToast(`⏸️ ${this.t("taskPaused", { title: title })}`);
+      }
+    }
+
+    async resumeTask(taskId) {
+      const task = (this._data.tasks || []).find(t => t.id === taskId);
+      const res = await this._callWS("task_manager/resume_task", { task_id: taskId });
+      if (res && res.success) {
+        const title = task ? task.title : "";
+        this._showToast(`▶️ ${this.t("taskResumed", { title: title })}`);
+      }
+    }
+
     async toggleSubtask(taskId, subtaskId, currentState) {
       await this._callWS("task_manager/update_subtask", {
         task_id: taskId,
@@ -1630,8 +1656,8 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       } else if (this._filterStatus === "completed") {
         tasks = tasks.filter(t => t.status === "completed");
       } else {
-        // 'all' shows active pending tasks
-        tasks = tasks.filter(t => t.is_active !== false && t.status === "pending");
+        // 'all' shows all pending tasks (including paused)
+        tasks = tasks.filter(t => t.status === "pending");
       }
 
       // Assignee filter
@@ -2017,6 +2043,11 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           .task-card.priority-p3 { border-left: 5px solid var(--primary-color, #3b82f6); }
           .task-card.priority-p4 { border-left: 5px solid var(--divider-color, #94a3b8); }
           .task-card.completed-task { opacity: 0.65; }
+          .task-card.is-paused {
+            opacity: 0.78;
+            border-style: dashed;
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.04));
+          }
 
           .task-top {
             display: flex;
@@ -3172,7 +3203,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       const completedSubtasks = subtasks.filter(st => st.completed).length;
 
       return `
-        <div class="task-card priority-${task.priority} ${isCompleted ? "completed-task" : ""} ${isJustCompleted ? "just-completed" : ""}" data-task-id="${task.id}">
+        <div class="task-card priority-${task.priority} ${isCompleted ? "completed-task" : ""} ${isJustCompleted ? "just-completed" : ""} ${task.is_active === false ? "is-paused" : ""}" data-task-id="${task.id}">
           <div class="task-top">
             <button class="check-btn ${isJustCompleted ? "checked" : ""}" data-complete-task="${task.id}" title="${isCompleted ? this.t("reset") : this.t("done")}">
               ✓
@@ -3987,12 +4018,21 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             ` : ""}
 
             <!-- Active / Paused Toggle -->
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:var(--secondary-background-color, rgba(127,127,127,0.06)); padding:8px 12px; border-radius:8px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.15)));">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:var(--secondary-background-color, rgba(127,127,127,0.06)); padding:10px 14px; border-radius:8px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.15)));">
               <div>
-                <div style="font-weight:600; font-size:13px;">${this.t("isActive")}</div>
-                <div style="font-size:11px; color:var(--secondary-text-color, #64748b);">${this.t("isActiveHint")}</div>
+                <div style="font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px;">
+                  <span id="m-task-status-text">${task.is_active === false ? "⏸️ " + this.t("isPaused") : "✅ " + this.t("isActive")}</span>
+                </div>
+                <div style="font-size:11px; color:var(--secondary-text-color, #64748b); margin-top:2px;">${this.t("isActiveHint")}</div>
               </div>
-              <input type="checkbox" id="m-task-is-active" ${task.is_active !== false ? "checked" : ""} style="width:18px; height:18px; cursor:pointer;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                ${task.id ? `
+                  <button type="button" class="btn btn-secondary" id="m-task-btn-pause-toggle" style="padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:5px;">
+                    ${task.is_active === false ? "▶️ " + this.t("resumeTask") : "⏸️ " + this.t("pauseTask")}
+                  </button>
+                ` : ""}
+                <input type="checkbox" id="m-task-is-active" ${task.is_active !== false ? "checked" : ""} style="width:18px; height:18px; cursor:pointer;" title="${this.t("isActive")}">
+              </div>
             </div>
 
             <div class="form-group">
@@ -5033,12 +5073,12 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       root.querySelectorAll("[data-toggle-active-task]").forEach(btn => {
         btn.addEventListener("click", async () => {
           const tId = btn.getAttribute("data-toggle-active-task");
-          const task = this._data.tasks.find(t => t.id === tId);
+          const task = (this._data.tasks || []).find(t => t.id === tId);
           if (task) {
             if (task.is_active === false) {
-              await this._callWS("task_manager/resume_task", { task_id: tId });
+              await this.resumeTask(tId);
             } else {
-              await this._callWS("task_manager/pause_task", { task_id: tId });
+              await this.pauseTask(tId);
             }
           }
         });
@@ -5312,7 +5352,42 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         });
       }
 
-            // Modal Task Type Change
+      // Modal Pause/Resume Toggle
+      const btnPauseToggle = root.getElementById("m-task-btn-pause-toggle");
+      const chkActive = root.getElementById("m-task-is-active");
+      if (btnPauseToggle) {
+        btnPauseToggle.addEventListener("click", async () => {
+          if (!this._modalState || !this._modalState.task) return;
+          const tId = this._modalState.task.id;
+          const isCurrentlyActive = this._modalState.task.is_active !== false;
+          if (isCurrentlyActive) {
+            await this.pauseTask(tId);
+            this._modalState.task.is_active = false;
+          } else {
+            await this.resumeTask(tId);
+            this._modalState.task.is_active = true;
+          }
+          if (chkActive) chkActive.checked = this._modalState.task.is_active;
+          const statusText = root.getElementById("m-task-status-text");
+          if (statusText) {
+            statusText.innerText = this._modalState.task.is_active ? `✅ ${this.t("isActive")}` : `⏸️ ${this.t("isPaused")}`;
+          }
+          btnPauseToggle.innerHTML = this._modalState.task.is_active ? `⏸️ ${this.t("pauseTask")}` : `▶️ ${this.t("resumeTask")}`;
+        });
+      }
+      if (chkActive) {
+        chkActive.addEventListener("change", (e) => {
+          const statusText = root.getElementById("m-task-status-text");
+          if (statusText) {
+            statusText.innerText = e.target.checked ? `✅ ${this.t("isActive")}` : `⏸️ ${this.t("isPaused")}`;
+          }
+          if (btnPauseToggle) {
+            btnPauseToggle.innerHTML = e.target.checked ? `⏸️ ${this.t("pauseTask")}` : `▶️ ${this.t("resumeTask")}`;
+          }
+        });
+      }
+
+      // Modal Task Type Change
       const mTaskType = root.getElementById("m-task-type");
       if (mTaskType) {
         mTaskType.addEventListener("change", (e) => {
