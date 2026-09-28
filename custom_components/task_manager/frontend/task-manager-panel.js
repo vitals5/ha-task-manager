@@ -295,8 +295,14 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       copyLink: "Copy Link",
       linkCopied: "Link copied to clipboard!",
       targetUrl: "Target URL",
+      taskCompleted: "Task \"{title}\" completed! 🎉",
       taskCompletedViaQr: "Task \"{title}\" completed via QR-Code! 🎉",
+      recurringTaskCompleted: "Task \"{title}\" completed! Next due date: {nextDue} 🔄🎉",
+      recurringTaskCompletedViaQr: "Task \"{title}\" completed via QR-Code! Next due date: {nextDue} 🔄🎉",
       taskAlreadyCompleted: "Task \"{title}\" is already completed.",
+      qrLocalhostWarning: "Note: You are connected via \"localhost\". To scan this QR code with a smartphone, open Home Assistant using your network IP (e.g. http://192.168.x.x:8123) or domain.",
+      justCompletedBadge: "Done just now! Next: {nextDue}",
+      doneToday: "Done today",
       close: "Close",
     },
     de: {
@@ -574,8 +580,14 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       copyLink: "Link kopieren",
       linkCopied: "Link in die Zwischenablage kopiert!",
       targetUrl: "Ziel-URL",
+      taskCompleted: "Aufgabe \"{title}\" erledigt! 🎉",
       taskCompletedViaQr: "Aufgabe \"{title}\" via QR-Code erledigt! 🎉",
+      recurringTaskCompleted: "Aufgabe \"{title}\" erledigt! Nächste Fälligkeit: {nextDue} 🔄🎉",
+      recurringTaskCompletedViaQr: "Aufgabe \"{title}\" via QR-Code erledigt! Nächste Fälligkeit: {nextDue} 🔄🎉",
       taskAlreadyCompleted: "Aufgabe \"{title}\" ist bereits erledigt.",
+      qrLocalhostWarning: "Hinweis: Du bist über \"localhost\" verbunden. Um den QR-Code mit dem Smartphone zu scannen, öffne Home Assistant über die Netzwerk-IP (z. B. http://192.168.x.x:8123) oder deine Domain.",
+      justCompletedBadge: "Gerade erledigt! Nächste: {nextDue}",
+      doneToday: "Heute erledigt",
       close: "Schließen",
     }
   };
@@ -610,6 +622,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       this._audioCtx = null;
       this._availableTodoEntities = [];
       this._urlParamsHandled = false;
+      this._justCompletedTaskId = null;
     }
 
     connectedCallback() {
@@ -815,6 +828,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             this._activeUser = this._data.users[0].id;
           }
           this._render();
+          await this._handleUrlParameters();
         }
       } catch (err) {
         console.error("Task Manager: Failed to load data", err);
@@ -1036,20 +1050,46 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       }
     }
 
+    _getQrTargetUrl(item, itemType = "task") {
+      const origin = window.location.origin;
+      let basePath = window.location.pathname || "/task-manager";
+      if (!basePath.endsWith("task-manager") && !basePath.endsWith("task-manager/")) {
+        basePath = "/task-manager";
+      }
+      if (basePath.endsWith("/")) {
+        basePath = basePath.slice(0, -1);
+      }
+      return itemType === "thing"
+        ? `${origin}${basePath}?thing_id=${item.id}`
+        : `${origin}${basePath}?action=complete&task_id=${item.id}`;
+    }
+
     async _handleUrlParameters() {
       if (this._urlParamsHandled) return;
       if (!this._data || !this._data.tasks || this._data.tasks.length === 0) return;
 
-      let searchStr = window.location.search;
-      if (!searchStr && window.location.hash && window.location.hash.includes("?")) {
-        searchStr = window.location.hash.slice(window.location.hash.indexOf("?"));
-      }
-      if (!searchStr) return;
+      const getParam = (name) => {
+        let val = null;
+        try {
+          val = new URLSearchParams(window.location.search).get(name);
+        } catch (e) {}
+        if (!val && window.location.hash && window.location.hash.includes("?")) {
+          try {
+            val = new URLSearchParams(window.location.hash.slice(window.location.hash.indexOf("?"))).get(name);
+          } catch (e) {}
+        }
+        if (!val && window.location.href && window.location.href.includes("?")) {
+          try {
+            const queryPart = window.location.href.slice(window.location.href.indexOf("?")).split("#")[0];
+            val = new URLSearchParams(queryPart).get(name);
+          } catch (e) {}
+        }
+        return val;
+      };
 
-      const urlParams = new URLSearchParams(searchStr);
-      const taskId = urlParams.get("task_id") || urlParams.get("complete_task") || urlParams.get("taskId");
-      const thingId = urlParams.get("thing_id") || urlParams.get("thingId");
-      const action = urlParams.get("action");
+      const taskId = getParam("task_id") || getParam("complete_task") || getParam("taskId");
+      const thingId = getParam("thing_id") || getParam("thingId");
+      const action = getParam("action");
 
       if (!taskId && !thingId) return;
       this._urlParamsHandled = true;
@@ -1072,12 +1112,27 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             } else if (task.task_type === "reading") {
               this.openCompleteModal(task);
             } else {
+              this._currentTab = "chores";
+              this._filterStatus = "all";
+              const isRecurring = Boolean(task.recurrence && task.recurrence.enabled);
               await this.completeTask(task.id);
-              this._showToast(`🎉 ${this.t("taskCompletedViaQr", { title: task.title })}`);
+              const updatedTask = (this._data.tasks || []).find(t => t.id === task.id) || task;
+              if (isRecurring && updatedTask.due_date) {
+                this._showToast(`🎉 ${this.t("recurringTaskCompletedViaQr", { title: task.title, nextDue: updatedTask.due_date })}`);
+              } else {
+                this._showToast(`🎉 ${this.t("taskCompletedViaQr", { title: task.title })}`);
+              }
+              setTimeout(() => {
+                const el = this.shadowRoot && this.shadowRoot.querySelector(`[data-task-id="${task.id}"]`);
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+              }, 250);
             }
           }
         } else {
           console.warn(`Task Manager: Task with ID ${taskId} not found for URL action.`);
+          this._showToast(`⚠️ Aufgabe nicht gefunden (ID: ${taskId})`, "error");
         }
       } else if (thingId) {
         const thing = (this._data.things || []).find(th => th.id === thingId);
@@ -1181,8 +1236,30 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           payload.completed_at = details.completed_at;
         }
       }
+      const prevTask = (this._data.tasks || []).find(t => t.id === taskId);
+      const isRecurring = Boolean(prevTask && prevTask.recurrence && prevTask.recurrence.enabled);
+
       await this._callWS("task_manager/complete_task", payload);
       this.closeModal();
+
+      const updatedTask = (this._data.tasks || []).find(t => t.id === taskId);
+      this._justCompletedTaskId = taskId;
+      this._render();
+
+      if (!this._urlParamsHandled) {
+        if (updatedTask && isRecurring && updatedTask.due_date) {
+          this._showToast(`🎉 ${this.t("recurringTaskCompleted", { title: updatedTask.title, nextDue: updatedTask.due_date })}`);
+        } else if (updatedTask) {
+          this._showToast(`🎉 ${this.t("taskCompleted", { title: updatedTask.title })}`);
+        }
+      }
+
+      setTimeout(() => {
+        if (this._justCompletedTaskId === taskId) {
+          this._justCompletedTaskId = null;
+          this._render();
+        }
+      }, 5000);
     }
 
     async resetTask(taskId) {
@@ -1969,10 +2046,21 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             color: var(--success-color, #10b981);
           }
 
+          .check-btn.checked,
           .completed-task .check-btn {
-            background: var(--success-color, #10b981);
-            border-color: var(--success-color, #10b981);
-            color: #ffffff;
+            background: var(--success-color, #10b981) !important;
+            border-color: var(--success-color, #10b981) !important;
+            color: #ffffff !important;
+          }
+
+          .task-card.just-completed {
+            border: 2px solid #10b981 !important;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.45) !important;
+            animation: card-just-completed-pulse 2s ease-in-out infinite;
+          }
+          @keyframes card-just-completed-pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 15px rgba(16, 185, 129, 0.3); }
+            50% { transform: scale(1.015); box-shadow: 0 0 25px rgba(16, 185, 129, 0.6); }
           }
 
           .task-info {
@@ -3075,6 +3163,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       const isCompleted = task.status === "completed";
       const isOverdue = !isCompleted && task.due_date && task.due_date < todayStr;
       const isToday = !isCompleted && task.due_date === todayStr;
+      const isJustCompleted = this._justCompletedTaskId === task.id;
 
       const assigneeUser = this._data.users.find(u => u.id === task.current_assignee);
       const linkedThing = task.linked_thing_id ? this._data.things.find(th => th.id === task.linked_thing_id) : null;
@@ -3083,13 +3172,20 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       const completedSubtasks = subtasks.filter(st => st.completed).length;
 
       return `
-        <div class="task-card priority-${task.priority} ${isCompleted ? "completed-task" : ""}">
+        <div class="task-card priority-${task.priority} ${isCompleted ? "completed-task" : ""} ${isJustCompleted ? "just-completed" : ""}" data-task-id="${task.id}">
           <div class="task-top">
-            <button class="check-btn" data-complete-task="${task.id}" title="${isCompleted ? this.t("reset") : this.t("done")}">
+            <button class="check-btn ${isJustCompleted ? "checked" : ""}" data-complete-task="${task.id}" title="${isCompleted ? this.t("reset") : this.t("done")}">
               ✓
             </button>
             <div class="task-info">
-              <div class="task-title">${this._escape(task.title)}</div>
+              <div class="task-title" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                <span>${this._escape(task.title)}</span>
+                ${isJustCompleted ? `
+                  <span class="meta-chip chip-just-completed" style="background:#10b981; color:#ffffff; font-weight:700; font-size:11px; padding:2px 8px; border-radius:10px;">
+                    ✓ ${this.t("justCompletedBadge", { nextDue: task.due_date || "" })}
+                  </span>
+                ` : ""}
+              </div>
               ${task.description ? `<p class="task-desc">${this._escape(task.description)}</p>` : ""}
 
               <div class="task-meta">
@@ -3150,6 +3246,12 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
                 ${task.times_completed > 0 ? `
                   <span class="meta-chip" style="background:rgba(16,185,129,0.12); color:#10b981;" title="${this.t("timesCompleted", { count: task.times_completed })}">
                     🔁 ${task.times_completed}x
+                  </span>
+                ` : ""}
+
+                ${task.last_done_date ? `
+                  <span class="meta-chip" style="background:rgba(16,185,129,0.12); color:#10b981;" title="${this.t("lastDoneDate")}: ${task.last_done_date}">
+                    ✓ ${task.last_done_date === todayStr ? this.t("doneToday") : `${this.t("lastDoneDate")}: ${task.last_done_date}`}
                   </span>
                 ` : ""}
 
@@ -4523,11 +4625,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
     _renderQrCodeModal() {
       const item = (this._modalState && this._modalState.item) || {};
       const itemType = (this._modalState && this._modalState.itemType) || "task";
-      const origin = window.location.origin;
       const isTask = itemType === "task";
-      const targetUrl = isTask 
-        ? `${origin}/task-manager?action=complete&task_id=${item.id}`
-        : `${origin}/task-manager?thing_id=${item.id}`;
+      const targetUrl = this._getQrTargetUrl(item, itemType);
+      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
       
       let qrSvg = "";
       try {
@@ -4560,6 +4660,12 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             <p style="font-size:12px; color:var(--secondary-text-color, #64748b); margin:0 0 16px 0;">
               ${subtitle}
             </p>
+
+            ${isLocalhost ? `
+              <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid #f59e0b; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #b45309; margin-bottom: 14px; text-align: left; line-height: 1.4;">
+                ⚠️ ${this.t("qrLocalhostWarning")}
+              </div>
+            ` : ""}
 
             <div id="qr-container" style="display:inline-block; background:#ffffff; padding:14px; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.08); margin-bottom:14px;">
               ${qrSvg || `<div style="padding:40px; color:#64748b;">[QR Code]</div>`}
@@ -5460,10 +5566,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         btnCopyQr.addEventListener("click", async () => {
           const item = (this._modalState && this._modalState.item) || {};
           const itemType = (this._modalState && this._modalState.itemType) || "task";
-          const origin = window.location.origin;
-          const targetUrl = itemType === "thing" 
-            ? `${origin}/task-manager?thing_id=${item.id}`
-            : `${origin}/task-manager?action=complete&task_id=${item.id}`;
+          const targetUrl = this._getQrTargetUrl(item, itemType);
 
           const copied = await this._copyToClipboard(targetUrl);
           if (copied) {
@@ -5487,10 +5590,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         btnPrintQr.addEventListener("click", () => {
           const item = (this._modalState && this._modalState.item) || {};
           const itemType = (this._modalState && this._modalState.itemType) || "task";
-          const origin = window.location.origin;
-          const targetUrl = itemType === "thing" 
-            ? `${origin}/task-manager?thing_id=${item.id}`
-            : `${origin}/task-manager?action=complete&task_id=${item.id}`;
+          const targetUrl = this._getQrTargetUrl(item, itemType);
 
           const qrContainer = root.getElementById("qr-container");
           const qrSvg = qrContainer ? qrContainer.innerHTML : "";
