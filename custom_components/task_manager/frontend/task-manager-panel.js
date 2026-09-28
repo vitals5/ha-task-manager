@@ -780,6 +780,12 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         const res = await this._hass.callWS({ type: "task_manager/get_data" });
         if (res) {
           this._data = res;
+          this._data.parts = this._data.parts || [];
+          this._data.things = this._data.things || [];
+          this._data.tasks = this._data.tasks || [];
+          this._data.users = this._data.users || [];
+          this._data.labels = this._data.labels || [];
+          this._data.providers = this._data.providers || [];
           if (this._data.settings && this._data.settings.tablet_mount_mode && !this._tabletMode) {
             this._tabletMode = true;
           }
@@ -799,6 +805,12 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         const res = await this._hass.callWS({ type, ...payload });
         if (res && res.data) {
           this._data = res.data;
+          this._data.parts = this._data.parts || [];
+          this._data.things = this._data.things || [];
+          this._data.tasks = this._data.tasks || [];
+          this._data.users = this._data.users || [];
+          this._data.labels = this._data.labels || [];
+          this._data.providers = this._data.providers || [];
           this._render();
         } else {
           await this._fetchData();
@@ -2625,7 +2637,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
             <!-- Add Task CTA -->
             <button class="btn btn-primary" id="btn-add-task">
-              <span class="btn-text-full">+ ${this.t("addTask")}</span>
+              <span class="btn-text-full">${this._currentTab === "things" ? "+ " + this.t("addThing") : this._currentTab === "parts" ? "+ " + this.t("addPart") : "+ " + this.t("addTask")}</span>
               <span class="btn-text-short">+</span>
             </button>
           </div>
@@ -2662,7 +2674,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
         <!-- Floating Action Button for Mobile (Always accessible in 9:16 portrait) -->
         ${!this._modalState ? `
-        <button class="mobile-fab" id="fab-add-btn" aria-label="${this._currentTab === "things" ? this.t("addThing") : this.t("addTask")}" title="${this._currentTab === "things" ? this.t("addThing") : this.t("addTask")}">
+        <button class="mobile-fab" id="fab-add-btn" aria-label="${this._currentTab === "things" ? this.t("addThing") : this._currentTab === "parts" ? this.t("addPart") : this.t("addTask")}" title="${this._currentTab === "things" ? this.t("addThing") : this._currentTab === "parts" ? this.t("addPart") : this.t("addTask")}">
           <svg viewBox="0 0 24 24" width="26" height="26" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -3139,6 +3151,110 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         </div>
       `;
     }
+
+    // ================= VIEW: PARTS =================
+    _renderPartsView() {
+      const parts = this._data.parts || [];
+      const lowStockCount = parts.filter(p => parseFloat(p.stock || 0) <= parseFloat(p.min_stock !== undefined ? p.min_stock : 1)).length;
+
+      return `
+        <div class="view-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:12px; flex-wrap:wrap;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <h2 style="margin:0; font-size:20px;">📦 ${this.t("parts")}</h2>
+              ${lowStockCount > 0 ? `
+                <span class="badge-pill" style="background:rgba(239, 68, 68, 0.2); color:#ef4444; font-size:12px; padding:3px 8px;">
+                  ⚠️ ${lowStockCount} ${this.t("lowStock")}
+                </span>
+              ` : ""}
+            </div>
+            <p style="margin:4px 0 0 0; font-size:13px; color:var(--secondary-text-color, #64748b);">
+              ${this.t("partsSubtitle")}
+            </p>
+          </div>
+          <button class="btn btn-primary" id="btn-add-part" style="flex-shrink:0;">+ ${this.t("addPart")}</button>
+        </div>
+
+        ${parts.length === 0 ? `
+          <div style="text-align: center; padding: 48px 16px; color: var(--secondary-text-color, #64748b);">
+            <div style="font-size: 44px; margin-bottom: 12px;">📦</div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 14px;">${this.t("noParts")}</div>
+            <button class="btn btn-primary" id="btn-empty-add-part">+ ${this.t("addPart")}</button>
+          </div>
+        ` : `
+          <div class="parts-grid">
+            ${parts.map(p => this._renderPartCard(p)).join("")}
+          </div>
+        `}
+      `;
+    }
+
+    _renderPartCard(part) {
+      const stock = parseFloat(part.stock || 0);
+      const minStock = parseFloat(part.min_stock !== undefined ? part.min_stock : 1);
+      const isLow = stock <= minStock;
+      const linkedThing = part.thing_id ? (this._data.things || []).find(th => th.id === part.thing_id) : null;
+
+      return `
+        <div class="part-card">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div>
+              <div style="font-weight:700; font-size:15px; color:var(--primary-text-color, inherit);">${this._escape(part.name)}</div>
+              ${part.part_number ? `
+                <div style="font-size:11px; color:var(--secondary-text-color, #64748b); font-family:monospace; margin-top:2px;">
+                  SKU: ${this._escape(part.part_number)}
+                </div>
+              ` : ""}
+            </div>
+            <div style="display:flex; gap:4px;">
+              <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px;" data-edit-part="${part.id}" title="${this.t("edit")}">✏️</button>
+              <button class="btn btn-secondary" style="padding:4px 6px; font-size:11px; color:var(--error-color, #ef4444);" data-delete-part="${part.id}" title="${this.t("delete")}">🗑️</button>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+            <span class="badge-pill" style="background:${isLow ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.15)"}; color:${isLow ? "#ef4444" : "#10b981"}; font-weight:700; font-size:12px; padding:4px 10px;">
+              ${isLow ? "⚠️ " + this.t("lowStock") : "✓ " + this.t("inStock")}: ${stock} ${this._escape(part.unit || "pcs")}
+            </span>
+            <span style="font-size:11px; color:var(--secondary-text-color, #64748b);">
+              (Min: ${minStock} ${this._escape(part.unit || "pcs")})
+            </span>
+            ${part.unit_price ? `
+              <span class="meta-chip" style="background:rgba(59, 130, 246, 0.12); color:#2563eb;">
+                💰 ${parseFloat(part.unit_price).toFixed(2)} €
+              </span>
+            ` : ""}
+            ${linkedThing ? `
+              <span class="meta-chip" style="background:rgba(2, 132, 199, 0.12); color:#0284c7;">
+                ⚙️ ${this._escape(linkedThing.name)}
+              </span>
+            ` : ""}
+            ${part.storage_location ? `
+              <span class="meta-chip" style="background:rgba(100, 116, 139, 0.12); color:#64748b;">
+                📍 ${this._escape(part.storage_location)}
+              </span>
+            ` : ""}
+          </div>
+
+          ${part.notes ? `
+            <div style="font-size:12px; color:var(--secondary-text-color, #64748b); line-height:1.4;">
+              ${this._escape(part.notes)}
+            </div>
+          ` : ""}
+
+          <div style="display:flex; gap:6px; margin-top:4px;">
+            <button class="btn btn-secondary" style="flex:1; padding:6px;" data-part-adjust="${part.id}" data-delta="-1">-1</button>
+            <button class="btn btn-secondary" style="flex:1; padding:6px;" data-part-adjust="${part.id}" data-delta="1">+1</button>
+            ${part.reorder_url ? `
+              <a href="${this._escape(part.reorder_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="flex:2; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:4px; padding:6px; font-size:12px;">
+                🛒 ${this.t("reorder")}
+              </a>
+            ` : ""}
+          </div>
+        </div>
+      `;
+    }
+
 
     // ================= VIEW: LEADERBOARD =================
     _renderLeaderboardView() {
@@ -3956,6 +4072,223 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       `;
     }
 
+    _renderPartModal() {
+      const part = (this._modalState && this._modalState.part) || {};
+      return `
+        <div class="modal-backdrop" id="modal-backdrop">
+          <div class="modal-window">
+            <div class="modal-handle"></div>
+            <h2 style="margin:0 0 12px 0; font-size:18px;">
+              ${part.id ? this.t("editPart") : this.t("addPart")}
+            </h2>
+
+            <div class="form-group">
+              <label class="form-label">${this.t("partNameLabel")}</label>
+              <input type="text" class="text-input" id="m-part-name" value="${this._escape(part.name || "")}" placeholder="${this.t("partNamePlaceholder")}">
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">${this.t("partNumberLabel")}</label>
+                <input type="text" class="text-input" id="m-part-number" value="${this._escape(part.part_number || "")}" placeholder="${this.t("partNumberPlaceholder")}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">${this.t("linkedThing")}</label>
+                <select class="select-input" id="m-part-thing-id">
+                  <option value="">${this.t("none")}</option>
+                  ${(this._data.things || []).map(th => `
+                    <option value="${th.id}" ${th.id === part.thing_id ? "selected" : ""}>${this._escape(th.name)}</option>
+                  `).join("")}
+                </select>
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">${this.t("stockLabel")}</label>
+                <input type="number" step="any" class="text-input" id="m-part-stock" value="${part.stock !== undefined ? part.stock : 1}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">${this.t("minStockLabel")}</label>
+                <input type="number" step="any" class="text-input" id="m-part-min-stock" value="${part.min_stock !== undefined ? part.min_stock : 1}">
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">${this.t("unitLabel")}</label>
+                <input type="text" class="text-input" id="m-part-unit" value="${this._escape(part.unit || "pcs")}" placeholder="pcs, L, kg">
+              </div>
+              <div class="form-group">
+                <label class="form-label">${this.t("unitPriceLabel")}</label>
+                <input type="number" step="0.01" class="text-input" id="m-part-unit-price" value="${part.unit_price !== undefined ? part.unit_price : 0.0}">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">${this.t("storageLocationLabel")}</label>
+              <input type="text" class="text-input" id="m-part-location" value="${this._escape(part.storage_location || "")}" placeholder="${this.t("storageLocationPlaceholder")}">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">${this.t("reorderUrlLabel")}</label>
+              <input type="url" class="text-input" id="m-part-reorder-url" value="${this._escape(part.reorder_url || "")}" placeholder="${this.t("reorderUrlPlaceholder")}">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">${this.t("descriptionLabel")}</label>
+              <textarea class="text-input" id="m-part-notes" rows="2" placeholder="${this.t("descriptionPlaceholder")}">${this._escape(part.notes || "")}</textarea>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn btn-secondary" id="modal-cancel">${this.t("cancel")}</button>
+              <button class="btn btn-primary" id="modal-save-part">${this.t("save")}</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    _renderCompleteDetailsModal() {
+      const task = (this._modalState && this._modalState.task) || {};
+      const parts = this._data.parts || [];
+      const isReading = task.task_type === "reading";
+      const nowIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const preselectedPartIds = new Set((task.consumed_parts || []).map(p => typeof p === "object" ? p.part_id : p));
+
+      return `
+        <div class="modal-backdrop" id="modal-backdrop">
+          <div class="modal-window">
+            <div class="modal-handle"></div>
+            <h2 style="margin:0 0 12px 0; font-size:18px;">
+              ✓ ${this.t("completeWithDetails")}: ${this._escape(task.title || "")}
+            </h2>
+
+            ${isReading ? `
+              <div style="background:rgba(6, 182, 212, 0.12); border:1px solid rgba(6, 182, 212, 0.25); border-radius:8px; padding:12px; margin-bottom:14px;">
+                <div style="font-weight:600; font-size:13px; color:#0891b2; margin-bottom:6px;">
+                  📟 ${this.t("taskTypeReading")}
+                </div>
+                <div style="font-size:12px; color:var(--secondary-text-color, #64748b); margin-bottom:8px;">
+                  ${this.t("lastReadingLabel")}: <strong>${task.last_reading_value !== undefined && task.last_reading_value !== null ? task.last_reading_value : "—"} ${this._escape(task.reading_unit || "")}</strong>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">${this.t("readingValueLabel")} (${this._escape(task.reading_unit || "")})</label>
+                  <input type="number" step="any" class="text-input" id="m-comp-reading" placeholder="z. B. ${task.last_reading_value ? (parseFloat(task.last_reading_value) + 5) : 100}">
+                  <div id="m-comp-reading-delta" style="font-size:12px; font-weight:600; color:#0891b2; margin-top:4px;"></div>
+                </div>
+              </div>
+            ` : ""}
+
+            ${parts.length > 0 ? `
+              <div class="form-group">
+                <label class="form-label">📦 ${this.t("consumedPartsLabel")}</label>
+                <div style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); border-radius:8px; padding:8px;">
+                  ${parts.map(p => {
+                    const isChecked = preselectedPartIds.has(p.id);
+                    const defQty = 1;
+                    return `
+                      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13px; padding:4px 0;">
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; flex:1;">
+                          <input type="checkbox" class="m-comp-part-cb" value="${p.id}" ${isChecked ? "checked" : ""}>
+                          <span>${this._escape(p.name)} <span style="font-size:11px; color:var(--secondary-text-color, #64748b);">(Lager: ${p.stock} ${this._escape(p.unit || "")})</span></span>
+                        </label>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                          <input type="number" step="1" min="1" class="text-input m-comp-part-qty" data-part-id="${p.id}" value="${defQty}" style="width:60px; padding:4px 6px; font-size:12px;">
+                          <span style="font-size:11px; color:var(--secondary-text-color, #64748b);">${this._escape(p.unit || "")}</span>
+                        </div>
+                      </div>
+                    `;
+                  }).join("")}
+                </div>
+              </div>
+            ` : ""}
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">⏱️ ${this.t("durationMinutesLabel")}</label>
+                <input type="number" class="text-input" id="m-comp-duration" value="${task.default_duration_minutes || ""}" placeholder="30">
+              </div>
+              <div class="form-group">
+                <label class="form-label">💰 ${this.t("costLabel")}</label>
+                <input type="number" step="0.01" class="text-input" id="m-comp-cost" value="${task.default_cost || ""}" placeholder="0.00">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">📅 ${this.t("completedAtLabel")}</label>
+              <input type="datetime-local" class="text-input" id="m-comp-date" value="${nowIso}">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">📝 ${this.t("notesLabel")}</label>
+              <textarea class="text-input" id="m-comp-notes" rows="2" placeholder="${this.t("descriptionPlaceholder")}"></textarea>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn btn-secondary" id="modal-cancel">${this.t("cancel")}</button>
+              <button class="btn btn-primary" id="modal-submit-complete">✓ ${this.t("done")}</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    _renderQrCodeModal() {
+      const item = (this._modalState && this._modalState.item) || {};
+      const itemType = (this._modalState && this._modalState.itemType) || "task";
+      const origin = window.location.origin;
+      const targetUrl = itemType === "thing" 
+        ? `${origin}/task-manager?thing_id=${item.id}`
+        : `${origin}/task-manager?task_id=${item.id}`;
+      
+      let qrSvg = "";
+      try {
+        if (typeof QRCodeGen !== "undefined") {
+          const qr = new QRCodeGen({
+            content: targetUrl,
+            width: 200,
+            height: 200,
+            padding: 1,
+            container: "svg-viewbox",
+            join: true
+          });
+          qrSvg = qr.svg();
+        }
+      } catch (e) {
+        console.error("QR Code error:", e);
+      }
+
+      return `
+        <div class="modal-backdrop" id="modal-backdrop">
+          <div class="modal-window" style="text-align:center;">
+            <div class="modal-handle"></div>
+            <h2 style="margin:0 0 4px 0; font-size:18px;">
+              📱 ${this.t("qrCode")}: ${this._escape(item.title || item.name || "")}
+            </h2>
+            <p style="font-size:12px; color:var(--secondary-text-color, #64748b); margin:0 0 16px 0;">
+              ${this.t("scanQr")}
+            </p>
+
+            <div id="qr-container" style="display:inline-block; background:#ffffff; padding:12px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:16px;">
+              ${qrSvg || `<div style="padding:40px; color:#64748b;">[QR Code]</div>`}
+            </div>
+
+            <div style="background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-radius:8px; padding:8px 12px; font-family:monospace; font-size:11px; word-break:break-all; margin-bottom:16px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.15)));">
+              ${this._escape(targetUrl)}
+            </div>
+
+            <div style="display:flex; gap:8px; justify-content:center;">
+              <button class="btn btn-secondary" id="btn-copy-qr-link">📋 ${this.t("copyLink")}</button>
+              <button class="btn btn-secondary" id="btn-print-qr-tag">🖨️ ${this.t("printTag")}</button>
+              <button class="btn btn-primary" id="modal-cancel">${this.t("close")}</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+
     _renderUserModal() {
       const isGamification = this._data.settings && this._data.settings.gamification_enabled !== false;
       const user = this._modalState.user;
@@ -4139,10 +4472,18 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         });
       }
 
-      // Add Task Button
+      // Add Task / Thing / Part Button
       const btnAddTask = root.getElementById("btn-add-task");
       if (btnAddTask) {
-        btnAddTask.addEventListener("click", () => this.openTaskModal());
+        btnAddTask.addEventListener("click", () => {
+          if (this._currentTab === "things") {
+            this.openThingModal();
+          } else if (this._currentTab === "parts") {
+            this.openPartModal();
+          } else {
+            this.openTaskModal();
+          }
+        });
       }
 
       // Empty State Add Task Button
@@ -4169,6 +4510,8 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         fabAddBtn.addEventListener("click", () => {
           if (this._currentTab === "things") {
             this.openThingModal();
+          } else if (this._currentTab === "parts") {
+            this.openPartModal();
           } else {
             this.openTaskModal();
           }
@@ -4194,9 +4537,70 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           const task = this._data.tasks.find(t => t.id === tId);
           if (task && task.status === "completed") {
             this.resetTask(tId);
+          } else if (task && task.task_type === "reading") {
+            this.openCompleteModal(task);
           } else {
             this.completeTask(tId);
           }
+        });
+      });
+
+      // Complete with details
+      root.querySelectorAll("[data-details-complete-task]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tId = btn.getAttribute("data-details-complete-task");
+          const task = this._data.tasks.find(t => t.id === tId);
+          if (task) this.openCompleteModal(task);
+        });
+      });
+
+      // Skip Task
+      root.querySelectorAll("[data-skip-task]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tId = btn.getAttribute("data-skip-task");
+          this.skipTask(tId);
+        });
+      });
+
+      // QR Code Task / Thing
+      root.querySelectorAll("[data-qr-task]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tId = btn.getAttribute("data-qr-task");
+          const task = this._data.tasks.find(t => t.id === tId);
+          if (task) this.openQrModal(task, "task");
+        });
+      });
+
+      root.querySelectorAll("[data-qr-thing]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const thId = btn.getAttribute("data-qr-thing");
+          const thing = (this._data.things || []).find(t => t.id === thId);
+          if (thing) this.openQrModal(thing, "thing");
+        });
+      });
+
+      // Parts Shelf Actions
+      const btnAddPart = root.getElementById("btn-add-part");
+      if (btnAddPart) btnAddPart.addEventListener("click", () => this.openPartModal());
+      const btnEmptyAddPart = root.getElementById("btn-empty-add-part");
+      if (btnEmptyAddPart) btnEmptyAddPart.addEventListener("click", () => this.openPartModal());
+
+      root.querySelectorAll("[data-edit-part]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const p = (this._data.parts || []).find(x => x.id === btn.getAttribute("data-edit-part"));
+          if (p) this.openPartModal(p);
+        });
+      });
+
+      root.querySelectorAll("[data-delete-part]").forEach(btn => {
+        btn.addEventListener("click", () => this.deletePart(btn.getAttribute("data-delete-part")));
+      });
+
+      root.querySelectorAll("[data-part-adjust]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const pId = btn.getAttribute("data-part-adjust");
+          const delta = parseFloat(btn.getAttribute("data-delta"));
+          this.adjustPartStock(pId, delta);
         });
       });
 
