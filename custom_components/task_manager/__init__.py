@@ -215,7 +215,7 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
     else:
         hass.http.register_static_path(URL_BASE, FRONTEND_DIR, cache_headers=False)
 
-    version_str = "1.0.29"
+    version_str = "1.0.31"
     try:
         card_file = os.path.join(FRONTEND_DIR, "task-manager-card.js")
         if os.path.exists(card_file):
