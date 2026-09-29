@@ -103,14 +103,17 @@ from task_manager.services import (
     async_register_services,
     async_unregister_services,
     resolve_task_id,
+    resolve_thing_ids,
 )
 from task_manager.const import (
     DOMAIN,
     SERVICE_COMPLETE_TASK,
+    SERVICE_INCREMENT_THING,
     SERVICE_MARK_AS_DONE,
     SERVICE_PAUSE_TASK,
     SERVICE_RESUME_TASK,
     SERVICE_SET_LAST_DONE_DATE,
+    SERVICE_UPDATE_THING,
 )
 from task_manager.storage import TaskManagerStorage, TaskManagerData
 
@@ -190,3 +193,80 @@ class TestTaskManagerServices(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(resume_handler)
         await resume_handler(call)
         self.storage.async_resume_task.assert_awaited_once_with(t1["id"])
+
+    async def test_resolve_thing_ids(self):
+        """Test resolving thing IDs by thing_id, entity_id slug, state attributes, and name."""
+        th1 = self.storage.data.create_thing({"name": "Water Filter", "target_value": 100})
+        th2 = self.storage.data.create_thing({"name": "Coffee Machine", "target_value": 50})
+
+        # By direct thing_id
+        self.assertEqual(resolve_thing_ids({"thing_id": th1["id"]}, self.storage, self.hass), [th1["id"]])
+
+        # By list of thing_ids
+        self.assertEqual(
+            resolve_thing_ids({"thing_id": [th1["id"], th2["id"]]}, self.storage, self.hass),
+            [th1["id"], th2["id"]]
+        )
+
+        # By entity_id slug
+        self.assertEqual(
+            resolve_thing_ids({"entity_id": "sensor.task_manager_thing_water_filter"}, self.storage, self.hass),
+            [th1["id"]]
+        )
+
+        # By thing_name
+        self.assertEqual(
+            resolve_thing_ids({"thing_name": "coffee machine"}, self.storage, self.hass),
+            [th2["id"]]
+        )
+
+        # By state attributes
+        mock_state = MagicMock()
+        mock_state.attributes = {"thing_id": th2["id"]}
+        self.hass.states.get.return_value = mock_state
+        self.assertEqual(
+            resolve_thing_ids({"entity_id": "sensor.custom_coffee"}, self.storage, self.hass),
+            [th2["id"]]
+        )
+        self.hass.states.get.return_value = None
+
+    async def test_service_increment_thing(self):
+        """Test calling increment_thing service updates thing value and saves storage."""
+        th = self.storage.data.create_thing({"name": "Coffee Beans", "target_value": 100})
+        self.assertEqual(th.get("current_value", 0), 0.0)
+
+        increment_handler = registered_services.get(SERVICE_INCREMENT_THING)
+        self.assertIsNotNone(increment_handler)
+
+        # 1. Increment by default (+1.0) using thing_id
+        call = MagicMock()
+        call.data = {"thing_id": th["id"]}
+        await increment_handler(call)
+        self.storage.async_save.assert_awaited_once()
+        self.assertEqual(self.storage.data.get_thing(th["id"])["current_value"], 1.0)
+
+        # 2. Increment with amount (+4.0) using entity_id
+        self.storage.async_save.reset_mock()
+        call.data = {"entity_id": "sensor.task_manager_thing_coffee_beans", "amount": 4.0}
+        await increment_handler(call)
+        self.storage.async_save.assert_awaited_once()
+        self.assertEqual(self.storage.data.get_thing(th["id"])["current_value"], 5.0)
+
+        # 3. Decrement with delta (-2.0)
+        self.storage.async_save.reset_mock()
+        call.data = {"thing_id": th["id"], "delta": -2.0}
+        await increment_handler(call)
+        self.storage.async_save.assert_awaited_once()
+        self.assertEqual(self.storage.data.get_thing(th["id"])["current_value"], 3.0)
+
+    async def test_service_update_thing_with_entity_id(self):
+        """Test calling update_thing service with entity_id."""
+        th = self.storage.data.create_thing({"name": "Robot Dustbin", "target_value": 30})
+        update_handler = registered_services.get(SERVICE_UPDATE_THING)
+        self.assertIsNotNone(update_handler)
+
+        call = MagicMock()
+        call.data = {"entity_id": "sensor.task_manager_thing_robot_dustbin", "value": 15.0}
+        await update_handler(call)
+        self.storage.async_save.assert_awaited_once()
+        self.assertEqual(self.storage.data.get_thing(th["id"])["current_value"], 15.0)

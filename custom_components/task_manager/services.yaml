@@ -447,11 +447,21 @@ delete_task:
 update_thing:
   name: Update Thing
   description: Updates, increments, or resets a Thing counter or meter.
+  target:
+    entity:
+      domain: sensor
   fields:
+    entity_id:
+      name: Sensor / Entity
+      description: The sensor entity of the Thing (e.g. sensor.task_manager_thing_coffee_machine).
+      required: false
+      selector:
+        entity:
+          domain: sensor
     thing_id:
       name: Thing ID
       description: ID of the thing to update (e.g. thing_robot_dustbin).
-      required: true
+      required: false
       selector:
         text:
     value:
@@ -471,6 +481,13 @@ update_thing:
         number:
           min: -1000
           max: 1000
+          step: any
+    amount:
+      name: Amount
+      description: Optional alias for Delta Change.
+      required: false
+      selector:
+        number:
           step: any
     reset:
       name: Reset to Zero
@@ -508,6 +525,48 @@ update_thing:
       selector:
         entity:
           domain: script
+
+increment_thing:
+  name: Increment Thing
+  description: Increments or decrements a Thing's counter or meter value (ideal for Things without a linked external entity).
+  target:
+    entity:
+      domain: sensor
+  fields:
+    entity_id:
+      name: Sensor / Entity
+      description: The sensor entity of the Thing (e.g. sensor.task_manager_thing_coffee_machine).
+      required: false
+      selector:
+        entity:
+          domain: sensor
+    thing_id:
+      name: Thing ID
+      description: The unique identifier of the Thing (e.g. thing_robot_dustbin).
+      required: false
+      selector:
+        text:
+    thing_name:
+      name: Thing Name
+      description: Name of the Thing to increment.
+      required: false
+      selector:
+        text:
+    amount:
+      name: Amount / Delta
+      description: Amount to increment by (default is 1.0). Use negative values to decrement.
+      required: false
+      default: 1
+      selector:
+        number:
+          step: any
+    delta:
+      name: Delta
+      description: Optional alias for Amount.
+      required: false
+      selector:
+        number:
+          step: any
 
 award_points:
   name: Award Points

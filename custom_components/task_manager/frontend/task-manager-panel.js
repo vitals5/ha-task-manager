@@ -3038,11 +3038,6 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             <!-- Active user switcher -->
             ${this._renderUserSelector()}
 
-            <!-- Tablet mode toggle -->
-            <button class="btn btn-secondary" id="btn-toggle-mount">
-              ${this._tabletMode ? "📱 " + this.t("exitMountMode") : "📺 " + this.t("mountMode")}
-            </button>
-
             <!-- Add Task CTA -->
             <button class="btn btn-primary" id="btn-add-task">
               <span class="btn-text-full">${this._currentTab === "things" ? "+ " + this.t("addThing") : this._currentTab === "parts" ? "+ " + this.t("addPart") : "+ " + this.t("addTask")}</span>
@@ -4901,19 +4896,6 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         });
       }
 
-      // Tablet / Mount Mode toggle
-      const btnMount = root.getElementById("btn-toggle-mount");
-      if (btnMount) {
-        btnMount.addEventListener("click", () => {
-          this._tabletMode = !this._tabletMode;
-          if (this._tabletMode) {
-            this.classList.add("tablet-mode");
-          } else {
-            this.classList.remove("tablet-mode");
-          }
-          this._render();
-        });
-      }
 
       // Add Task / Thing / Part Button
       const btnAddTask = root.getElementById("btn-add-task");

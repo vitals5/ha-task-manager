@@ -146,6 +146,28 @@
         }
       }
     },
+    "increment_thing": {
+      "name": "Increment Thing",
+      "description": "Increments or decrements a Thing's counter or meter value (especially for Things without a linked external entity).",
+      "fields": {
+        "entity_id": {
+          "name": "Entity / Sensor",
+          "description": "The sensor entity of the Thing (e.g. sensor.task_manager_thing_coffee_machine)."
+        },
+        "thing_id": {
+          "name": "Thing ID",
+          "description": "The unique identifier of the Thing (e.g. thing_coffee_machine)."
+        },
+        "amount": {
+          "name": "Amount / Step",
+          "description": "Amount to increment by (default: 1). Use negative numbers to decrement."
+        },
+        "delta": {
+          "name": "Delta",
+          "description": "Alias for Amount."
+        }
+      }
+    },
     "award_points": {
       "name": "Award Points",
       "description": "Adjusts gamification points for a household member.",

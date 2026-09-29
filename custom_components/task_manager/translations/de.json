@@ -146,6 +146,28 @@
         }
       }
     },
+    "increment_thing": {
+      "name": "Thing inkrementieren",
+      "description": "Erhöht oder verringert den Zähler- bzw. Sensorwert eines Things (insbesondere für Things ohne verknüpfte externe Entität).",
+      "fields": {
+        "entity_id": {
+          "name": "Entität / Sensor",
+          "description": "Die Sensor-Entität des Things (z. B. sensor.task_manager_thing_kaffeemaschine)."
+        },
+        "thing_id": {
+          "name": "Thing-ID",
+          "description": "Die eindeutige Kennung des Things (z. B. thing_kaffeemaschine)."
+        },
+        "amount": {
+          "name": "Wert / Schrittweite",
+          "description": "Der Betrag, um den der Wert erhöht werden soll (Standard: 1). Negative Werte verringern den Wert."
+        },
+        "delta": {
+          "name": "Delta",
+          "description": "Alternativer Name für die Schrittweite / den Betrag."
+        }
+      }
+    },
     "award_points": {
       "name": "Punkte vergeben",
       "description": "Vergibt oder korrigiert Gamification-Punkte für ein Haushaltsmitglied.",

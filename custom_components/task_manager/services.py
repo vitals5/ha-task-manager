@@ -35,6 +35,7 @@ from .const import (
     SERVICE_UPDATE_SUBTASK,
     SERVICE_UPDATE_TASK,
     SERVICE_UPDATE_THING,
+    SERVICE_INCREMENT_THING,
 )
 from .storage import TaskManagerStorage
 
@@ -165,15 +166,29 @@ SCHEMA_DUPLICATE_TASK = vol.Schema({
 })
 
 SCHEMA_UPDATE_THING = vol.Schema({
-    vol.Required("thing_id"): cv.string,
+    vol.Optional("thing_id"): cv.string,
+    vol.Optional("entity_id"): vol.Any(cv.entity_id, [cv.entity_id], cv.string, [cv.string]),
+    vol.Optional("thing_name"): cv.string,
+    vol.Optional("name"): cv.string,
     vol.Optional("value"): vol.Any(vol.Coerce(float), None),
     vol.Optional("delta"): vol.Any(vol.Coerce(float), None),
+    vol.Optional("amount"): vol.Any(vol.Coerce(float), None),
     vol.Optional("reset", default=False): cv.boolean,
     vol.Optional("target_value"): vol.Coerce(float),
     vol.Optional("threshold_value"): vol.Coerce(float),
     vol.Optional("threshold_operator"): vol.In([">=", "<=", "gte", "lte"]),
     vol.Optional("external_entity_id"): vol.Any(cv.entity_id, cv.string, None),
     vol.Optional("script_entity_id"): vol.Any(cv.entity_id, cv.string, None),
+})
+
+SCHEMA_INCREMENT_THING = vol.Schema({
+    vol.Optional("thing_id"): cv.string,
+    vol.Optional("entity_id"): vol.Any(cv.entity_id, [cv.entity_id], cv.string, [cv.string]),
+    vol.Optional("thing_name"): cv.string,
+    vol.Optional("name"): cv.string,
+    vol.Optional("amount", default=1.0): vol.Coerce(float),
+    vol.Optional("delta"): vol.Coerce(float),
+    vol.Optional("step"): vol.Coerce(float),
 })
 
 SCHEMA_AWARD_POINTS = vol.Schema({
@@ -220,6 +235,87 @@ def resolve_task_id(call_data: dict[str, Any], storage: TaskManagerStorage, hass
                 return t["id"]
 
     return None
+
+
+def resolve_thing_ids(call_data: dict[str, Any], storage: TaskManagerStorage, hass: HomeAssistant) -> list[str]:
+    """Resolve target Thing IDs from thing_id, entity_id, or name/thing_name."""
+    thing_ids: list[str] = []
+
+    # 1. Direct thing_id (single or list)
+    raw_thing_id = call_data.get("thing_id")
+    if raw_thing_id:
+        if isinstance(raw_thing_id, list):
+            thing_ids.extend([str(x) for x in raw_thing_id if x])
+        else:
+            thing_ids.append(str(raw_thing_id))
+
+    # 2. Entity IDs (single or list)
+    raw_entity_id = call_data.get("entity_id")
+    entity_ids: list[str] = []
+    if raw_entity_id:
+        if isinstance(raw_entity_id, list):
+            entity_ids.extend([str(x) for x in raw_entity_id if x])
+        else:
+            entity_ids.append(str(raw_entity_id))
+
+    for entity_id in entity_ids:
+        found_id: str | None = None
+        # Try entity registry unique_id
+        try:
+            from homeassistant.helpers import entity_registry as er
+            ent_reg = er.async_get(hass)
+            entry = ent_reg.async_get(entity_id)
+            if entry and isinstance(getattr(entry, "unique_id", None), str):
+                uid = entry.unique_id
+                prefix = f"{DOMAIN}_thing_"
+                if uid.startswith(prefix):
+                    candidate = uid[len(prefix):]
+                    if storage.data.get_thing(candidate):
+                        found_id = candidate
+                if not found_id:
+                    for th in storage.data.things:
+                        if uid in (f"{DOMAIN}_thing_{th['id']}", th["id"]):
+                            found_id = th["id"]
+                            break
+        except Exception:
+            pass
+
+        # Try state attributes (e.g. sensor.task_manager_thing_xxx has attribute thing_id)
+        if not found_id:
+            try:
+                st = hass.states.get(entity_id)
+                if st and st.attributes.get("thing_id"):
+                    attr_th_id = str(st.attributes["thing_id"])
+                    if storage.data.get_thing(attr_th_id):
+                        found_id = attr_th_id
+            except Exception:
+                pass
+
+        # Fallback to direct ID or slug match
+        if not found_id:
+            from homeassistant.util import slugify
+            for th in storage.data.things:
+                if th["id"] == entity_id:
+                    found_id = th["id"]
+                    break
+                safe = str(slugify(th.get("name", "")) or "")
+                if safe and (safe in entity_id or entity_id.endswith(safe)):
+                    found_id = th["id"]
+                    break
+
+        if found_id and found_id not in thing_ids:
+            thing_ids.append(found_id)
+
+    # 3. Fallback to thing_name / name
+    name = call_data.get("thing_name") or call_data.get("name")
+    if name and not thing_ids:
+        name_lower = str(name).strip().lower()
+        for th in storage.data.things:
+            if th.get("name", "").strip().lower() == name_lower:
+                thing_ids.append(th["id"])
+                break
+
+    return thing_ids
 
 
 def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) -> None:
@@ -440,22 +536,65 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
 
     async def handle_update_thing(call: ServiceCall) -> None:
         """Handle updating or resetting a Thing via service."""
-        thing_id = call.data["thing_id"]
+        target_ids = resolve_thing_ids(call.data, storage, hass)
+        if not target_ids and "thing_id" in call.data:
+            target_ids = [str(call.data["thing_id"])]
+
+        if not target_ids:
+            _LOGGER.warning("Task Manager: No target Thing found to update (call data: %s)", call.data)
+            return
+
         prop_updates = {}
         for k in ("target_value", "threshold_value", "threshold_operator", "external_entity_id", "script_entity_id"):
             if k in call.data:
                 prop_updates[k] = call.data[k]
-        if prop_updates:
-            storage.data.update_thing(thing_id, prop_updates)
 
-        if any(k in call.data for k in ("value", "delta", "reset")):
-            storage.data.update_thing_value(
-                thing_id=thing_id,
-                value=call.data.get("value"),
-                delta=call.data.get("delta"),
-                reset=call.data.get("reset", False),
-            )
-        await storage.async_save()
+        delta = call.data.get("delta")
+        if delta is None and "amount" in call.data:
+            delta = call.data.get("amount")
+
+        updated = False
+        for thing_id in target_ids:
+            if prop_updates:
+                storage.data.update_thing(thing_id, prop_updates)
+                updated = True
+
+            if any(k in call.data for k in ("value", "delta", "amount", "reset")):
+                res = storage.data.update_thing_value(
+                    thing_id=thing_id,
+                    value=call.data.get("value"),
+                    delta=delta,
+                    reset=call.data.get("reset", False),
+                )
+                if res:
+                    updated = True
+
+        if updated:
+            await storage.async_save()
+
+    async def handle_increment_thing(call: ServiceCall) -> None:
+        """Handle incrementing a Thing's counter/meter via service."""
+        target_ids = resolve_thing_ids(call.data, storage, hass)
+        if not target_ids:
+            _LOGGER.warning("Task Manager: No target Thing found to increment (call data: %s)", call.data)
+            return
+
+        delta = 1.0
+        if "delta" in call.data and call.data["delta"] is not None:
+            delta = float(call.data["delta"])
+        elif "amount" in call.data and call.data["amount"] is not None:
+            delta = float(call.data["amount"])
+        elif "step" in call.data and call.data["step"] is not None:
+            delta = float(call.data["step"])
+
+        updated = False
+        for thing_id in target_ids:
+            res = storage.data.update_thing_value(thing_id=thing_id, delta=delta)
+            if res:
+                updated = True
+
+        if updated:
+            await storage.async_save()
 
     async def handle_award_points(call: ServiceCall) -> None:
         """Handle awarding points to a user via service."""
@@ -484,6 +623,7 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
     hass.services.async_register(DOMAIN, SERVICE_DUPLICATE_TASK, handle_duplicate_task, schema=SCHEMA_DUPLICATE_TASK)
     hass.services.async_register(DOMAIN, SERVICE_DELETE_TASK, handle_delete_task, schema=SCHEMA_DELETE_TASK)
     hass.services.async_register(DOMAIN, SERVICE_UPDATE_THING, handle_update_thing, schema=SCHEMA_UPDATE_THING)
+    hass.services.async_register(DOMAIN, SERVICE_INCREMENT_THING, handle_increment_thing, schema=SCHEMA_INCREMENT_THING)
     hass.services.async_register(DOMAIN, SERVICE_AWARD_POINTS, handle_award_points, schema=SCHEMA_AWARD_POINTS)
 
 
@@ -509,6 +649,7 @@ def async_unregister_services(hass: HomeAssistant) -> None:
         SERVICE_DUPLICATE_TASK,
         SERVICE_DELETE_TASK,
         SERVICE_UPDATE_THING,
+        SERVICE_INCREMENT_THING,
         SERVICE_AWARD_POINTS,
     ]
     for s in services:
