@@ -3,7 +3,7 @@
  * Type: custom:task-manager-card
  */
 
-const CARD_VERSION = "1.0.18";
+const CARD_VERSION = "1.0.30";
 
 class TaskManagerCard extends HTMLElement {
   constructor() {
@@ -431,7 +431,11 @@ class TaskManagerCard extends HTMLElement {
                       <span class="badge" style="background:rgba(234,179,8,0.15); color:#ca8a04;">🔗 ${t.dependencies.length} ${de ? "Abh." : "deps"}</span>
                     ` : ""}
                     ${t.task_type === "reading" ? `
-                      <span class="badge" style="background:rgba(6,182,212,0.15); color:#0891b2;">📟 ${t.last_reading_value !== undefined && t.last_reading_value !== null ? `${t.last_reading_value} ${t.reading_unit || ""}` : (de ? "Zählerablesung" : "Reading")}</span>
+                      <span class="badge" style="background:rgba(6,182,212,0.15); color:#0891b2;">
+                        📟 ${(t.registers && t.registers.length > 0)
+                          ? t.registers.map(r => `${this._escape(r.name || 'R')}: ${r.last_value !== undefined && r.last_value !== null ? r.last_value : '—'}`).join(" | ")
+                          : (t.last_reading_value !== undefined && t.last_reading_value !== null ? `${t.last_reading_value} ${this._escape(t.reading_unit || "")}` : (de ? "Zählerablesung" : "Reading"))}
+                      </span>
                     ` : ""}
                     ${t.consumed_parts && t.consumed_parts.length > 0 ? `
                       <span class="badge" style="background:rgba(249,115,22,0.15); color:#ea580c;">📦 ${t.consumed_parts.length} ${de ? "Teile" : "parts"}</span>
@@ -491,7 +495,37 @@ class TaskManagerCard extends HTMLElement {
         if (taskId && this._hass) {
           try {
             if (action === "complete") {
-              await this._hass.callWS({ type: "task_manager/complete_task", task_id: taskId });
+              const task = this._tasks.find(t => t.id === taskId);
+              const payload = { type: "task_manager/complete_task", task_id: taskId };
+              if (task && task.task_type === "reading") {
+                if (task.registers && task.registers.length > 0) {
+                  const readings = [];
+                  let cancelled = false;
+                  for (const reg of task.registers) {
+                    const promptMsg = de
+                      ? `Zählerstand für "${reg.name || 'Register'}" eingeben (${reg.unit || task.reading_unit || ''}) [Vorher: ${reg.last_value !== undefined && reg.last_value !== null ? reg.last_value : '—'}]:`
+                      : `Enter reading for "${reg.name || 'Register'}" (${reg.unit || task.reading_unit || ''}) [Previous: ${reg.last_value !== undefined && reg.last_value !== null ? reg.last_value : '—'}]:`;
+                    const inputVal = prompt(promptMsg, reg.last_value !== undefined && reg.last_value !== null ? reg.last_value : "");
+                    if (inputVal === null) {
+                      cancelled = true;
+                      break;
+                    }
+                    if (inputVal.trim() !== "") {
+                      readings.push({ id: reg.id, name: reg.name, value: parseFloat(inputVal.trim()) || 0 });
+                    }
+                  }
+                  if (cancelled) return;
+                  if (readings.length > 0) payload.readings = readings;
+                } else {
+                  const promptMsg = de
+                    ? `Zählerstand eingeben (${task.reading_unit || ''}) [Vorher: ${task.last_reading_value !== undefined && task.last_reading_value !== null ? task.last_reading_value : '—'}]:`
+                    : `Enter reading value (${task.reading_unit || ''}) [Previous: ${task.last_reading_value !== undefined && task.last_reading_value !== null ? task.last_reading_value : '—'}]:`;
+                  const inputVal = prompt(promptMsg, task.last_reading_value !== undefined && task.last_reading_value !== null ? task.last_reading_value : "");
+                  if (inputVal === null) return;
+                  if (inputVal.trim() !== "") payload.reading_value = inputVal.trim();
+                }
+              }
+              await this._hass.callWS(payload);
             } else {
               await this._hass.callWS({ type: "task_manager/reset_task", task_id: taskId });
             }

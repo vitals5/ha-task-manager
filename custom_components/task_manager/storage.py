@@ -632,7 +632,23 @@ class TaskManagerData:
             "points": int(task_data.get("points", self.settings.get("default_points", 10))),
             "task_type": task_data.get("task_type", TASK_TYPE_CHORE),
             "reading_unit": task_data.get("reading_unit", ""),
-            "last_reading_value": task_data.get("last_reading_value"),
+            "last_reading_value": (
+                task_data.get("last_reading_value")
+                if task_data.get("last_reading_value") is not None
+                else (
+                    next((reg.get("last_value") for reg in task_data.get("registers", []) if isinstance(reg, dict) and reg.get("last_value") is not None), None)
+                )
+            ),
+            "registers": [
+                {
+                    "id": str(reg.get("id") or uuid.uuid4())[:8],
+                    "name": str(reg.get("name", "")).strip(),
+                    "unit": str(reg.get("unit", "")).strip(),
+                    "last_value": float(reg["last_value"]) if reg.get("last_value") is not None and str(reg.get("last_value")).strip() not in ("", "None", "null") else None,
+                }
+                for reg in task_data.get("registers", [])
+                if isinstance(reg, dict) and (reg.get("name") or reg.get("id"))
+            ],
             "consumed_parts": task_data.get("consumed_parts", []),
             "on_complete_entity_id": task_data.get("on_complete_entity_id") or None,
             "require_tag_scan": bool(task_data.get("require_tag_scan", False)),
@@ -686,6 +702,17 @@ class TaskManagerData:
                     pass
             elif key == "dependencies" and isinstance(val, list):
                 task["dependencies"] = [str(d).strip() for d in val if str(d).strip()]
+            elif key == "registers" and isinstance(val, list):
+                task["registers"] = [
+                    {
+                        "id": str(reg.get("id") or uuid.uuid4())[:8],
+                        "name": str(reg.get("name", "")).strip(),
+                        "unit": str(reg.get("unit", "")).strip(),
+                        "last_value": float(reg["last_value"]) if reg.get("last_value") is not None and str(reg.get("last_value")).strip() not in ("", "None", "null") else None,
+                    }
+                    for reg in val
+                    if isinstance(reg, dict) and (reg.get("name") or reg.get("id"))
+                ]
             else:
                 task[key] = val
 
@@ -738,6 +765,7 @@ class TaskManagerData:
         reading_value: float | None = None,
         consumed_parts: list[dict[str, Any]] | None = None,
         hass: HomeAssistant | None = None,
+        readings: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
         """Mark a task complete, apply points, rotate assignee, and calculate recurrence."""
         task = self.get_task(task_id)
@@ -784,10 +812,66 @@ class TaskManagerData:
 
                 user["last_completed_date"] = today_date_str
 
-        # Reading Task calculation
+        # Reading Task calculation (Single or Multi-Register)
+        recorded_readings: list[dict[str, Any]] = []
         reading_entry = None
         reading_delta = None
-        if reading_value is not None:
+        task_registers = task.get("registers") or []
+
+        if readings and isinstance(readings, list):
+            for r_item in readings:
+                if not isinstance(r_item, dict):
+                    continue
+                reg_id = r_item.get("id")
+                reg_name = str(r_item.get("name") or "").strip()
+                reg_unit = str(r_item.get("unit") or "").strip()
+                val_raw = r_item.get("value")
+                if val_raw is None:
+                    val_raw = r_item.get("reading_value")
+                if val_raw is None or str(val_raw).strip() == "":
+                    continue
+
+                try:
+                    cur_val = float(val_raw)
+                except (ValueError, TypeError):
+                    continue
+
+                # Match against task registers
+                matched_reg = None
+                for reg in task_registers:
+                    if reg_id and reg.get("id") == reg_id:
+                        matched_reg = reg
+                        break
+                    if reg_name and reg.get("name") == reg_name:
+                        matched_reg = reg
+                        break
+
+                if matched_reg:
+                    prev_val = matched_reg.get("last_value")
+                    delta = round(cur_val - float(prev_val), 4) if prev_val is not None else 0.0
+                    matched_reg["last_value"] = cur_val
+                    unit = matched_reg.get("unit") or reg_unit or task.get("reading_unit", "")
+                    name = matched_reg.get("name") or reg_name
+                    reg_id = matched_reg.get("id") or reg_id
+                else:
+                    delta = 0.0
+                    unit = reg_unit or task.get("reading_unit", "")
+                    name = reg_name or "Reading"
+
+                recorded_readings.append({
+                    "id": reg_id,
+                    "name": name,
+                    "unit": unit,
+                    "value": cur_val,
+                    "delta": delta,
+                })
+
+            if recorded_readings:
+                reading_entry = recorded_readings[0]["value"]
+                reading_delta = recorded_readings[0]["delta"]
+                task["last_reading_value"] = reading_entry
+
+        elif reading_value is not None:
             try:
                 cur_val = float(reading_value)
                 prev_val = task.get("last_reading_value")
@@ -797,6 +881,16 @@ class TaskManagerData:
                     reading_delta = 0.0
                 task["last_reading_value"] = cur_val
                 reading_entry = cur_val
+
+                if len(task_registers) == 1:
+                    task_registers[0]["last_value"] = cur_val
+                    recorded_readings.append({
+                        "id": task_registers[0].get("id"),
+                        "name": task_registers[0].get("name", "Reading"),
+                        "unit": task_registers[0].get("unit", task.get("reading_unit", "")),
+                        "value": cur_val,
+                        "delta": reading_delta,
+                    })
             except (ValueError, TypeError):
                 pass
 
@@ -846,6 +940,8 @@ class TaskManagerData:
             history_item["reading_value"] = reading_entry
             history_item["reading_delta"] = reading_delta
             history_item["reading_unit"] = task.get("reading_unit", "")
+        if recorded_readings:
+            history_item["readings"] = recorded_readings
         if used_parts_list:
             history_item["consumed_parts"] = used_parts_list
 
@@ -1214,6 +1310,8 @@ class TaskManagerData:
             "task_type": task.get("task_type", TASK_TYPE_CHORE),
             "reading_unit": task.get("reading_unit", ""),
             "last_reading_value": task.get("last_reading_value"),
+            "registers": task.get("registers", []),
+            "readings": {r["name"]: r.get("last_value") for r in task.get("registers", []) if r.get("name")},
             "consumed_parts": task.get("consumed_parts", []),
             "on_complete_entity_id": task.get("on_complete_entity_id"),
             "require_tag_scan": task.get("require_tag_scan", False),
@@ -1245,6 +1343,86 @@ class TaskManagerData:
                 self._log_activity("task_deleted", {"task_id": task_id, "title": title})
                 return True
         return False
+
+    def delete_task_history_entry(
+        self,
+        task_id: str,
+        entry_index: int | None = None,
+        completed_at: str | None = None,
+    ) -> bool:
+        """Delete a history entry from a task and restore previous state/readings if needed."""
+        task = self.get_task(task_id)
+        if not task:
+            return False
+
+        history = task.get("history", [])
+        if not history:
+            return False
+
+        idx_to_remove: int | None = None
+        if completed_at:
+            for i, h in enumerate(history):
+                if h.get("completed_at") == completed_at:
+                    idx_to_remove = i
+                    break
+        elif entry_index is not None:
+            if -len(history) <= entry_index < len(history):
+                idx_to_remove = entry_index if entry_index >= 0 else len(history) + entry_index
+
+        if idx_to_remove is None:
+            return False
+
+        removed = history.pop(idx_to_remove)
+
+        # Decrement times_completed if > 0
+        task["times_completed"] = max(0, int(task.get("times_completed", 1)) - 1)
+        if task.get("repetition_count", 0) > 0:
+            task["repetition_count"] = max(0, int(task.get("repetition_count", 1)) - 1)
+
+        # Restore last done date
+        remaining_completed = [
+            h.get("completed_at")[:10] for h in history if h.get("completed_at")
+        ]
+        if remaining_completed:
+            task["last_done_date"] = remaining_completed[-1]
+        else:
+            task["last_done_date"] = None
+
+        # Restore reading values if this was a reading task or has registers
+        if task.get("task_type") == TASK_TYPE_READING or task.get("registers") or task.get("last_reading_value") is not None:
+            prev_reading_val = None
+            for h in reversed(history):
+                if "reading_value" in h and h["reading_value"] is not None:
+                    prev_reading_val = h["reading_value"]
+                    break
+                elif "readings" in h and isinstance(h["readings"], list) and h["readings"]:
+                    first_r = h["readings"][0]
+                    if isinstance(first_r, dict) and first_r.get("value") is not None:
+                        prev_reading_val = first_r["value"]
+                        break
+            task["last_reading_value"] = prev_reading_val
+
+            for reg in task.get("registers", []):
+                reg_id = reg.get("id")
+                reg_name = reg.get("name")
+                found_val = None
+                for h in reversed(history):
+                    if "readings" in h and isinstance(h["readings"], list):
+                        for rh in h["readings"]:
+                            if isinstance(rh, dict):
+                                if (reg_id and rh.get("id") == reg_id) or (reg_name and rh.get("name") == reg_name):
+                                    found_val = rh.get("value")
+                                    break
+                        if found_val is not None:
+                            break
+                reg["last_value"] = found_val
+
+        self._log_activity("task_history_entry_deleted", {
+            "task_id": task_id,
+            "title": task.get("title", ""),
+            "deleted_completed_at": removed.get("completed_at"),
+        })
+        return True
 
     def update_subtask(self, task_id: str, subtask_id: str, completed: bool) -> bool:
         """Toggle or set subtask completed state."""
@@ -2015,6 +2193,7 @@ class TaskManagerStorage:
         completed_at: str | None = None,
         reading_value: float | None = None,
         consumed_parts: list[dict[str, Any]] | None = None,
+        readings: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
         """Complete an internal or external task."""
         if task_id.startswith("ext:"):
@@ -2134,6 +2313,7 @@ class TaskManagerStorage:
             reading_value=reading_value,
             consumed_parts=consumed_parts,
             hass=self.hass,
+            readings=readings,
         )
         if task:
             linked_thing_id = task.get("linked_thing_id")
@@ -2201,10 +2381,11 @@ class TaskManagerStorage:
     async def async_record_reading(
         self,
         task_id: str,
-        reading_value: float,
+        reading_value: float | None = None,
         notes: str | None = None,
         completed_at: str | None = None,
         user_id: str | None = None,
+        readings: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
         """Record reading and complete task recurrence."""
         return await self.async_complete_task(
@@ -2213,7 +2394,20 @@ class TaskManagerStorage:
             notes=notes,
             completed_at=completed_at,
             reading_value=reading_value,
+            readings=readings,
         )
+
+    async def async_delete_task_history_entry(
+        self,
+        task_id: str,
+        entry_index: int | None = None,
+        completed_at: str | None = None,
+    ) -> bool:
+        """Delete a history entry and persist."""
+        res = self.data.delete_task_history_entry(task_id, entry_index=entry_index, completed_at=completed_at)
+        if res:
+            await self.async_save()
+        return res
 
     async def async_create_part(self, part_data: dict[str, Any]) -> dict[str, Any]:
         """Create part and persist."""

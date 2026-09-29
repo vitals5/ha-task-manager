@@ -21,6 +21,7 @@ from .const import (
     SERVICE_CREATE_TASK,
     SERVICE_DELETE_PART,
     SERVICE_DELETE_TASK,
+    SERVICE_DELETE_TASK_HISTORY_ENTRY,
     SERVICE_DUPLICATE_TASK,
     SERVICE_MARK_AS_DONE,
     SERVICE_MOVE_TASK,
@@ -59,6 +60,7 @@ SCHEMA_CREATE_TASK = vol.Schema({
     vol.Optional("task_type"): cv.string,
     vol.Optional("reading_unit"): cv.string,
     vol.Optional("last_reading_value"): vol.Coerce(float),
+    vol.Optional("registers"): list,
     vol.Optional("consumed_parts"): list,
     vol.Optional("on_complete_entity_id"): cv.string,
     vol.Optional("default_duration_minutes"): vol.Coerce(int),
@@ -76,6 +78,7 @@ SCHEMA_COMPLETE_TASK = vol.Schema({
     vol.Optional("notes"): cv.string,
     vol.Optional("completed_at"): cv.string,
     vol.Optional("reading_value"): vol.Coerce(float),
+    vol.Optional("readings"): list,
     vol.Optional("consumed_parts"): list,
 })
 
@@ -89,10 +92,19 @@ SCHEMA_RECORD_READING = vol.Schema({
     vol.Optional("task_id"): cv.string,
     vol.Optional("entity_id"): cv.string,
     vol.Optional("task_title"): cv.string,
-    vol.Required("reading_value"): vol.Coerce(float),
+    vol.Optional("reading_value"): vol.Coerce(float),
+    vol.Optional("readings"): list,
     vol.Optional("notes"): cv.string,
     vol.Optional("completed_at"): cv.string,
     vol.Optional("user_id"): cv.string,
+})
+
+SCHEMA_DELETE_TASK_HISTORY_ENTRY = vol.Schema({
+    vol.Optional("task_id"): cv.string,
+    vol.Optional("entity_id"): cv.string,
+    vol.Optional("task_title"): cv.string,
+    vol.Optional("entry_index", default=-1): vol.Coerce(int),
+    vol.Optional("completed_at"): cv.string,
 })
 
 SCHEMA_ADJUST_PART_STOCK = vol.Schema({
@@ -371,6 +383,7 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
         notes = call.data.get("notes")
         completed_at = call.data.get("completed_at")
         reading_value = call.data.get("reading_value")
+        readings = call.data.get("readings")
         consumed_parts = call.data.get("consumed_parts")
 
         kwargs: dict[str, Any] = {"user_id": user_id}
@@ -384,6 +397,8 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
             kwargs["completed_at"] = completed_at
         if reading_value is not None:
             kwargs["reading_value"] = reading_value
+        if readings is not None:
+            kwargs["readings"] = readings
         if consumed_parts is not None:
             kwargs["consumed_parts"] = consumed_parts
 
@@ -411,7 +426,8 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
     async def handle_record_reading(call: ServiceCall) -> None:
         """Handle recording a meter/utility reading for a task via service."""
         target_id = resolve_task_id(call.data, storage, hass)
-        reading_value = call.data["reading_value"]
+        reading_value = call.data.get("reading_value")
+        readings = call.data.get("readings")
         notes = call.data.get("notes")
         completed_at = call.data.get("completed_at")
         user_id = call.data.get("user_id")
@@ -420,12 +436,27 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
             await storage.async_record_reading(
                 task_id=target_id,
                 reading_value=reading_value,
+                readings=readings,
                 notes=notes,
                 completed_at=completed_at,
                 user_id=user_id,
             )
         else:
             _LOGGER.warning("Task Manager: Task '%s' not found to record reading", call.data.get("task_id") or call.data.get("task_title") or call.data.get("entity_id"))
+
+    async def handle_delete_task_history_entry(call: ServiceCall) -> None:
+        """Handle deleting a task history entry via service."""
+        target_id = resolve_task_id(call.data, storage, hass)
+        entry_index = call.data.get("entry_index")
+        completed_at = call.data.get("completed_at")
+        if target_id:
+            await storage.async_delete_task_history_entry(
+                task_id=target_id,
+                entry_index=entry_index,
+                completed_at=completed_at,
+            )
+        else:
+            _LOGGER.warning("Task Manager: Task '%s' not found to delete history entry", call.data.get("task_id") or call.data.get("task_title") or call.data.get("entity_id"))
 
     async def handle_adjust_part_stock(call: ServiceCall) -> None:
         """Handle adjusting or setting part stock via service."""
@@ -609,6 +640,7 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
     hass.services.async_register(DOMAIN, SERVICE_COMPLETE_TASK, handle_complete_task, schema=SCHEMA_COMPLETE_TASK)
     hass.services.async_register(DOMAIN, SERVICE_SKIP_TASK, handle_skip_task, schema=SCHEMA_SKIP_TASK)
     hass.services.async_register(DOMAIN, SERVICE_RECORD_READING, handle_record_reading, schema=SCHEMA_RECORD_READING)
+    hass.services.async_register(DOMAIN, SERVICE_DELETE_TASK_HISTORY_ENTRY, handle_delete_task_history_entry, schema=SCHEMA_DELETE_TASK_HISTORY_ENTRY)
     hass.services.async_register(DOMAIN, SERVICE_ADJUST_PART_STOCK, handle_adjust_part_stock, schema=SCHEMA_ADJUST_PART_STOCK)
     hass.services.async_register(DOMAIN, SERVICE_SAVE_PART, handle_save_part, schema=SCHEMA_SAVE_PART)
     hass.services.async_register(DOMAIN, SERVICE_DELETE_PART, handle_delete_part, schema=SCHEMA_DELETE_PART)
@@ -635,6 +667,7 @@ def async_unregister_services(hass: HomeAssistant) -> None:
         SERVICE_COMPLETE_TASK,
         SERVICE_SKIP_TASK,
         SERVICE_RECORD_READING,
+        SERVICE_DELETE_TASK_HISTORY_ENTRY,
         SERVICE_ADJUST_PART_STOCK,
         SERVICE_SAVE_PART,
         SERVICE_DELETE_PART,

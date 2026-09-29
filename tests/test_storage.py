@@ -1113,6 +1113,88 @@ class TestTaskManagerStorageAsync(unittest.IsolatedAsyncioTestCase):
         st2, _ = data.get_task_effective_state(task["id"], hass)
         self.assertEqual(st2, const_mod.TASK_STATE_DUE_SOON)
 
+    def test_multi_register_reading_task_lifecycle_and_history_deletion(self):
+        """Test multi-register reading task creation, completion with deltas, and history entry deletion."""
+        data = TaskManagerData()
+        # 1. Create task with multiple registers
+        task = data.create_task({
+            "title": "Electricity Meter Main",
+            "task_type": "reading",
+            "reading_unit": "kWh",
+            "due_date": "2026-09-26",
+            "registers": [
+                {"name": "HT Bezug", "unit": "kWh", "last_value": 12500.0},
+                {"name": "NT Bezug", "unit": "kWh", "last_value": 8300.0},
+                {"name": "Einspeisung", "unit": "kWh", "last_value": 3100.0},
+            ]
+        })
+
+        self.assertEqual(task["task_type"], "reading")
+        self.assertEqual(len(task["registers"]), 3)
+        self.assertEqual(task["registers"][0]["name"], "HT Bezug")
+        self.assertEqual(task["registers"][0]["last_value"], 12500.0)
+        self.assertEqual(task["last_reading_value"], 12500.0)
+
+        # 2. Complete task with first reading
+        completed1 = data.complete_task(task["id"], readings=[
+            {"name": "HT Bezug", "value": 12600.0},
+            {"name": "NT Bezug", "value": 8350.0},
+            {"name": "Einspeisung", "value": 3140.0},
+        ], completed_at="2026-09-26T10:00:00Z")
+
+        self.assertEqual(completed1["times_completed"], 1)
+        self.assertEqual(completed1["registers"][0]["last_value"], 12600.0)
+        self.assertEqual(completed1["registers"][1]["last_value"], 8350.0)
+        self.assertEqual(completed1["registers"][2]["last_value"], 3140.0)
+        self.assertEqual(completed1["last_reading_value"], 12600.0)
+
+        # Verify history entry
+        self.assertEqual(len(completed1["history"]), 1)
+        h1 = completed1["history"][0]
+        self.assertIn("readings", h1)
+        self.assertEqual(len(h1["readings"]), 3)
+        self.assertEqual(h1["readings"][0]["delta"], 100.0)  # 12600 - 12500
+        self.assertEqual(h1["readings"][1]["delta"], 50.0)   # 8350 - 8300
+        self.assertEqual(h1["readings"][2]["delta"], 40.0)   # 3140 - 3100
+
+        # Check effective state attributes
+        state, attrs = data.get_task_effective_state(task["id"])
+        self.assertIn("registers", attrs)
+        self.assertIn("readings", attrs)
+        self.assertEqual(attrs["readings"]["HT Bezug"], 12600.0)
+        self.assertEqual(attrs["readings"]["NT Bezug"], 8350.0)
+        self.assertEqual(attrs["readings"]["Einspeisung"], 3140.0)
+
+        # 3. Complete task with second reading
+        completed2 = data.complete_task(task["id"], readings=[
+            {"name": "HT Bezug", "value": 12720.0},
+            {"name": "NT Bezug", "value": 8410.0},
+            {"name": "Einspeisung", "value": 3190.0},
+        ], completed_at="2026-09-27T10:00:00Z")
+
+        self.assertEqual(completed2["times_completed"], 2)
+        self.assertEqual(len(completed2["history"]), 2)
+        self.assertEqual(completed2["registers"][0]["last_value"], 12720.0)
+        h2 = completed2["history"][1]
+        self.assertEqual(h2["readings"][0]["delta"], 120.0)  # 12720 - 12600
+        self.assertEqual(h2["readings"][1]["delta"], 60.0)   # 8410 - 8350
+        self.assertEqual(h2["readings"][2]["delta"], 50.0)   # 3190 - 3140
+
+        # 4. Delete the latest history entry (e.g. user entered typo and wants to remove it)
+        success = data.delete_task_history_entry(task["id"], entry_index=1)
+        self.assertTrue(success)
+        after_delete = data.get_task(task["id"])
+        self.assertIsNotNone(after_delete)
+        self.assertEqual(len(after_delete["history"]), 1)
+        self.assertEqual(after_delete["times_completed"], 1)
+
+        # Check that registers last_values were restored to reading 1!
+        self.assertEqual(after_delete["registers"][0]["last_value"], 12600.0)
+        self.assertEqual(after_delete["registers"][1]["last_value"], 8350.0)
+        self.assertEqual(after_delete["registers"][2]["last_value"], 3140.0)
+        self.assertEqual(after_delete["last_reading_value"], 12600.0)
+        self.assertEqual(after_delete["last_done_date"], "2026-09-26")
+
 
 if __name__ == "__main__":
     unittest.main()

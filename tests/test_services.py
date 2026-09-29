@@ -108,6 +108,7 @@ from task_manager.services import (
 from task_manager.const import (
     DOMAIN,
     SERVICE_COMPLETE_TASK,
+    SERVICE_DELETE_TASK_HISTORY_ENTRY,
     SERVICE_INCREMENT_THING,
     SERVICE_MARK_AS_DONE,
     SERVICE_PAUSE_TASK,
@@ -130,6 +131,7 @@ class TestTaskManagerServices(unittest.IsolatedAsyncioTestCase):
         self.storage.data = TaskManagerData()
         self.storage.data.tasks.clear()
         self.storage.async_complete_task = AsyncMock()
+        self.storage.async_delete_task_history_entry = AsyncMock()
         self.storage.async_set_last_done_date = AsyncMock()
         self.storage.async_pause_task = AsyncMock()
         self.storage.async_resume_task = AsyncMock()
@@ -270,3 +272,44 @@ class TestTaskManagerServices(unittest.IsolatedAsyncioTestCase):
         await update_handler(call)
         self.storage.async_save.assert_awaited_once()
         self.assertEqual(self.storage.data.get_thing(th["id"])["current_value"], 15.0)
+
+    async def test_service_complete_task_with_readings(self):
+        """Test calling complete_task service with multi-register readings."""
+        task = self.storage.data.create_task({"title": "Electricity Meter", "task_type": "reading"})
+        complete_handler = registered_services.get(SERVICE_COMPLETE_TASK)
+        self.assertIsNotNone(complete_handler)
+
+        readings_payload = [
+            {"name": "HT", "value": 10500.5},
+            {"name": "NT", "value": 4200.0},
+        ]
+        call = MagicMock()
+        call.data = {
+            "task_id": task["id"],
+            "readings": readings_payload,
+        }
+        await complete_handler(call)
+        self.storage.async_complete_task.assert_awaited_once_with(
+            task["id"],
+            user_id=None,
+            readings=readings_payload,
+        )
+
+    async def test_service_delete_task_history_entry(self):
+        """Test calling delete_task_history_entry service."""
+        task = self.storage.data.create_task({"title": "Reading Task"})
+        del_handler = registered_services.get(SERVICE_DELETE_TASK_HISTORY_ENTRY)
+        self.assertIsNotNone(del_handler)
+
+        call = MagicMock()
+        call.data = {
+            "task_id": task["id"],
+            "entry_index": 2,
+        }
+        await del_handler(call)
+        self.storage.async_delete_task_history_entry.assert_awaited_once_with(
+            task_id=task["id"],
+            entry_index=2,
+            completed_at=None,
+        )
+

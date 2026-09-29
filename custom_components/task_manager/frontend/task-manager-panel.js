@@ -277,6 +277,23 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       taskTypeChore: "Maintenance / Regular Chore",
       taskTypeReading: "Meter / Utility Reading",
       readingUnitLabel: "Reading Unit (e.g. m³, kWh, L, bar)",
+      registersLabel: "Meter Registers / Counters",
+      registersHint: "Define multiple registers/sub-counters for this meter (e.g. HT / NT / Feed-in).",
+      addRegister: "Add Register",
+      registerNamePlaceholder: "e.g. HT (Peak), NT (Off-Peak), Feed-in",
+      registerUnitPlaceholder: "kWh",
+      readingHistoryTitle: "Reading History",
+      noReadingHistory: "No readings recorded yet.",
+      exportCsv: "Export CSV",
+      showAllHistory: "Show all ({count})",
+      showLessHistory: "Show less",
+      deleteHistoryEntryConfirm: "Delete this reading entry? Previous meter values will be restored.",
+      historyDate: "Date",
+      historyRegisters: "Readings & Deltas",
+      historyUser: "User",
+      historyNotes: "Notes",
+      historyAction: "Action",
+      deleteEntry: "Delete entry",
       lastReadingLabel: "Last Reading Value",
       readingValueLabel: "Current Meter Reading",
       consumptionDelta: "Consumption / Delta",
@@ -566,6 +583,23 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       taskTypeChore: "Wartung / Reguläre Aufgabe",
       taskTypeReading: "Zählerablesung",
       readingUnitLabel: "Ableseeinheit (z. B. m³, kWh, L, bar)",
+      registersLabel: "Zählwerke / Register",
+      registersHint: "Mehrere Zählwerke für diesen Zähler definieren (z. B. HT / NT / Einspeisung).",
+      addRegister: "Zählwerk hinzufügen",
+      registerNamePlaceholder: "z. B. HT (Tag), NT (Nacht), Einspeisung",
+      registerUnitPlaceholder: "kWh",
+      readingHistoryTitle: "Ablese-Historie",
+      noReadingHistory: "Noch keine Ablesungen vorhanden.",
+      exportCsv: "Als CSV exportieren",
+      showAllHistory: "Alle ({count}) anzeigen",
+      showLessHistory: "Weniger anzeigen",
+      deleteHistoryEntryConfirm: "Diesen Ableseeintrag wirklich löschen? Vorherige Zählerstände werden wiederhergestellt.",
+      historyDate: "Datum",
+      historyRegisters: "Zählerstände & Differenz",
+      historyUser: "Benutzer",
+      historyNotes: "Notizen",
+      historyAction: "Aktion",
+      deleteEntry: "Eintrag löschen",
       lastReadingLabel: "Letzter Zählerstand",
       readingValueLabel: "Aktueller Zählerstand",
       consumptionDelta: "Verbrauch / Differenz",
@@ -1238,6 +1272,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         if (details.cost !== undefined && details.cost !== null && details.cost !== "") {
           payload.cost = parseFloat(details.cost);
         }
+        if (details.readings && details.readings.length > 0) {
+          payload.readings = details.readings;
+        }
         if (details.notes) {
           payload.notes = details.notes;
         }
@@ -1280,6 +1317,22 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
     async deleteTask(taskId) {
       if (confirm(this.t("confirmDelete"))) {
         await this._callWS("task_manager/delete_task", { task_id: taskId });
+      }
+    }
+
+    async deleteTaskHistoryEntry(taskId, entryIndex = null, completedAt = null) {
+      if (confirm(this.t("deleteHistoryEntryConfirm"))) {
+        const payload = { task_id: taskId };
+        if (entryIndex !== null && entryIndex !== undefined) payload.entry_index = entryIndex;
+        if (completedAt) payload.completed_at = completedAt;
+        await this._callWS("task_manager/delete_history_entry", payload);
+        if (this._modalState && this._modalState.task && this._modalState.task.id === taskId) {
+          const fresh = (this._data.tasks || []).find(t => t.id === taskId);
+          if (fresh) {
+            this._modalState.task = fresh;
+          }
+        }
+        this._render();
       }
     }
 
@@ -3220,7 +3273,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               <div class="task-meta">
                 ${task.task_type === "reading" ? `
                   <span class="meta-chip" style="background:rgba(6, 182, 212, 0.15); color:#0891b2;">
-                    📟 ${this.t("taskTypeReading")} ${task.last_reading_value !== undefined && task.last_reading_value !== null ? `(${task.last_reading_value} ${task.reading_unit || ""})` : ""}
+                    📟 ${this.t("taskTypeReading")} ${task.registers && task.registers.length > 0
+                      ? `(${task.registers.map(r => `${this._escape(r.name)}: ${r.last_value !== undefined && r.last_value !== null ? r.last_value : "—"}`).join(", ")})`
+                      : (task.last_reading_value !== undefined && task.last_reading_value !== null ? `(${task.last_reading_value} ${task.reading_unit || ""})` : "")}
                   </span>
                 ` : ""}
 
@@ -4058,6 +4113,27 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               </div>
             </div>
 
+            <!-- Multi-Register Definition for Reading Tasks -->
+            <div id="m-task-registers-container" style="display:${task.task_type === "reading" ? "block" : "none"}; margin-bottom:14px; border:1px solid var(--ha-card-border-color, rgba(127,127,127,0.2)); border-radius:8px; padding:10px 12px; background:var(--secondary-background-color, rgba(127,127,127,0.03));">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <label class="form-label" style="margin:0; font-weight:600; font-size:13px;">🔢 ${this.t("registersLabel")}</label>
+                <button type="button" class="btn btn-secondary btn-sm" id="m-add-register-btn" style="padding:3px 8px; font-size:12px;">+ ${this.t("addRegister")}</button>
+              </div>
+              <div style="font-size:11px; color:var(--secondary-text-color, #64748b); margin-bottom:8px;">${this.t("registersHint")}</div>
+              <div id="m-registers-list" style="display:flex; flex-direction:column; gap:8px;">
+                ${(task.registers || []).map((reg, idx) => `
+                  <div class="m-register-row" data-reg-id="${this._escape(reg.id || '')}" data-reg-last-val="${reg.last_value !== undefined && reg.last_value !== null ? reg.last_value : ''}" style="display:flex; gap:8px; align-items:center;">
+                    <input type="text" class="text-input m-register-name-input" value="${this._escape(reg.name || '')}" placeholder="${this.t("registerNamePlaceholder")}" style="flex:2;">
+                    <input type="text" class="text-input m-register-unit-input" value="${this._escape(reg.unit || '')}" placeholder="${this.t("registerUnitPlaceholder")}" style="flex:1;">
+                    ${reg.last_value !== undefined && reg.last_value !== null ? `
+                      <span style="font-size:11px; color:var(--secondary-text-color, #64748b); white-space:nowrap;" title="${this.t("lastReadingLabel")}">(${reg.last_value})</span>
+                    ` : ""}
+                    <button type="button" class="btn btn-secondary btn-sm m-remove-register-btn" style="padding:4px 8px; color:var(--error-color, #ef4444);" title="${this.t("delete")}">✕</button>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+
             <div class="form-grid-2">
               <div class="form-group">
                 <label class="form-label">⏱️ ${this.t("durationMinutesLabel")}</label>
@@ -4365,6 +4441,105 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               </div>
             </details>
 
+            <!-- Reading History Table & CSV Export -->
+            ${(task.id && (task.task_type === "reading" || (task.history && task.history.some(h => h.reading_value !== undefined || h.readings !== undefined)))) ? (() => {
+              const readingHistory = (task.history || []).filter(h => h.reading_value !== undefined || h.readings !== undefined);
+              const totalCount = readingHistory.length;
+              const showAll = this._showAllReadingHistory;
+              const visibleEntries = showAll ? [...readingHistory].reverse() : [...readingHistory].reverse().slice(0, 10);
+              return `
+                <div style="margin-top:14px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); border-radius:8px; padding:12px; background:var(--secondary-background-color, rgba(127,127,127,0.03));">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span style="font-weight:600; font-size:14px;">📊 ${this.t("readingHistoryTitle")}</span>
+                      <span style="font-size:11px; background:var(--primary-color, #2563eb); color:#fff; padding:1px 6px; border-radius:10px; font-weight:600;">${totalCount}</span>
+                    </div>
+                    ${totalCount > 0 ? `
+                      <button type="button" class="btn btn-secondary btn-sm" id="btn-export-reading-csv" style="padding:4px 10px; font-size:12px;">
+                        📥 ${this.t("exportCsv")}
+                      </button>
+                    ` : ""}
+                  </div>
+
+                  ${totalCount === 0 ? `
+                    <div style="font-size:12px; color:var(--secondary-text-color, #64748b); font-style:italic;">
+                      ${this.t("noReadingHistory")}
+                    </div>
+                  ` : `
+                    <div style="overflow-x:auto; max-height:260px; overflow-y:auto; border:1px solid var(--ha-card-border-color, rgba(127,127,127,0.15)); border-radius:6px;">
+                      <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+                        <thead>
+                          <tr style="background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-bottom:1px solid var(--ha-card-border-color, rgba(127,127,127,0.2));">
+                            <th style="padding:6px 8px;">${this.t("historyDate")}</th>
+                            <th style="padding:6px 8px;">${this.t("historyRegisters")}</th>
+                            <th style="padding:6px 8px;">${this.t("historyUser")}</th>
+                            <th style="padding:6px 8px;">${this.t("historyNotes")}</th>
+                            <th style="padding:6px 8px; text-align:center;">${this.t("historyAction")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${visibleEntries.map((h) => {
+                            const origIdx = readingHistory.indexOf(h);
+                            const userObj = this._data.users.find(u => u.id === h.user_id);
+                            const userName = userObj ? userObj.name : (h.user_id || "—");
+                            let dateDisplay = h.completed_at ? h.completed_at.replace("T", " ").slice(0, 16) : "—";
+                            try {
+                              if (h.completed_at) {
+                                const d = new Date(h.completed_at);
+                                dateDisplay = d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                              }
+                            } catch (e) {}
+
+                            let readingsDisplay = "";
+                            if (h.readings && h.readings.length > 0) {
+                              readingsDisplay = h.readings.map(r => `
+                                <div>
+                                  <strong>${this._escape(r.name || '')}:</strong> ${r.value} ${this._escape(r.unit || '')}
+                                  ${r.delta !== undefined && r.delta !== null ? `
+                                    <span style="font-size:11px; font-weight:600; color:${r.delta >= 0 ? '#0891b2' : '#ea580c'};">(${r.delta >= 0 ? '+' : ''}${r.delta})</span>
+                                  ` : ""}
+                                </div>
+                              `).join("");
+                            } else if (h.reading_value !== undefined && h.reading_value !== null) {
+                              readingsDisplay = `
+                                <div>
+                                  ${h.reading_value} ${this._escape(h.reading_unit || task.reading_unit || '')}
+                                  ${h.reading_delta !== undefined && h.reading_delta !== null ? `
+                                    <span style="font-size:11px; font-weight:600; color:${h.reading_delta >= 0 ? '#0891b2' : '#ea580c'};">(${h.reading_delta >= 0 ? '+' : ''}${h.reading_delta})</span>
+                                  ` : ""}
+                                </div>
+                              `;
+                            }
+
+                            return `
+                              <tr style="border-bottom:1px solid var(--ha-card-border-color, rgba(127,127,127,0.1));">
+                                <td style="padding:6px 8px; white-space:nowrap; vertical-align:top;">${dateDisplay}</td>
+                                <td style="padding:6px 8px; vertical-align:top;">${readingsDisplay}</td>
+                                <td style="padding:6px 8px; vertical-align:top; white-space:nowrap;">${this._escape(userName)}</td>
+                                <td style="padding:6px 8px; vertical-align:top; color:var(--secondary-text-color, #64748b);">${this._escape(h.notes || '—')}</td>
+                                <td style="padding:6px 8px; vertical-align:top; text-align:center;">
+                                  <button type="button" class="btn btn-secondary btn-sm m-delete-history-btn" data-history-idx="${origIdx}" data-history-date="${this._escape(h.completed_at || '')}" style="padding:2px 6px; font-size:11px; color:var(--error-color, #ef4444);" title="${this.t("deleteEntry")}">
+                                    🗑️
+                                  </button>
+                                </td>
+                              </tr>
+                            `;
+                          }).join("")}
+                        </tbody>
+                      </table>
+                    </div>
+                    ${totalCount > 10 ? `
+                      <div style="margin-top:8px; text-align:center;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-reading-history" style="font-size:11px; padding:3px 10px;">
+                          ${showAll ? this.t("showLessHistory") : this.t("showAllHistory", { count: totalCount })}
+                        </button>
+                      </div>
+                    ` : ""}
+                  `}
+                </div>
+              `;
+            })() : ""}
+
             <div class="modal-footer">
               <button class="btn btn-secondary" id="modal-cancel">${this.t("cancel")}</button>
               <button class="btn btn-primary" id="modal-save-task">${this.t("save")}</button>
@@ -4592,17 +4767,32 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
             ${isReading ? `
               <div style="background:rgba(6, 182, 212, 0.12); border:1px solid rgba(6, 182, 212, 0.25); border-radius:8px; padding:12px; margin-bottom:14px;">
-                <div style="font-weight:600; font-size:13px; color:#0891b2; margin-bottom:6px;">
+                <div style="font-weight:600; font-size:13px; color:#0891b2; margin-bottom:8px;">
                   📟 ${this.t("taskTypeReading")}
                 </div>
-                <div style="font-size:12px; color:var(--secondary-text-color, #64748b); margin-bottom:8px;">
-                  ${this.t("lastReadingLabel")}: <strong>${task.last_reading_value !== undefined && task.last_reading_value !== null ? task.last_reading_value : "—"} ${this._escape(task.reading_unit || "")}</strong>
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">${this.t("readingValueLabel")} (${this._escape(task.reading_unit || "")})</label>
-                  <input type="number" step="any" class="text-input" id="m-comp-reading" placeholder="z. B. ${task.last_reading_value ? (parseFloat(task.last_reading_value) + 5) : 100}">
-                  <div id="m-comp-reading-delta" style="font-size:12px; font-weight:600; color:#0891b2; margin-top:4px;"></div>
-                </div>
+                ${(task.registers && task.registers.length > 0) ? `
+                  <div style="display:flex; flex-direction:column; gap:12px;">
+                    ${task.registers.map((reg, idx) => `
+                      <div class="m-comp-register-item" data-reg-id="${this._escape(reg.id || '')}" data-reg-name="${this._escape(reg.name || '')}" data-reg-unit="${this._escape(reg.unit || task.reading_unit || '')}" data-reg-last="${reg.last_value !== undefined && reg.last_value !== null ? reg.last_value : ''}">
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:3px;">
+                          <span style="font-weight:600;">${this._escape(reg.name || `Register ${idx + 1}`)} (${this._escape(reg.unit || task.reading_unit || '')})</span>
+                          <span style="color:var(--secondary-text-color, #64748b);">${this.t("lastReadingLabel")}: <strong>${reg.last_value !== undefined && reg.last_value !== null ? reg.last_value : "—"}</strong></span>
+                        </div>
+                        <input type="number" step="any" class="text-input m-comp-register-input" placeholder="z. B. ${reg.last_value !== undefined && reg.last_value !== null ? (parseFloat(reg.last_value) + 5) : 100}">
+                        <div class="m-comp-register-delta" style="font-size:12px; font-weight:600; color:#0891b2; margin-top:2px;"></div>
+                      </div>
+                    `).join("")}
+                  </div>
+                ` : `
+                  <div style="font-size:12px; color:var(--secondary-text-color, #64748b); margin-bottom:8px;">
+                    ${this.t("lastReadingLabel")}: <strong>${task.last_reading_value !== undefined && task.last_reading_value !== null ? task.last_reading_value : "—"} ${this._escape(task.reading_unit || "")}</strong>
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">${this.t("readingValueLabel")} (${this._escape(task.reading_unit || "")})</label>
+                    <input type="number" step="any" class="text-input" id="m-comp-reading" placeholder="z. B. ${task.last_reading_value ? (parseFloat(task.last_reading_value) + 5) : 100}">
+                    <div id="m-comp-reading-delta" style="font-size:12px; font-weight:600; color:#0891b2; margin-top:4px;"></div>
+                  </div>
+                `}
               </div>
             ` : ""}
 
@@ -5283,6 +5473,23 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
           const taskType = root.getElementById("m-task-type") ? root.getElementById("m-task-type").value : "chore";
           const readingUnit = root.getElementById("m-task-reading-unit") ? root.getElementById("m-task-reading-unit").value.trim() : "";
+          const registers = [];
+          root.querySelectorAll(".m-register-row").forEach(row => {
+            const rId = row.dataset.regId || "";
+            const nameInput = row.querySelector(".m-register-name-input");
+            const unitInput = row.querySelector(".m-register-unit-input");
+            const lastVal = row.dataset.regLastVal;
+            const rName = nameInput ? nameInput.value.trim() : "";
+            const rUnit = unitInput ? unitInput.value.trim() : "";
+            if (rName) {
+              registers.push({
+                id: rId || Math.random().toString(36).slice(2, 10),
+                name: rName,
+                unit: rUnit || readingUnit,
+                last_value: (lastVal !== undefined && lastVal !== "" && lastVal !== "null") ? parseFloat(lastVal) : null,
+              });
+            }
+          });
           const durMin = root.getElementById("m-task-duration") ? parseInt(root.getElementById("m-task-duration").value, 10) || 0 : 0;
           const defCost = root.getElementById("m-task-cost") ? parseFloat(root.getElementById("m-task-cost").value) || 0.0 : 0.0;
           const onCompleteEnt = root.getElementById("m-task-on-complete-entity") ? root.getElementById("m-task-on-complete-entity").value.trim() || null : null;
@@ -5310,6 +5517,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             due_soon_override: root.getElementById("m-task-due-soon-override") ? root.getElementById("m-task-due-soon-override").value.trim() || null : null,
             task_type: taskType,
             reading_unit: readingUnit,
+            registers: registers,
             default_duration_minutes: durMin,
             default_cost: defCost,
             on_complete_entity_id: onCompleteEnt,
@@ -5384,8 +5592,112 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         mTaskType.addEventListener("change", (e) => {
           const grp = root.getElementById("m-task-reading-unit-group");
           if (grp) grp.style.display = e.target.value === "reading" ? "block" : "none";
+          const regsGrp = root.getElementById("m-task-registers-container");
+          if (regsGrp) regsGrp.style.display = e.target.value === "reading" ? "block" : "none";
         });
       }
+
+      // Modal Add Register Row
+      const btnAddReg = root.getElementById("m-add-register-btn");
+      if (btnAddReg) {
+        btnAddReg.addEventListener("click", () => {
+          const list = root.getElementById("m-registers-list");
+          if (!list) return;
+          const newId = Math.random().toString(36).slice(2, 10);
+          const row = document.createElement("div");
+          row.className = "m-register-row";
+          row.dataset.regId = newId;
+          row.style.cssText = "display:flex; gap:8px; align-items:center;";
+          row.innerHTML = `
+            <input type="text" class="text-input m-register-name-input" placeholder="${this.t("registerNamePlaceholder")}" style="flex:2;">
+            <input type="text" class="text-input m-register-unit-input" placeholder="${this.t("registerUnitPlaceholder")}" value="${root.getElementById("m-task-reading-unit")?.value || ""}" style="flex:1;">
+            <button type="button" class="btn btn-secondary btn-sm m-remove-register-btn" style="padding:4px 8px; color:var(--error-color, #ef4444);" title="${this.t("delete")}">✕</button>
+          `;
+          row.querySelector(".m-remove-register-btn").addEventListener("click", () => row.remove());
+          list.appendChild(row);
+        });
+      }
+      root.querySelectorAll(".m-remove-register-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          e.target.closest(".m-register-row")?.remove();
+        });
+      });
+
+      // Reading History CSV Export
+      const btnExportCsv = root.getElementById("btn-export-reading-csv");
+      if (btnExportCsv && this._modalState && this._modalState.task) {
+        btnExportCsv.addEventListener("click", () => {
+          const task = this._modalState.task;
+          const readingHistory = (task.history || []).filter(h => h.reading_value !== undefined || h.readings !== undefined);
+          if (readingHistory.length === 0) return;
+
+          const rows = [];
+          rows.push(["Datum", "Zaehlwerk", "Zaehlerstand", "Einheit", "Differenz", "Benutzer", "Notizen"]);
+
+          readingHistory.forEach(h => {
+            const userObj = this._data.users.find(u => u.id === h.user_id);
+            const userName = userObj ? userObj.name : (h.user_id || "");
+            const dateStr = h.completed_at ? h.completed_at.replace("T", " ").slice(0, 19) : "";
+            const notes = (h.notes || "").replace(/"/g, '""');
+
+            if (h.readings && h.readings.length > 0) {
+              h.readings.forEach(r => {
+                rows.push([
+                  dateStr,
+                  (r.name || "").replace(/"/g, '""'),
+                  r.value !== undefined ? r.value : "",
+                  r.unit || "",
+                  r.delta !== undefined ? r.delta : "",
+                  userName.replace(/"/g, '""'),
+                  notes
+                ]);
+              });
+            } else if (h.reading_value !== undefined) {
+              rows.push([
+                dateStr,
+                task.title.replace(/"/g, '""'),
+                h.reading_value,
+                h.reading_unit || task.reading_unit || "",
+                h.reading_delta !== undefined ? h.reading_delta : "",
+                userName.replace(/"/g, '""'),
+                notes
+              ]);
+            }
+          });
+
+          const csvContent = "\uFEFF" + rows.map(r => r.map(c => `"${c}"`).join(";")).join("\r\n");
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          const safeTitle = (task.title || "ablesungen").toLowerCase().replace(/[^a-z0-9]/g, "_");
+          link.setAttribute("href", url);
+          link.setAttribute("download", `ablesungen_${safeTitle}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        });
+      }
+
+      // Reading History Toggle All / Less
+      const btnToggleHist = root.getElementById("btn-toggle-reading-history");
+      if (btnToggleHist) {
+        btnToggleHist.addEventListener("click", () => {
+          this._showAllReadingHistory = !this._showAllReadingHistory;
+          this._render();
+        });
+      }
+
+      // Delete Reading History Entry
+      root.querySelectorAll(".m-delete-history-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          if (!this._modalState || !this._modalState.task) return;
+          const tId = this._modalState.task.id;
+          const idx = parseInt(btn.getAttribute("data-history-idx"), 10);
+          const dateStr = btn.getAttribute("data-history-date");
+          await this.deleteTaskHistoryEntry(tId, isNaN(idx) ? null : idx, dateStr || null);
+        });
+      });
 
       // Modal Recurrence Toggle
       const mRecEnable = root.getElementById("m-task-rec-enable");
@@ -5579,6 +5891,21 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           const readingInput = root.getElementById("m-comp-reading");
           const readingVal = readingInput ? readingInput.value.trim() : null;
 
+          const readings = [];
+          root.querySelectorAll(".m-comp-register-item").forEach(item => {
+            const regId = item.getAttribute("data-reg-id");
+            const regName = item.getAttribute("data-reg-name");
+            const input = item.querySelector(".m-comp-register-input");
+            const val = input ? input.value.trim() : "";
+            if (val !== "") {
+              readings.push({
+                id: regId,
+                name: regName,
+                value: parseFloat(val) || 0
+              });
+            }
+          });
+
           const consumedParts = [];
           root.querySelectorAll(".m-comp-part-cb:checked").forEach(cb => {
             const pId = cb.value;
@@ -5594,6 +5921,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
           await this.completeTask(task.id, {
             reading_value: readingVal,
+            readings: readings.length > 0 ? readings : null,
             consumed_parts: consumedParts,
             duration_minutes: dur,
             cost: cost,
@@ -5620,6 +5948,26 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           }
         });
       }
+
+      // Live register deltas
+      root.querySelectorAll(".m-comp-register-item").forEach(item => {
+        const input = item.querySelector(".m-comp-register-input");
+        const deltaEl = item.querySelector(".m-comp-register-delta");
+        const lastValStr = item.getAttribute("data-reg-last");
+        const lastVal = lastValStr !== "" && lastValStr !== null ? parseFloat(lastValStr) : NaN;
+        const unit = item.getAttribute("data-reg-unit") || "";
+        if (input && deltaEl) {
+          input.addEventListener("input", (e) => {
+            const curVal = parseFloat(e.target.value);
+            if (!isNaN(curVal) && !isNaN(lastVal)) {
+              const diff = curVal - lastVal;
+              deltaEl.textContent = `${this.t("consumptionDelta")}: ${diff >= 0 ? "+" : ""}${diff.toFixed(2)} ${unit}`;
+            } else {
+              deltaEl.textContent = "";
+            }
+          });
+        }
+      });
 
       // Close button on modals
       root.querySelectorAll(".modal-close-btn").forEach(btn => {

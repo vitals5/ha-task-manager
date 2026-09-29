@@ -49,6 +49,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         vol.Optional("notes"): vol.Any(str, None),
         vol.Optional("completed_at"): vol.Any(str, None),
         vol.Optional("reading_value"): vol.Any(vol.Coerce(float), None),
+        vol.Optional("readings"): vol.Any(list, None),
         vol.Optional("consumed_parts"): vol.Any(list, None),
     })
     @websocket_api.async_response
@@ -64,6 +65,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
             notes=msg.get("notes"),
             completed_at=msg.get("completed_at"),
             reading_value=msg.get("reading_value"),
+            readings=msg.get("readings"),
             consumed_parts=msg.get("consumed_parts"),
         )
         if not result:
@@ -89,7 +91,8 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/record_reading",
         vol.Required("task_id"): str,
-        vol.Required("reading_value"): vol.Coerce(float),
+        vol.Optional("reading_value"): vol.Any(vol.Coerce(float), None),
+        vol.Optional("readings"): vol.Any(list, None),
         vol.Optional("notes"): vol.Any(str, None),
         vol.Optional("completed_at"): vol.Any(str, None),
         vol.Optional("user_id"): vol.Any(str, None),
@@ -101,7 +104,8 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         """Handle record reading command."""
         result = await storage.async_record_reading(
             msg["task_id"],
-            reading_value=msg["reading_value"],
+            reading_value=msg.get("reading_value"),
+            readings=msg.get("readings"),
             notes=msg.get("notes"),
             completed_at=msg.get("completed_at"),
             user_id=msg.get("user_id"),
@@ -110,6 +114,27 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
             connection.send_error(msg["id"], "task_not_found", "Task not found")
             return
         connection.send_result(msg["id"], {"success": True, "task": result, "data": storage.get_view_data()})
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): "task_manager/delete_history_entry",
+        vol.Required("task_id"): str,
+        vol.Optional("entry_index"): vol.Any(int, None),
+        vol.Optional("completed_at"): vol.Any(str, None),
+    })
+    @websocket_api.async_response
+    async def ws_delete_history_entry(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+    ) -> None:
+        """Handle delete history entry command."""
+        result = await storage.async_delete_task_history_entry(
+            msg["task_id"],
+            entry_index=msg.get("entry_index"),
+            completed_at=msg.get("completed_at"),
+        )
+        if not result:
+            connection.send_error(msg["id"], "entry_not_found", "Task or history entry not found")
+            return
+        connection.send_result(msg["id"], {"success": True, "data": storage.get_view_data()})
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/reset_task",
