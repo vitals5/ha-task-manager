@@ -333,6 +333,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       doneToday: "Done today",
       recordReading: "Record Reading",
       close: "Close",
+      actions: "Actions",
+      expandActions: "Show actions",
+      collapseActions: "Hide",
     },
     de: {
       appName: "Task Manager",
@@ -647,6 +650,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       doneToday: "Heute erledigt",
       recordReading: "Zählerstand erfassen",
       close: "Schließen",
+      actions: "Aktionen",
+      expandActions: "Aktionen",
+      collapseActions: "Ausblenden",
     }
   };
 
@@ -681,6 +687,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       this._availableTodoEntities = [];
       this._urlParamsHandled = false;
       this._justCompletedTaskId = null;
+      this._expandedTaskId = null;
     }
 
     connectedCallback() {
@@ -1332,8 +1339,41 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
     async deleteTask(taskId) {
       if (confirm(this.t("confirmDelete"))) {
+        if (this._expandedTaskId === taskId) {
+          this._expandedTaskId = null;
+        }
         await this._callWS("task_manager/delete_task", { task_id: taskId });
       }
+    }
+
+    _toggleTaskExpand(taskId) {
+      const isCurrentlyExpanded = (this._expandedTaskId === taskId);
+      this._expandedTaskId = isCurrentlyExpanded ? null : taskId;
+
+      const root = this.shadowRoot;
+      if (!root) return;
+
+      root.querySelectorAll(".task-card").forEach(card => {
+        const cId = card.getAttribute("data-task-id");
+        const shouldExpand = (cId === this._expandedTaskId);
+        if (shouldExpand) {
+          card.classList.add("is-expanded");
+        } else {
+          card.classList.remove("is-expanded");
+        }
+        const expandBtn = card.querySelector("[data-toggle-task-expand]");
+        if (expandBtn) {
+          if (shouldExpand) {
+            expandBtn.classList.add("active");
+            expandBtn.innerHTML = `<span>▲</span> <span class="toggle-text">${this.t("collapseActions")}</span>`;
+            expandBtn.setAttribute("title", this.t("collapseActions"));
+          } else {
+            expandBtn.classList.remove("active");
+            expandBtn.innerHTML = `<span>⋯</span> <span class="toggle-text">${this.t("actions")}</span>`;
+            expandBtn.setAttribute("title", this.t("expandActions"));
+          }
+        }
+      });
     }
 
     async deleteTaskHistoryEntry(taskId, entryIndex = null, completedAt = null) {
@@ -1790,6 +1830,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         this._currentTab = "chores";
       }
 
+      const prevContentArea = this.shadowRoot ? this.shadowRoot.querySelector(".content-area") : null;
+      const prevScrollTop = prevContentArea ? prevContentArea.scrollTop : 0;
+
       const todayStr = new Date().toISOString().slice(0, 10);
       const pendingCount = this._data.tasks.filter(t => t.status === "pending").length;
       const todayCount = this._data.tasks.filter(t => t.status === "pending" && t.due_date === todayStr).length;
@@ -2118,14 +2161,20 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             display: flex;
             flex-direction: column;
             gap: 12px;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
             position: relative;
             color: var(--primary-text-color, inherit);
+            cursor: pointer;
           }
 
           .task-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+          }
+
+          .task-card.is-expanded {
+            border-color: var(--primary-color, #2563eb);
+            box-shadow: 0 4px 18px rgba(37, 99, 235, 0.14);
           }
 
           .task-card.priority-p1 { border-left: 5px solid var(--error-color, #ef4444); }
@@ -2280,6 +2329,109 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             font-size: 12px;
             font-weight: 500;
             color: var(--primary-text-color, inherit);
+          }
+
+          .task-toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.25)));
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.08));
+            color: var(--secondary-text-color, #64748b);
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+
+          .task-toggle-btn:hover,
+          .task-toggle-btn.active,
+          .task-card.is-expanded .task-toggle-btn {
+            background: var(--primary-color, #2563eb);
+            color: #ffffff;
+            border-color: var(--primary-color, #2563eb);
+          }
+
+          .task-actions-drawer {
+            display: none;
+            border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.12));
+            padding-top: 12px;
+            margin-top: 4px;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+          }
+
+          .task-card.is-expanded .task-actions-drawer {
+            display: flex;
+            animation: drawerFadeIn 0.18s ease-out;
+          }
+
+          @keyframes drawerFadeIn {
+            from {
+              opacity: 0;
+              transform: translateY(-4px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .task-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            min-height: 38px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 8px;
+            border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.25)));
+            background: var(--card-background-color, #ffffff);
+            color: var(--primary-text-color, inherit);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+          }
+
+          .task-action-btn:hover {
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.12));
+            border-color: var(--primary-color, #2563eb);
+            transform: translateY(-1px);
+          }
+
+          .task-action-btn:active {
+            transform: translateY(0);
+          }
+
+          .task-action-btn .btn-icon {
+            font-size: 16px;
+            line-height: 1;
+          }
+
+          .task-action-btn.btn-primary-action {
+            background: rgba(37, 99, 235, 0.08);
+            color: var(--primary-color, #2563eb);
+            border-color: rgba(37, 99, 235, 0.3);
+          }
+
+          .task-action-btn.btn-primary-action:hover {
+            background: rgba(37, 99, 235, 0.16);
+            border-color: var(--primary-color, #2563eb);
+          }
+
+          .task-action-btn.btn-danger {
+            color: var(--error-color, #ef4444);
+            border-color: rgba(239, 68, 68, 0.3);
+          }
+
+          .task-action-btn.btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--error-color, #ef4444);
           }
 
           
@@ -2716,6 +2868,18 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             width: 36px;
             height: 36px;
           }
+          :host(.tablet-mode) .task-action-btn {
+            min-height: 46px;
+            padding: 10px 18px;
+            font-size: 15px;
+          }
+          :host(.tablet-mode) .task-action-btn .btn-icon {
+            font-size: 18px;
+          }
+          :host(.tablet-mode) .task-toggle-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+          }
 
           /* Floating Action Button (FAB) for Mobile */
           .mobile-fab {
@@ -2957,6 +3121,29 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               padding: 2px 6px;
             }
 
+            .task-actions-drawer {
+              display: none;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 8px;
+            }
+
+            .task-card.is-expanded .task-actions-drawer {
+              display: grid;
+            }
+
+            .task-action-btn {
+              width: 100%;
+              min-height: 42px;
+              padding: 9px 8px;
+              font-size: 12px;
+              justify-content: center;
+              text-align: center;
+            }
+
+            .task-action-btn.btn-danger {
+              grid-column: 1 / -1;
+            }
+
             .things-grid {
               grid-template-columns: 1fr;
               gap: 12px;
@@ -3177,6 +3364,10 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       `;
 
       this._attachEventListeners();
+      if (prevScrollTop > 0) {
+        const newContentArea = this.shadowRoot ? this.shadowRoot.querySelector(".content-area") : null;
+        if (newContentArea) newContentArea.scrollTop = prevScrollTop;
+      }
       this._updateSidebarVisibility();
     }
 
@@ -3280,6 +3471,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       const isOverdue = !isCompleted && task.due_date && task.due_date < todayStr;
       const isToday = !isCompleted && task.due_date === todayStr;
       const isJustCompleted = this._justCompletedTaskId === task.id;
+      const isExpanded = this._expandedTaskId === task.id;
 
       const assigneeUser = this._data.users.find(u => u.id === task.current_assignee);
       const linkedThing = task.linked_thing_id ? this._data.things.find(th => th.id === task.linked_thing_id) : null;
@@ -3288,7 +3480,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       const completedSubtasks = subtasks.filter(st => st.completed).length;
 
       return `
-        <div class="task-card priority-${task.priority} ${isCompleted ? "completed-task" : ""} ${isJustCompleted ? "just-completed" : ""} ${task.is_active === false ? "is-paused" : ""}" data-task-id="${task.id}">
+        <div class="task-card priority-${task.priority} ${isCompleted ? "completed-task" : ""} ${isJustCompleted ? "just-completed" : ""} ${task.is_active === false ? "is-paused" : ""} ${isExpanded ? "is-expanded" : ""}" data-task-id="${task.id}">
           <div class="task-top">
             <button class="check-btn ${isJustCompleted ? "checked" : ""}" data-complete-task="${task.id}" title="${isCompleted ? this.t("reset") : this.t("done")}">
               ✓
@@ -3428,22 +3620,49 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               ` : `<span style="color:var(--secondary-text-color, #94a3b8);">${this.t("none")}</span>`}
             </div>
 
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              ${task.task_type === "reading" ? `
-                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-view-history="${task.id}" title="${this.t("readingHistoryTitle")}">📊</button>
-              ` : ""}
-              ${!isCompleted ? `
-                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-skip-task="${task.id}" title="${this.t("skipTask")}">⏭️</button>
-                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-details-complete-task="${task.id}" title="${this.t("completeWithDetails")}">📝</button>
-              ` : ""}
-              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-qr-task="${task.id}" title="${this.t("qrCode")}">📱</button>
-              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-toggle-active-task="${task.id}" title="${task.is_active === false ? this.t("resume") : this.t("pause")}">
-                ${task.is_active === false ? "▶️" : "⏸️"}
+            <button type="button" class="task-toggle-btn ${isExpanded ? "active" : ""}" data-toggle-task-expand="${task.id}" title="${isExpanded ? this.t("collapseActions") : this.t("expandActions")}">
+              <span>${isExpanded ? "▲" : "⋯"}</span>
+              <span class="toggle-text">${isExpanded ? this.t("collapseActions") : this.t("actions")}</span>
+            </button>
+          </div>
+
+          <div class="task-actions-drawer">
+            ${task.task_type === "reading" ? `
+              <button type="button" class="task-action-btn" data-view-history="${task.id}" title="${this.t("readingHistoryTitle")}">
+                <span class="btn-icon">📊</span>
+                <span>${this.t("readingHistoryTitle")}</span>
               </button>
-              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-duplicate-task="${task.id}" title="${this.t("duplicate")}">📋</button>
-              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-edit-task="${task.id}" title="${this.t("edit")}">✏️</button>
-              <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--error-color, #ef4444);" data-delete-task="${task.id}" title="${this.t("delete")}">🗑️</button>
-            </div>
+            ` : ""}
+            ${!isCompleted ? `
+              <button type="button" class="task-action-btn btn-primary-action" data-details-complete-task="${task.id}" title="${this.t("completeWithDetails")}">
+                <span class="btn-icon">📝</span>
+                <span>${this.t("completeWithDetails")}</span>
+              </button>
+              <button type="button" class="task-action-btn" data-skip-task="${task.id}" title="${this.t("skipTask")}">
+                <span class="btn-icon">⏭️</span>
+                <span>${this.t("skip")}</span>
+              </button>
+            ` : ""}
+            <button type="button" class="task-action-btn" data-qr-task="${task.id}" title="${this.t("qrCode")}">
+              <span class="btn-icon">📱</span>
+              <span>${this.t("qrCode")}</span>
+            </button>
+            <button type="button" class="task-action-btn" data-toggle-active-task="${task.id}" title="${task.is_active === false ? this.t("resume") : this.t("pause")}">
+              <span class="btn-icon">${task.is_active === false ? "▶️" : "⏸️"}</span>
+              <span>${task.is_active === false ? this.t("resume") : this.t("pause")}</span>
+            </button>
+            <button type="button" class="task-action-btn" data-duplicate-task="${task.id}" title="${this.t("duplicate")}">
+              <span class="btn-icon">📋</span>
+              <span>${this.t("duplicate")}</span>
+            </button>
+            <button type="button" class="task-action-btn" data-edit-task="${task.id}" title="${this.t("edit")}">
+              <span class="btn-icon">✏️</span>
+              <span>${this.t("edit")}</span>
+            </button>
+            <button type="button" class="task-action-btn btn-danger" data-delete-task="${task.id}" title="${this.t("delete")}">
+              <span class="btn-icon">🗑️</span>
+              <span>${this.t("delete")}</span>
+            </button>
           </div>
         </div>
       `;
@@ -5363,6 +5582,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       // Task complete toggle
       root.querySelectorAll("[data-complete-task]").forEach(btn => {
         btn.addEventListener("click", (e) => {
+          e.stopPropagation();
           const tId = btn.getAttribute("data-complete-task");
           const task = this._data.tasks.find(t => t.id === tId);
           if (task && task.status === "completed") {
@@ -5377,7 +5597,8 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
       // Complete with details
       root.querySelectorAll("[data-details-complete-task]").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
           const tId = btn.getAttribute("data-details-complete-task");
           const task = this._data.tasks.find(t => t.id === tId);
           if (task) this.openCompleteModal(task);
@@ -5386,7 +5607,8 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
       // Skip Task
       root.querySelectorAll("[data-skip-task]").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
           const tId = btn.getAttribute("data-skip-task");
           this.skipTask(tId);
         });
@@ -5394,7 +5616,8 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
       // QR Code Task / Thing
       root.querySelectorAll("[data-qr-task]").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
           const tId = btn.getAttribute("data-qr-task");
           const task = this._data.tasks.find(t => t.id === tId);
           if (task) this.openQrModal(task, "task");
@@ -5437,6 +5660,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       // Task Subtask Toggle
       root.querySelectorAll("[data-subtask-task]").forEach(cb => {
         cb.addEventListener("change", (e) => {
+          e.stopPropagation();
           const tId = cb.getAttribute("data-subtask-task");
           const stId = cb.getAttribute("data-subtask-id");
           this.toggleSubtask(tId, stId, !cb.checked);
@@ -5454,23 +5678,31 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       });
 
       root.querySelectorAll("[data-edit-task]").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
           const t = this._data.tasks.find(x => x.id === btn.getAttribute("data-edit-task"));
           if (t) this.openTaskModal(t);
         });
       });
 
       root.querySelectorAll("[data-delete-task]").forEach(btn => {
-        btn.addEventListener("click", () => this.deleteTask(btn.getAttribute("data-delete-task")));
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.deleteTask(btn.getAttribute("data-delete-task"));
+        });
       });
 
       root.querySelectorAll("[data-duplicate-task]").forEach(btn => {
-        btn.addEventListener("click", () => this.duplicateTask(btn.getAttribute("data-duplicate-task")));
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.duplicateTask(btn.getAttribute("data-duplicate-task"));
+        });
       });
 
       // Task Active / Pause Toggle
       root.querySelectorAll("[data-toggle-active-task]").forEach(btn => {
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
           const tId = btn.getAttribute("data-toggle-active-task");
           const task = (this._data.tasks || []).find(t => t.id === tId);
           if (task) {
@@ -5480,6 +5712,26 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               await this.pauseTask(tId);
             }
           }
+        });
+      });
+
+      // Task Card Click (toggle expand/collapse action drawer)
+      root.querySelectorAll(".task-card").forEach(card => {
+        card.addEventListener("click", (e) => {
+          if (e.target.closest("button, input, label, a, .subtask-item, .check-btn, .task-actions-drawer")) {
+            return;
+          }
+          const taskId = card.getAttribute("data-task-id");
+          this._toggleTaskExpand(taskId);
+        });
+      });
+
+      // Task Expand / Collapse toggle button
+      root.querySelectorAll("[data-toggle-task-expand]").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const taskId = btn.getAttribute("data-toggle-task-expand");
+          this._toggleTaskExpand(taskId);
         });
       });
 

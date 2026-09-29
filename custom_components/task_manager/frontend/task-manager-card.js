@@ -3,7 +3,7 @@
  * Type: custom:task-manager-card
  */
 
-const CARD_VERSION = "1.0.32";
+const CARD_VERSION = "1.0.33";
 
 class TaskManagerCard extends HTMLElement {
   constructor() {
@@ -283,16 +283,16 @@ class TaskManagerCard extends HTMLElement {
           background: var(--secondary-background-color, rgba(127,127,127,0.12));
         }
         .task-check {
-          width: 22px;
-          height: 22px;
-          border-radius: 6px;
+          width: 26px;
+          height: 26px;
+          border-radius: 7px;
           border: 1.5px solid var(--ha-card-border-color, #94a3b8);
           background: transparent;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 13px;
+          font-size: 15px;
           color: transparent;
           flex-shrink: 0;
           padding: 0;
@@ -458,7 +458,7 @@ class TaskManagerCard extends HTMLElement {
                   </div>
                 </div>
                 ${!isDone ? `
-                  <button class="task-skip-btn" data-id="${t.id}" title="${de ? "Überspringen" : "Skip"}" style="background:transparent; border:none; color:var(--secondary-text-color, #64748b); cursor:pointer; font-size:14px; padding:4px 6px; border-radius:4px;" onmouseover="this.style.color='var(--primary-color, #2563eb)'" onmouseout="this.style.color='var(--secondary-text-color, #64748b)'">
+                  <button class="task-skip-btn" data-id="${t.id}" title="${de ? "Überspringen" : "Skip"}" style="background:transparent; border:none; color:var(--secondary-text-color, #64748b); cursor:pointer; font-size:16px; padding:6px 10px; border-radius:6px; min-width:32px; min-height:32px; display:inline-flex; align-items:center; justify-content:center;" onmouseover="this.style.color='var(--primary-color, #2563eb)'" onmouseout="this.style.color='var(--secondary-text-color, #64748b)'">
                     ⏭️
                   </button>
                 ` : ""}
