@@ -294,9 +294,33 @@ def calc_most_recent_weekday_of_month(last_done: date, today: date, weekday_name
         current = nxt
 
 
+def is_repeat_every(recurrence: dict[str, Any]) -> bool:
+    """Return True if the recurrence configuration is in 'repeat_every' mode."""
+    mode = recurrence.get("repeat_mode") or recurrence.get("mode")
+    if mode in (REPEAT_MODE_EVERY, "every", "repeat_every"):
+        return True
+    if mode in (REPEAT_MODE_AFTER, "after", "repeat_after"):
+        return False
+    rec_type = recurrence.get("type")
+    return rec_type in (
+        REPEAT_EVERY_WEEKDAY,
+        REPEAT_EVERY_DAY_OF_MONTH,
+        REPEAT_EVERY_WEEKDAY_OF_MONTH,
+        REPEAT_EVERY_DAYS_BEFORE_END_OF_MONTH,
+        "repeat_every_weekday",
+        "repeat_every_day_of_month",
+        "repeat_every_weekday_of_month",
+        "repeat_every_days_before_end_of_month",
+    )
+
+
 def find_most_recent_occurrence(last_done: date, today: date, recurrence: dict[str, Any]) -> date:
     """Find the most recent scheduled occurrence on or before today."""
-    rec_type = recurrence.get("repeat_every_type") or recurrence.get("type", RECURRENCE_NONE)
+    if is_repeat_every(recurrence):
+        rec_type = recurrence.get("repeat_every_type") or recurrence.get("type", RECURRENCE_NONE)
+    else:
+        rec_type = recurrence.get("type") or recurrence.get("repeat_every_type", RECURRENCE_NONE)
+
     if rec_type in (REPEAT_EVERY_WEEKDAY, "repeat_every_weekday"):
         weekday = recurrence.get("repeat_every_weekday")
         if weekday is None:
@@ -331,7 +355,11 @@ def calculate_next_due_date(
     completion_date_str: str | None = None,
 ) -> str:
     """Calculate the next due date based on recurrence configuration."""
-    rec_type = recurrence.get("repeat_every_type") or recurrence.get("type", RECURRENCE_NONE)
+    if is_repeat_every(recurrence):
+        rec_type = recurrence.get("repeat_every_type") or recurrence.get("type", RECURRENCE_NONE)
+    else:
+        rec_type = recurrence.get("type") or recurrence.get("repeat_every_type", RECURRENCE_NONE)
+
     interval = max(1, int(recurrence.get("interval", 1)))
     based_on = recurrence.get("based_on", RECURRENCE_BASED_DUE_DATE)
 
@@ -408,6 +436,19 @@ def calculate_next_due_date(
                     # Wraparound to first candidate in next interval week
                     days_ahead = (7 - cur_day) + sorted_days[0] + (interval - 1) * 7
                     next_date = base_date + timedelta(days=days_ahead)
+
+                # If based on due_date and still in the past (overdue), advance cycles until strictly > today
+                if based_on == RECURRENCE_BASED_DUE_DATE and next_date <= today:
+                    while next_date <= today:
+                        cur_day = next_date.weekday()
+                        next_day_candidates = [d for d in sorted_days if d > cur_day]
+                        if next_day_candidates:
+                            days_ahead = next_day_candidates[0] - cur_day
+                            next_date = next_date + timedelta(days=days_ahead)
+                        else:
+                            days_ahead = (7 - cur_day) + sorted_days[0] + (interval - 1) * 7
+                            next_date = next_date + timedelta(days=days_ahead)
+
                 return next_date.strftime("%Y-%m-%d")
 
         # Standard weekly without specific weekdays
@@ -879,16 +920,7 @@ class TaskManagerData:
                 # No schedule fallback configured: next due date is set to far future until threshold triggers!
                 next_due = FAR_FUTURE_DUE_DATE
             else:
-                repeat_mode = rec.get("mode") or (
-                    REPEAT_MODE_EVERY if rec.get("type") in (
-                        REPEAT_EVERY_WEEKDAY,
-                        REPEAT_EVERY_DAY_OF_MONTH,
-                        REPEAT_EVERY_WEEKDAY_OF_MONTH,
-                        REPEAT_EVERY_DAYS_BEFORE_END_OF_MONTH,
-                    ) else REPEAT_MODE_AFTER
-                )
-
-                if repeat_mode == REPEAT_MODE_EVERY:
+                if is_repeat_every(rec):
                     cur_due = task.get("due_date", today_date_str)
                     try:
                         cur_due_dt = datetime.strptime(cur_due[:10], "%Y-%m-%d").date()

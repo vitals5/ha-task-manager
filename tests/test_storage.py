@@ -484,6 +484,7 @@ class TestTaskManagerStorage(unittest.TestCase):
 
     def test_calculate_next_due_date_weekdays(self):
         """Test calculating next due date with selected weekdays."""
+        # Standard weekly with weekdays
         rec = {
             "type": "weekly",
             "interval": 1,
@@ -492,6 +493,42 @@ class TestTaskManagerStorage(unittest.TestCase):
         # From Monday 2026-09-28 -> next is Wednesday 2026-09-30
         next_due = calculate_next_due_date("2026-09-28", rec)
         self.assertEqual(next_due, "2026-09-30")
+
+        # Legacy payload format: repeat_every_type was present but repeat_mode was 'after'
+        rec_legacy = {
+            "enabled": True,
+            "repeat_mode": "after",
+            "type": "weekly",
+            "interval": 1,
+            "weekdays": [4],  # Friday
+            "repeat_every_type": "repeat_every_weekday",
+            "repeat_every_weekday": 0,  # Monday
+        }
+        # Today in test suite is 2026-09-26 (Saturday)
+        # From overdue date 2026-09-22 -> should advance through Friday until > today (2026-10-02)
+        next_due_legacy = calculate_next_due_date("2026-09-22", rec_legacy)
+        self.assertEqual(next_due_legacy, "2026-10-02")
+
+    def test_complete_weekly_task_with_weekdays_selection(self):
+        """Test completing a weekly task with specific weekdays advances to the selected weekday."""
+        # Today is 2026-09-26 (Saturday) in test suite
+        task = self.data.create_task({
+            "title": "Clean pool",
+            "due_date": "2026-09-26",
+            "recurrence": {
+                "enabled": True,
+                "repeat_mode": "after",
+                "type": "weekly",
+                "interval": 1,
+                "weekdays": [2],  # Wednesday
+                "repeat_every_type": "repeat_every_weekday",  # legacy leftover from previous modal UI
+                "repeat_every_weekday": 0,
+            },
+        })
+        completed = self.data.complete_task(task["id"])
+        self.assertEqual(completed["status"], "pending")
+        # Next Wednesday after 2026-09-26 (Saturday) is 2026-09-30 (Wednesday)
+        self.assertEqual(completed["due_date"], "2026-09-30")
 
     def test_thing_warranty_status(self):
         """Test calculating warranty status for things."""

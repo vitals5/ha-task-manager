@@ -5316,16 +5316,22 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             recurrence: {
               enabled: recEnabled,
               repeat_mode: recMode,
-              type: root.getElementById("m-task-rec-type") ? root.getElementById("m-task-rec-type").value : "none",
+              mode: recMode,
+              type: recMode === "every"
+                ? recEveryType
+                : (root.getElementById("m-task-rec-type") ? root.getElementById("m-task-rec-type").value : "none"),
               interval: parseInt(root.getElementById("m-task-rec-interval") ? root.getElementById("m-task-rec-interval").value : "1", 10),
               based_on: root.getElementById("m-task-rec-based") ? root.getElementById("m-task-rec-based").value : "due_date",
               weekdays: selectedWeekdays,
-              repeat_every_type: recEveryType,
-              repeat_every_weekday: recEveryType === "repeat_every_weekday_of_month" ? recEveryNthWeekday : recEveryWeekday,
-              repeat_every_day_of_month: recEveryDay,
-              repeat_every_weekday_of_month: recEveryType === "repeat_every_weekday_of_month",
-              repeat_every_nth: recEveryNth,
-              repeat_every_days_before_end_of_month: recEveryDaysBefore
+              days_of_week: selectedWeekdays,
+              ...(recMode === "every" ? {
+                repeat_every_type: recEveryType,
+                repeat_every_weekday: recEveryType === "repeat_every_weekday_of_month" ? recEveryNthWeekday : recEveryWeekday,
+                repeat_every_day_of_month: recEveryDay,
+                repeat_every_weekday_of_month: recEveryType === "repeat_every_weekday_of_month",
+                repeat_every_nth: recEveryNth,
+                repeat_every_days_before_end_of_month: recEveryDaysBefore
+              } : {})
             },
             subtasks: subtasks,
             linked_thing_id: root.getElementById("m-task-linked-thing").value || null,
