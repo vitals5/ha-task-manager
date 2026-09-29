@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 import importlib.util
+import json
+import os
 from pathlib import Path
 import sys
 import unittest
@@ -292,6 +294,15 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
                     await asyncio.sleep(0.01)
                     resources_mock.async_update_item.assert_called_once()
                     self.assertIn("/task_manager_ui/task-manager-card.js", resources_mock.async_update_item.call_args[0][1]["url"])
+
+    def test_manifest_hassfest_compliance(self):
+        """Test manifest.json conforms to Hassfest ordering rules (domain, name, then alphabetical)."""
+        manifest_path = os.path.join(os.path.dirname(__file__), "..", "custom_components", "task_manager", "manifest.json")
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        keys = list(raw.keys())
+        expected = ["domain", "name"] + sorted(k for k in raw if k not in ("domain", "name"))
+        self.assertEqual(keys, expected, "Manifest keys must be: domain, name, then alphabetical order (Hassfest requirement)")
 
 
 if __name__ == "__main__":
