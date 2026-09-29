@@ -221,6 +221,43 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
         res_scripts = connection.send_result.call_args[0][1]
         script_eids = [s["entity_id"] for s in res_scripts["scripts"]]
         self.assertIn("script.clean_now", script_eids)
+
+    async def test_ws_pause_and_resume_task_registration(self):
+        """Test ws_pause_task, ws_resume_task, and ws_set_last_done_date are registered and callable."""
+        hass = MagicMock()
+        storage = MagicMock()
+        storage.async_pause_task = AsyncMock(return_value={"id": "t1", "is_active": False})
+        storage.async_resume_task = AsyncMock(return_value={"id": "t1", "is_active": True})
+        storage.get_view_data = MagicMock(return_value={"tasks": []})
+
+        connection = MagicMock()
+        connection.send_result = MagicMock()
+
+        from task_manager import websocket as tm_ws
+        tm_ws.websocket_api.async_register_command = mock_ws_register_cmd
+        tm_ws.async_register_websocket_api(hass, storage)
+
+        # Check pause
+        pause_handler = ws_registered_handlers.get("ws_pause_task")
+        self.assertIsNotNone(pause_handler)
+        await pause_handler(hass, connection, {"id": 10, "type": "task_manager/pause_task", "task_id": "t1"})
+        storage.async_pause_task.assert_awaited_once_with("t1")
+        connection.send_result.assert_called_once()
+
+        # Check resume
+        connection.send_result.reset_mock()
+        resume_handler = ws_registered_handlers.get("ws_resume_task")
+        self.assertIsNotNone(resume_handler)
+        await resume_handler(hass, connection, {"id": 11, "type": "task_manager/resume_task", "task_id": "t1"})
+        storage.async_resume_task.assert_awaited_once_with("t1")
+        connection.send_result.assert_called_once()
+
+        # Check all 31 functions registered
+        self.assertIn("ws_pause_task", ws_registered_handlers)
+        self.assertIn("ws_resume_task", ws_registered_handlers)
+        self.assertIn("ws_set_last_done_date", ws_registered_handlers)
+        self.assertEqual(len(ws_registered_handlers), 31)
+
     async def test_lovelace_resource_registration_and_update(self):
         """Test Lovelace resource registration updates existing resource if url changed."""
         hass = MagicMock()
