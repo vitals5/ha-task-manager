@@ -1435,9 +1435,21 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
     }
 
     // Modal helpers
-    openTaskModal(task = null) {
-      this._modalState = { type: "task", task: task || this._getNewTaskTemplate() };
+    openTaskModal(task = null, focusHistory = false) {
+      this._modalState = { type: "task", task: task || this._getNewTaskTemplate(), focusHistory };
       this._render();
+      if (focusHistory) {
+        setTimeout(() => {
+          const root = this.shadowRoot || this;
+          const el = root.getElementById("reading-history-section");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            el.style.transition = "box-shadow 0.3s ease";
+            el.style.boxShadow = "0 0 0 2px var(--primary-color, #2563eb)";
+            setTimeout(() => { if (el) el.style.boxShadow = ""; }, 1800);
+          }
+        }, 120);
+      }
     }
 
     async openThingModal(thing = null) {
@@ -3286,7 +3298,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
               <div class="task-meta">
                 ${task.task_type === "reading" ? `
-                  <span class="meta-chip" style="background:rgba(6, 182, 212, 0.15); color:#0891b2;">
+                  <span class="meta-chip" data-view-history="${task.id}" style="background:rgba(6, 182, 212, 0.15); color:#0891b2; cursor:pointer;" title="${this.t("readingHistoryTitle")}">
                     📟 ${this.t("taskTypeReading")} ${task.registers && task.registers.length > 0
                       ? `(${task.registers.map(r => `${this._escape(r.name)}: ${r.last_value !== undefined && r.last_value !== null ? r.last_value : "—"}`).join(", ")})`
                       : (task.last_reading_value !== undefined && task.last_reading_value !== null ? `(${task.last_reading_value} ${task.reading_unit || ""})` : "")}
@@ -3398,6 +3410,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             </div>
 
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              ${task.task_type === "reading" ? `
+                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-view-history="${task.id}" title="${this.t("readingHistoryTitle")}">📊</button>
+              ` : ""}
               ${!isCompleted ? `
                 <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-skip-task="${task.id}" title="${this.t("skipTask")}">⏭️</button>
                 <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px;" data-details-complete-task="${task.id}" title="${this.t("completeWithDetails")}">📝</button>
@@ -4480,7 +4495,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               const showAll = this._showAllReadingHistory;
               const visibleEntries = showAll ? [...readingHistory].reverse() : [...readingHistory].reverse().slice(0, 10);
               return `
-                <div style="margin-top:14px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); border-radius:8px; padding:12px; background:var(--secondary-background-color, rgba(127,127,127,0.03));">
+                <div id="reading-history-section" style="margin-top:14px; border:1px solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.2))); border-radius:8px; padding:12px; background:var(--secondary-background-color, rgba(127,127,127,0.03));">
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
                     <div style="display:flex; align-items:center; gap:8px;">
                       <span style="font-weight:600; font-size:14px;">📊 ${this.t("readingHistoryTitle")}</span>
@@ -5278,7 +5293,14 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         });
       });
 
-      // Task Edit / Delete
+      // Task Edit / View History / Delete
+      root.querySelectorAll("[data-view-history]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const t = this._data.tasks.find(x => x.id === btn.getAttribute("data-view-history"));
+          if (t) this.openTaskModal(t, true);
+        });
+      });
+
       root.querySelectorAll("[data-edit-task]").forEach(btn => {
         btn.addEventListener("click", () => {
           const t = this._data.tasks.find(x => x.id === btn.getAttribute("data-edit-task"));
