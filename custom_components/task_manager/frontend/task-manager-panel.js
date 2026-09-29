@@ -1198,7 +1198,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
     }
 
     async savePart(partData) {
-      await this._callWS("task_manager/save_part", { part_data: partData });
+      await this._callWS("task_manager/save_part", { part: partData, part_data: partData });
       this.closeModal();
     }
 

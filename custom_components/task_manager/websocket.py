@@ -322,14 +322,15 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
 
     @websocket_api.websocket_command({
         vol.Required("type"): "task_manager/save_part",
-        vol.Required("part"): dict,
+        vol.Optional("part"): dict,
+        vol.Optional("part_data"): dict,
     })
     @websocket_api.async_response
     async def ws_save_part(
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
     ) -> None:
         """Handle save or update part command."""
-        part_data = dict(msg["part"])
+        part_data = dict(msg.get("part") or msg.get("part_data") or {})
         part_id = part_data.get("id")
         if part_id and storage.data.get_part(part_id):
             result = await storage.async_update_part(part_id, part_data)

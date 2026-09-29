@@ -260,6 +260,51 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
         self.assertIn("ws_set_last_done_date", ws_registered_handlers)
         self.assertEqual(len(ws_registered_handlers), 31)
 
+    async def test_ws_save_part_compatibility(self):
+        """Test ws_save_part accepts both 'part' and 'part_data' payloads."""
+        hass = MagicMock()
+        storage = MagicMock()
+        storage.data.get_part.return_value = None
+        storage.async_create_part = AsyncMock(return_value={"id": "p1", "name": "Filter"})
+        storage.async_update_part = AsyncMock(return_value={"id": "p1", "name": "Filter Updated"})
+        storage.get_view_data = MagicMock(return_value={"parts": []})
+
+        connection = MagicMock()
+        connection.send_result = MagicMock()
+
+        from task_manager import websocket as tm_ws
+        tm_ws.websocket_api.async_register_command = mock_ws_register_cmd
+        tm_ws.async_register_websocket_api(hass, storage)
+
+        handler = ws_registered_handlers.get("ws_save_part")
+        self.assertIsNotNone(handler)
+
+        # 1. Test with 'part_data' (legacy / previous frontend call)
+        await handler(hass, connection, {"id": 1, "type": "task_manager/save_part", "part_data": {"name": "Filter"}})
+        storage.async_create_part.assert_awaited_once_with({"name": "Filter"})
+        connection.send_result.assert_called_once_with(1, {"success": True, "part": {"id": "p1", "name": "Filter"}, "data": {"parts": []}})
+
+        # 2. Test with 'part' (standard schema)
+        storage.async_create_part.reset_mock()
+        connection.send_result.reset_mock()
+        await handler(hass, connection, {"id": 2, "type": "task_manager/save_part", "part": {"name": "Filter"}})
+        storage.async_create_part.assert_awaited_once_with({"name": "Filter"})
+        connection.send_result.assert_called_once_with(2, {"success": True, "part": {"id": "p1", "name": "Filter"}, "data": {"parts": []}})
+
+        # 3. Test with both 'part' and 'part_data'
+        storage.async_create_part.reset_mock()
+        connection.send_result.reset_mock()
+        await handler(hass, connection, {"id": 3, "type": "task_manager/save_part", "part": {"name": "Filter"}, "part_data": {"name": "Filter"}})
+        storage.async_create_part.assert_awaited_once_with({"name": "Filter"})
+        connection.send_result.assert_called_once_with(3, {"success": True, "part": {"id": "p1", "name": "Filter"}, "data": {"parts": []}})
+
+        # 4. Test update existing part
+        storage.data.get_part.return_value = {"id": "p1", "name": "Filter"}
+        connection.send_result.reset_mock()
+        await handler(hass, connection, {"id": 4, "type": "task_manager/save_part", "part": {"id": "p1", "name": "Filter Updated"}})
+        storage.async_update_part.assert_awaited_once_with("p1", {"id": "p1", "name": "Filter Updated"})
+        connection.send_result.assert_called_once_with(4, {"success": True, "part": {"id": "p1", "name": "Filter Updated"}, "data": {"parts": []}})
+
     async def test_lovelace_resource_registration_and_update(self):
         """Test Lovelace resource registration updates existing resource if url changed."""
         hass = MagicMock()
