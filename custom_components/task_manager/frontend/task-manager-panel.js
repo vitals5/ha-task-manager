@@ -331,6 +331,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       qrLocalhostWarning: "Note: You are connected via \"localhost\". To scan this QR code with a smartphone, open Home Assistant using your network IP (e.g. http://192.168.x.x:8123) or domain.",
       justCompletedBadge: "Done just now! Next: {nextDue}",
       doneToday: "Done today",
+      recordReading: "Record Reading",
       close: "Close",
     },
     de: {
@@ -644,6 +645,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       qrLocalhostWarning: "Hinweis: Du bist über \"localhost\" verbunden. Um den QR-Code mit dem Smartphone zu scannen, öffne Home Assistant über die Netzwerk-IP (z. B. http://192.168.x.x:8123) oder deine Domain.",
       justCompletedBadge: "Gerade erledigt! Nächste: {nextDue}",
       doneToday: "Heute erledigt",
+      recordReading: "Zählerstand erfassen",
       close: "Schließen",
     }
   };
@@ -1450,6 +1452,12 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           }
         }, 120);
       }
+    }
+
+    openReadingHistoryModal(task) {
+      if (!task) return;
+      this._modalState = { type: "reading_history", task };
+      this._render();
     }
 
     async openThingModal(thing = null) {
@@ -3296,6 +3304,17 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               </div>
               ${task.description ? `<p class="task-desc">${this._escape(task.description)}</p>` : ""}
 
+              ${task.task_type === "reading" ? `
+                <div style="margin: 6px 0 4px 0;">
+                  <button type="button" class="btn btn-secondary btn-sm" data-view-history="${task.id}" style="padding:4px 12px; font-size:12px; font-weight:600; background:rgba(6,182,212,0.12); color:#0891b2; border:1px solid rgba(6,182,212,0.3); border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                    📊 <span>${this.t("readingHistoryTitle")}</span>
+                    ${(task.history && task.history.filter(h => h.reading_value !== undefined || h.readings !== undefined).length > 0)
+                      ? `<span style="background:#0891b2; color:#fff; font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px;">${task.history.filter(h => h.reading_value !== undefined || h.readings !== undefined).length}</span>`
+                      : ""}
+                  </button>
+                </div>
+              ` : ""}
+
               <div class="task-meta">
                 ${task.task_type === "reading" ? `
                   <span class="meta-chip" data-view-history="${task.id}" style="background:rgba(6, 182, 212, 0.15); color:#0891b2; cursor:pointer;" title="${this.t("readingHistoryTitle")}">
@@ -4001,6 +4020,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       if (type === "thing") return this._renderThingModal();
       if (type === "part") return this._renderPartModal();
       if (type === "complete_details") return this._renderCompleteDetailsModal();
+      if (type === "reading_history") return this._renderReadingHistoryModal();
       if (type === "qr_code") return this._renderQrCodeModal();
       if (type === "user") return this._renderUserModal();
       if (type === "label") return this._renderLabelModal();
@@ -4858,6 +4878,11 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
                     <div id="m-comp-reading-delta" style="font-size:12px; font-weight:600; color:#0891b2; margin-top:4px;"></div>
                   </div>
                 `}
+                <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-complete-modal-view-history" style="font-size: 11px; padding: 3px 8px; color: #0891b2; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.25); cursor: pointer;">
+                    📊 ${this.t("readingHistoryTitle")} (${(task.history || []).filter(h => h.reading_value !== undefined || h.readings !== undefined).length})
+                  </button>
+                </div>
               </div>
             ` : ""}
 
@@ -4909,6 +4934,131 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             <div class="modal-footer">
               <button class="btn btn-secondary" id="modal-cancel">${this.t("cancel")}</button>
               <button class="btn btn-primary" id="modal-submit-complete">✓ ${this.t("done")}</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    _renderReadingHistoryModal() {
+      const task = (this._modalState && this._modalState.task) || {};
+      const readingHistory = (task.history || []).filter(h => h.reading_value !== undefined || h.readings !== undefined);
+      const totalCount = readingHistory.length;
+      const showAll = this._showAllReadingHistory;
+      const visibleEntries = showAll ? [...readingHistory].reverse() : [...readingHistory].reverse().slice(0, 20);
+
+      return `
+        <div class="modal-backdrop" id="modal-backdrop">
+          <div class="modal-window" style="max-width: 720px; width: 95%;">
+            <div class="modal-handle"></div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; gap:8px; flex-wrap:wrap;">
+              <div>
+                <h2 style="margin:0 0 4px 0; font-size:18px; display:flex; align-items:center; gap:8px;">
+                  <span>📊 ${this.t("readingHistoryTitle")}</span>
+                  <span style="font-size:12px; background:var(--primary-color, #2563eb); color:#fff; padding:2px 8px; border-radius:12px; font-weight:600;">
+                    ${totalCount}
+                  </span>
+                </h2>
+                <div style="font-size:13px; color:var(--secondary-text-color, #64748b); font-weight:600;">
+                  ${this._escape(task.title || "")}
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                ${totalCount > 0 ? `
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-export-reading-csv" style="padding:4px 10px; font-size:12px;">
+                    📥 ${this.t("exportCsv")}
+                  </button>
+                ` : ""}
+                <button type="button" class="btn btn-primary btn-sm" id="btn-history-record-reading" style="padding:4px 10px; font-size:12px;">
+                  + ${this.t("recordReading")}
+                </button>
+              </div>
+            </div>
+
+            ${totalCount === 0 ? `
+              <div style="padding:28px 16px; text-align:center; color:var(--secondary-text-color, #64748b); font-size:13px; font-style:italic;">
+                ${this.t("noReadingHistory")}
+              </div>
+            ` : `
+              <div style="overflow-x:auto; max-height:400px; overflow-y:auto; border:1px solid var(--ha-card-border-color, rgba(127,127,127,0.15)); border-radius:8px;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
+                  <thead>
+                    <tr style="background:var(--secondary-background-color, rgba(127,127,127,0.08)); border-bottom:1px solid var(--ha-card-border-color, rgba(127,127,127,0.2)); position:sticky; top:0; z-index:1;">
+                      <th style="padding:8px 10px;">${this.t("historyDate")}</th>
+                      <th style="padding:8px 10px;">${this.t("historyRegisters")}</th>
+                      <th style="padding:8px 10px;">${this.t("historyUser")}</th>
+                      <th style="padding:8px 10px;">${this.t("historyNotes")}</th>
+                      <th style="padding:8px 10px; text-align:center;">${this.t("historyAction")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${visibleEntries.map((h) => {
+                      const origIdx = readingHistory.indexOf(h);
+                      const userObj = this._data.users.find(u => u.id === h.user_id);
+                      const userName = userObj ? userObj.name : (h.user_id || "—");
+                      let dateDisplay = h.completed_at ? h.completed_at.replace("T", " ").slice(0, 16) : "—";
+                      try {
+                        if (h.completed_at) {
+                          const d = new Date(h.completed_at);
+                          dateDisplay = d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                        }
+                      } catch (e) {}
+
+                      let readingsDisplay = "";
+                      if (h.readings && h.readings.length > 0) {
+                        readingsDisplay = h.readings.map(r => `
+                          <div>
+                            <strong>${this._escape(r.name || '')}:</strong> ${r.value} ${this._escape(r.unit || '')}
+                            ${r.delta !== undefined && r.delta !== null ? `
+                              <span style="font-size:11px; font-weight:600; color:${r.delta >= 0 ? '#0891b2' : '#ea580c'};">(${r.delta >= 0 ? '+' : ''}${r.delta})</span>
+                            ` : ""}
+                          </div>
+                        `).join("");
+                      } else if (h.reading_value !== undefined && h.reading_value !== null) {
+                        readingsDisplay = `
+                          <div>
+                            ${h.reading_value} ${this._escape(h.reading_unit || task.reading_unit || '')}
+                            ${h.reading_delta !== undefined && h.reading_delta !== null ? `
+                              <span style="font-size:11px; font-weight:600; color:${h.reading_delta >= 0 ? '#0891b2' : '#ea580c'};">(${h.reading_delta >= 0 ? '+' : ''}${h.reading_delta})</span>
+                            ` : ""}
+                          </div>
+                        `;
+                      }
+
+                      return `
+                        <tr style="border-bottom:1px solid var(--ha-card-border-color, rgba(127,127,127,0.1));">
+                          <td style="padding:8px 10px; white-space:nowrap; vertical-align:top;">${dateDisplay}</td>
+                          <td style="padding:8px 10px; vertical-align:top;">${readingsDisplay}</td>
+                          <td style="padding:8px 10px; vertical-align:top; white-space:nowrap;">${this._escape(userName)}</td>
+                          <td style="padding:8px 10px; vertical-align:top; color:var(--secondary-text-color, #64748b); font-style:italic;">${this._escape(h.notes || "—")}</td>
+                          <td style="padding:8px 10px; vertical-align:top; text-align:center;">
+                            <button type="button" class="btn btn-secondary btn-sm m-delete-history-btn" data-history-idx="${origIdx}" data-history-date="${h.completed_at || ''}" style="color:var(--error-color, #ef4444); padding:2px 6px; font-size:11px;" title="${this.t("deleteEntry")}">
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      `;
+                    }).join("")}
+                  </tbody>
+                </table>
+              </div>
+
+              ${totalCount > 20 ? `
+                <div style="text-align:center; margin-top:8px;">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-reading-history" style="font-size:11px; padding:2px 8px;">
+                    ${showAll ? this.t("showLessHistory") : this.t("showAllHistory", { count: totalCount })}
+                  </button>
+                </div>
+              ` : ""}
+            `}
+
+            <div class="modal-footer" style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
+              <button type="button" class="btn btn-secondary" id="btn-history-open-task">
+                ✏️ ${this.t("editTask")}
+              </button>
+              <button type="button" class="btn btn-secondary" id="modal-cancel">
+                ${this.t("close")}
+              </button>
             </div>
           </div>
         </div>
@@ -5295,9 +5445,11 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
       // Task Edit / View History / Delete
       root.querySelectorAll("[data-view-history]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const t = this._data.tasks.find(x => x.id === btn.getAttribute("data-view-history"));
-          if (t) this.openTaskModal(t, true);
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const tId = btn.getAttribute("data-view-history");
+          const t = this._data.tasks.find(x => x.id === tId);
+          if (t) this.openReadingHistoryModal(t);
         });
       });
 
@@ -5770,6 +5922,28 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           await this.deleteTaskHistoryEntry(tId, isNaN(idx) ? null : idx, dateStr || null);
         });
       });
+
+      // Reading History Modal Actions
+      const btnHistRecord = root.getElementById("btn-history-record-reading");
+      if (btnHistRecord && this._modalState && this._modalState.task) {
+        btnHistRecord.addEventListener("click", () => {
+          this.openCompleteModal(this._modalState.task);
+        });
+      }
+
+      const btnHistEditTask = root.getElementById("btn-history-open-task");
+      if (btnHistEditTask && this._modalState && this._modalState.task) {
+        btnHistEditTask.addEventListener("click", () => {
+          this.openTaskModal(this._modalState.task);
+        });
+      }
+
+      const btnCompViewHist = root.getElementById("btn-complete-modal-view-history");
+      if (btnCompViewHist && this._modalState && this._modalState.task) {
+        btnCompViewHist.addEventListener("click", () => {
+          this.openReadingHistoryModal(this._modalState.task);
+        });
+      }
 
       // Modal Recurrence Toggle
       const mRecEnable = root.getElementById("m-task-rec-enable");

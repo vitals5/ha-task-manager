@@ -632,6 +632,7 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
     websocket_api.async_register_command(hass, ws_complete_task)
     websocket_api.async_register_command(hass, ws_skip_task)
     websocket_api.async_register_command(hass, ws_record_reading)
+    websocket_api.async_register_command(hass, ws_delete_history_entry)
     websocket_api.async_register_command(hass, ws_reset_task)
     websocket_api.async_register_command(hass, ws_pause_task)
     websocket_api.async_register_command(hass, ws_resume_task)

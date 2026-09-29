@@ -258,7 +258,42 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
         self.assertIn("ws_pause_task", ws_registered_handlers)
         self.assertIn("ws_resume_task", ws_registered_handlers)
         self.assertIn("ws_set_last_done_date", ws_registered_handlers)
-        self.assertEqual(len(ws_registered_handlers), 31)
+        self.assertIn("ws_delete_history_entry", ws_registered_handlers)
+        self.assertEqual(len(ws_registered_handlers), 32)
+
+    async def test_ws_delete_history_entry_registration_and_execution(self):
+        """Test ws_delete_history_entry is registered and calls storage.async_delete_task_history_entry."""
+        hass = MagicMock()
+        storage = MagicMock()
+        storage.async_delete_task_history_entry = AsyncMock(return_value=True)
+        storage.get_view_data = MagicMock(return_value={"tasks": []})
+
+        connection = MagicMock()
+        connection.send_result = MagicMock()
+
+        from task_manager import websocket as tm_ws
+        tm_ws.websocket_api.async_register_command = mock_ws_register_cmd
+        tm_ws.async_register_websocket_api(hass, storage)
+
+        delete_handler = ws_registered_handlers.get("ws_delete_history_entry")
+        self.assertIsNotNone(delete_handler)
+        await delete_handler(
+            hass,
+            connection,
+            {
+                "id": 99,
+                "type": "task_manager/delete_history_entry",
+                "task_id": "reading_task_1",
+                "entry_index": 2,
+                "completed_at": "2026-09-29T10:00:00",
+            },
+        )
+        storage.async_delete_task_history_entry.assert_awaited_once_with(
+            "reading_task_1", entry_index=2, completed_at="2026-09-29T10:00:00"
+        )
+        connection.send_result.assert_called_once_with(
+            99, {"success": True, "data": {"tasks": []}}
+        )
 
     async def test_ws_save_part_compatibility(self):
         """Test ws_save_part accepts both 'part' and 'part_data' payloads."""
