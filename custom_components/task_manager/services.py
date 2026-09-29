@@ -191,6 +191,8 @@ SCHEMA_UPDATE_THING = vol.Schema({
     vol.Optional("threshold_operator"): vol.In([">=", "<=", "gte", "lte"]),
     vol.Optional("external_entity_id"): vol.Any(cv.entity_id, cv.string, None),
     vol.Optional("script_entity_id"): vol.Any(cv.entity_id, cv.string, None),
+    vol.Optional("is_odometer"): cv.boolean,
+    vol.Optional("last_reset_value"): vol.Any(vol.Coerce(float), None),
 })
 
 SCHEMA_INCREMENT_THING = vol.Schema({
@@ -576,7 +578,7 @@ def async_register_services(hass: HomeAssistant, storage: TaskManagerStorage) ->
             return
 
         prop_updates = {}
-        for k in ("target_value", "threshold_value", "threshold_operator", "external_entity_id", "script_entity_id"):
+        for k in ("target_value", "threshold_value", "threshold_operator", "external_entity_id", "script_entity_id", "is_odometer", "last_reset_value"):
             if k in call.data:
                 prop_updates[k] = call.data[k]
 

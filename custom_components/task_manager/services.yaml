@@ -525,6 +525,19 @@ update_thing:
       selector:
         entity:
           domain: script
+    is_odometer:
+      name: Continuous Counter / Odometer
+      description: Set to true if the counter is monotonically increasing (e.g. car odometer, operating hours).
+      required: false
+      selector:
+        boolean:
+    last_reset_value:
+      name: Reading at Last Maintenance
+      description: The counter value at the last maintenance or reset.
+      required: false
+      selector:
+        number:
+          step: any
 
 increment_thing:
   name: Increment Thing

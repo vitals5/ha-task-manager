@@ -143,6 +143,14 @@
         "script_entity_id": {
           "name": "Completion Script",
           "description": "Optional Home Assistant script executed when completing a linked task."
+        },
+        "is_odometer": {
+          "name": "Continuous Counter (Odometer)",
+          "description": "Enable for monotonically increasing meters (e.g. car odometer). The threshold acts as an interval relative to the last maintenance reading."
+        },
+        "last_reset_value": {
+          "name": "Reading at Last Maintenance",
+          "description": "The counter reading at the time of the last maintenance/reset."
         }
       }
     },

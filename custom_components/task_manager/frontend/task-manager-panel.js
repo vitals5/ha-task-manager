@@ -297,6 +297,13 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       lastReadingLabel: "Last Reading Value",
       readingValueLabel: "Current Meter Reading",
       consumptionDelta: "Consumption / Delta",
+      isOdometerLabel: "Continuous Counter / Odometer",
+      isOdometerHint: "Enable for monotonically increasing meters (e.g. car odometer, operating hours, water flow). The threshold acts as an interval relative to the last maintenance reading.",
+      lastResetValueLabel: "Meter Reading at Last Maintenance",
+      lastResetValueHint: "The counter reading when maintenance was last performed. Leave empty to start from current reading.",
+      odometerMode: "Odometer",
+      sinceMaintenance: "since maintenance",
+      odometerTotal: "Total",
       consumedPartsLabel: "Consumed Spare Parts",
       durationMinutesLabel: "Duration (minutes)",
       costLabel: "Total Cost (€ / $)",
@@ -603,6 +610,13 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       lastReadingLabel: "Letzter Zählerstand",
       readingValueLabel: "Aktueller Zählerstand",
       consumptionDelta: "Verbrauch / Differenz",
+      isOdometerLabel: "Fortlaufender Zähler (Odometer / Gesamtzähler)",
+      isOdometerHint: "Aktivieren für stetig steigende Gesamtzähler (z. B. Auto-Kilometerstand, Betriebsstunden, Gesamtdurchfluss). Der Schwellwert wirkt dann als Intervall ab dem Stand der letzten Wartung.",
+      lastResetValueLabel: "Zählerstand bei letzter Wartung",
+      lastResetValueHint: "Der Zählerstand, bei dem die letzte Wartung stattfand. Leer lassen, um mit dem aktuellen Stand zu starten.",
+      odometerMode: "Odometer",
+      sinceMaintenance: "seit Wartung",
+      odometerTotal: "Gesamt",
       consumedPartsLabel: "Verbrauchte Ersatzteile",
       durationMinutesLabel: "Dauer (Minuten)",
       costLabel: "Gesamtkosten (€)",
@@ -3317,7 +3331,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
                 ${linkedThing ? `
                   <span class="meta-chip" style="background: rgba(2, 132, 199, 0.15); color: #0284c7;">
-                    ⚙️ ${this._escape(linkedThing.name)}
+                    ${linkedThing.is_odometer ? "🚗" : "⚙️"} ${this._escape(linkedThing.name)} (${linkedThing.is_odometer ? Math.max(0, (parseFloat(linkedThing.current_value) || 0) - (parseFloat(linkedThing.last_reset_value) || 0)) : (linkedThing.current_value || 0)} / ${linkedThing.target_value} ${this._escape(linkedThing.unit || "")})
                   </span>
                 ` : ""}
 
@@ -3510,16 +3524,23 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
     }
 
     _renderThingCard(thing) {
+      const isOdometer = !!thing.is_odometer;
       const cur = parseFloat(thing.current_value) || 0;
       const target = thing.target_value !== undefined && !isNaN(parseFloat(thing.target_value)) ? parseFloat(thing.target_value) : 0;
+      const baseVal = isOdometer ? (thing.last_reset_value !== undefined && thing.last_reset_value !== null ? parseFloat(thing.last_reset_value) : cur) : 0;
+      const effectiveVal = isOdometer ? Math.max(0, cur - baseVal) : cur;
       const operator = thing.threshold_operator || ">=";
-      const isLte = operator === "<=";
+      const isLte = !isOdometer && operator === "<=";
 
       let isAlert = false;
       let isWarning = false;
       let pct = 0;
 
-      if (isLte) {
+      if (isOdometer) {
+        isAlert = effectiveVal >= target;
+        isWarning = !isAlert && effectiveVal >= target * 0.75;
+        pct = target > 0 ? Math.min(100, Math.max(0, Math.round((effectiveVal / target) * 100))) : 100;
+      } else if (isLte) {
         isAlert = cur <= target;
         isWarning = !isAlert && cur <= target + 15;
         pct = Math.min(100, Math.max(0, Math.round(cur)));
@@ -3543,7 +3564,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         <div class="thing-card">
           <div class="thing-header">
             <div class="thing-title-group">
-              <div class="thing-icon">⚙️</div>
+              <div class="thing-icon">${isOdometer ? "🚗" : "⚙️"}</div>
               <div>
                 <div style="font-weight:700; font-size:15px;">${this._escape(thing.name)}</div>
                 <div style="font-size:12px; color:var(--secondary-text-color, #64748b);">${this._escape(thing.category || this.t("categoryGeneral"))}</div>
@@ -3561,6 +3582,11 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
           <!-- Warranty & Specs -->
           <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+            ${isOdometer ? `
+              <span class="meta-chip" style="background:rgba(2, 132, 199, 0.12); color:#0284c7; font-weight:600;">
+                🚗 ${this.t("odometerMode")}
+              </span>
+            ` : ""}
             ${(() => {
               const wStatus = this._getWarrantyStatus(thing);
               if (wStatus === "valid") {
@@ -3591,7 +3617,11 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
           <div>
             <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600;">
-              <span>${cur} ${this._escape(thing.unit || "")} <span style="font-size:11px; color:var(--secondary-text-color, #64748b); font-weight:normal;">(${operator} ${target})</span></span>
+              ${isOdometer ? `
+                <span>${effectiveVal} / ${target} ${this._escape(thing.unit || "")} <span style="font-size:11px; color:var(--secondary-text-color, #64748b); font-weight:normal;">(${this.t("sinceMaintenance")})</span></span>
+              ` : `
+                <span>${cur} ${this._escape(thing.unit || "")} <span style="font-size:11px; color:var(--secondary-text-color, #64748b); font-weight:normal;">(${operator} ${target})</span></span>
+              `}
               <span>${pct}%</span>
             </div>
             <div class="progress-bar-bg">
@@ -3599,7 +3629,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             </div>
             <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--secondary-text-color, #64748b); margin-top:2px;">
               <span>${statusText}</span>
-              ${thing.last_reset ? `<span>${this.t("lastReset")}: ${thing.last_reset.slice(0, 10)}</span>` : ""}
+              ${isOdometer ? `
+                <span>${this.t("odometerTotal")}: <strong>${cur} ${this._escape(thing.unit || "")}</strong></span>
+              ` : (thing.last_reset ? `<span>${this.t("lastReset")}: ${thing.last_reset.slice(0, 10)}</span>` : "")}
             </div>
             ${thing.external_entity_id ? `
               <div style="font-size:11px; color:#0284c7; margin-top:4px; display:flex; align-items:center; gap:4px; background:rgba(2, 132, 199, 0.12); padding:2px 6px; border-radius:4px;">
@@ -4413,7 +4445,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
                 <option value="">${this.t("none")}</option>
                 ${this._data.things.map(th => `
                   <option value="${th.id}" ${th.id === task.linked_thing_id ? "selected" : ""}>
-                    ${th.name} (${th.current_value} / ${th.threshold_operator || ">="} ${th.target_value} ${th.unit || ""})
+                    ${th.name} (${th.is_odometer ? `${Math.max(0, (parseFloat(th.current_value) || 0) - (parseFloat(th.last_reset_value) || 0))} / ${th.target_value} ${th.unit || ""} ${this.t("sinceMaintenance")}` : `${th.current_value} / ${th.threshold_operator || ">="} ${th.target_value} ${th.unit || ""}`})
                   </option>
                 `).join("")}
               </select>
@@ -4644,6 +4676,24 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             <div class="form-group">
               <label class="form-label">${this.t("currentValue")}</label>
               <input type="number" step="any" class="text-input" id="m-thing-current" value="${thing.current_value !== undefined ? thing.current_value : 0}">
+            </div>
+
+            <!-- Odometer / Continuous Counter Mode -->
+            <div style="background:var(--secondary-background-color, rgba(127,127,127,0.06)); border:1px solid var(--ha-card-border-color, rgba(127,127,127,0.15)); border-radius:8px; padding:10px 12px; margin-bottom:14px;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; font-size:13px;">
+                <input type="checkbox" id="m-thing-is-odometer" ${thing.is_odometer ? "checked" : ""}>
+                <span>🚗 ${this.t("isOdometerLabel")}</span>
+              </label>
+              <div style="font-size:11px; color:var(--secondary-text-color, #64748b); margin:4px 0 8px 24px;">
+                ${this.t("isOdometerHint")}
+              </div>
+              <div id="m-thing-odometer-fields" style="display:${thing.is_odometer ? "block" : "none"}; margin-left:24px;">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">${this.t("lastResetValueLabel")}</label>
+                  <input type="number" step="any" class="text-input" id="m-thing-last-reset-value" value="${thing.last_reset_value !== undefined && thing.last_reset_value !== null ? thing.last_reset_value : (thing.current_value !== undefined ? thing.current_value : "")}" placeholder="z. B. 45000">
+                  <div style="font-size:11px; color:var(--secondary-text-color, #64748b); margin-top:2px;">${this.t("lastResetValueHint")}</div>
+                </div>
+              </div>
             </div>
 
             <!-- Optional Completion Script -->
@@ -5803,6 +5853,15 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         renderBadge: () => `<div class="entity-dropdown-badge" style="background:#f5f3ff; color:#7c3aed;">script</div>`
       });
 
+      // Odometer toggle in Thing modal
+      const mIsOdometer = root.getElementById("m-thing-is-odometer");
+      if (mIsOdometer) {
+        mIsOdometer.addEventListener("change", (e) => {
+          const fields = root.getElementById("m-thing-odometer-fields");
+          if (fields) fields.style.display = e.target.checked ? "block" : "none";
+        });
+      }
+
       // Modal Save Thing
       const btnSaveThing = root.getElementById("modal-save-thing");
       if (btnSaveThing) {
@@ -5816,6 +5875,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           const targetVal = parseFloat(root.getElementById("m-thing-target").value);
           const operator = root.getElementById("m-thing-operator") ? root.getElementById("m-thing-operator").value : ">=";
           const extEntity = root.getElementById("m-thing-external-entity") ? root.getElementById("m-thing-external-entity").value.trim() || null : null;
+          const isOdo = root.getElementById("m-thing-is-odometer") ? root.getElementById("m-thing-is-odometer").checked : false;
+          const lastResetInput = root.getElementById("m-thing-last-reset-value");
+          const lastResetVal = (lastResetInput && lastResetInput.value.trim() !== "") ? parseFloat(lastResetInput.value) : (isOdo && !isNaN(curVal) ? curVal : null);
 
           const manufacturer = root.getElementById("m-thing-manufacturer") ? root.getElementById("m-thing-manufacturer").value.trim() : "";
           const model = root.getElementById("m-thing-model") ? root.getElementById("m-thing-model").value.trim() : "";
@@ -5834,6 +5896,8 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             threshold_operator: operator,
             external_entity_id: extEntity,
             script_entity_id: root.getElementById("m-thing-script") ? root.getElementById("m-thing-script").value.trim() || null : null,
+            is_odometer: isOdo,
+            last_reset_value: lastResetVal,
             manufacturer: manufacturer,
             model: model,
             serial_number: serialNum,

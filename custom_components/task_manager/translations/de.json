@@ -143,6 +143,14 @@
         "script_entity_id": {
           "name": "Ausführungsskript bei Erledigung",
           "description": "Optionales Home Assistant Skript, das bei Erledigung einer verknüpften Aufgabe ausgeführt wird."
+        },
+        "is_odometer": {
+          "name": "Fortlaufender Zähler (Odometer)",
+          "description": "Aktivieren für stetig steigende Gesamtzähler (z. B. Gesamtkilometerstand). Der Schwellwert wirkt dann als Intervall ab der letzten Wartung."
+        },
+        "last_reset_value": {
+          "name": "Stand bei letzter Wartung",
+          "description": "Zählerstand bei der letzten Wartung/dem letzten Reset."
         }
       }
     },

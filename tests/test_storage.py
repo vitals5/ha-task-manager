@@ -1195,6 +1195,68 @@ class TestTaskManagerStorageAsync(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(after_delete["last_reading_value"], 12600.0)
         self.assertEqual(after_delete["last_done_date"], "2026-09-26")
 
+    def test_odometer_thing_and_maintenance_task_lifecycle(self):
+        """Test odometer thing threshold tracking and automatic reset upon task completion."""
+        data = TaskManagerData()
+        # 1. Create car thing with 30,000 km maintenance interval, current odometer 45,000 km
+        car = data.create_thing({
+            "name": "Family Car",
+            "is_odometer": True,
+            "target_value": 30000.0,
+            "current_value": 45000.0,
+            "unit": "km",
+        })
+
+        self.assertTrue(car["is_odometer"])
+        self.assertEqual(car["current_value"], 45000.0)
+        self.assertEqual(car["last_reset_value"], 45000.0)
+        self.assertEqual(car["target_value"], 30000.0)
+        # Delta is 45000 - 45000 = 0 -> threshold not reached
+        self.assertFalse(storage_mod.is_thing_threshold_reached(car))
+
+        # 2. Drive to 60,000 km (15,000 km driven) -> still under 30,000 km
+        data.update_thing_value(car["id"], value=60000.0)
+        self.assertFalse(storage_mod.is_thing_threshold_reached(car))
+
+        # 3. Create maintenance chore linked to car with 24 months recurrence
+        task = data.create_task({
+            "title": "Car Major Service",
+            "due_date": "2028-09-26",
+            "linked_thing_id": car["id"],
+            "recurrence": {
+                "enabled": True,
+                "type": "monthly",
+                "interval": 24,
+                "based_on": "completion_date",
+            }
+        })
+
+        # Due date should be 24 months in the future since threshold not reached
+        self.assertEqual(task["status"], "pending")
+        self.assertTrue(task["due_date"] > "2028-01-01")
+
+        # 4. Car reaches 75,000 km (delta = 75000 - 45000 = 30000 km) -> Threshold reached!
+        data.update_thing_value(car["id"], value=75000.0)
+        self.assertTrue(storage_mod.is_thing_threshold_reached(car))
+
+        # Check that the task was automatically triggered to today!
+        updated_task = data.get_task(task["id"])
+        today_str = storage_mod.dt_util.now().date().strftime("%Y-%m-%d")
+        self.assertEqual(updated_task["due_date"], today_str)
+
+        # 5. Complete the maintenance task
+        completed = data.complete_task(task["id"])
+        self.assertEqual(completed["status"], "pending")
+        # Recurrence advances due date back to +24 months
+        self.assertTrue(completed["due_date"] > today_str)
+
+        # Check that car's last_reset_value was automatically updated to 75,000 km!
+        updated_car = data.get_thing(car["id"])
+        self.assertEqual(updated_car["current_value"], 75000.0)
+        self.assertEqual(updated_car["last_reset_value"], 75000.0)
+        # Threshold is no longer reached (delta = 75000 - 75000 = 0 km)
+        self.assertFalse(storage_mod.is_thing_threshold_reached(updated_car))
+
 
 if __name__ == "__main__":
     unittest.main()

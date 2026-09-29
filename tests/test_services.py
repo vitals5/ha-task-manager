@@ -313,3 +313,21 @@ class TestTaskManagerServices(unittest.IsolatedAsyncioTestCase):
             completed_at=None,
         )
 
+    async def test_service_update_thing_odometer(self):
+        """Test calling update_thing service with is_odometer and last_reset_value."""
+        th = self.storage.data.create_thing({"name": "Car", "target_value": 30000.0, "current_value": 45000.0})
+        update_handler = registered_services.get(SERVICE_UPDATE_THING)
+        self.assertIsNotNone(update_handler)
+
+        call = MagicMock()
+        call.data = {
+            "thing_id": th["id"],
+            "is_odometer": True,
+            "last_reset_value": 42000.0,
+        }
+        await update_handler(call)
+        self.storage.async_save.assert_awaited_once()
+        updated = self.storage.data.get_thing(th["id"])
+        self.assertTrue(updated["is_odometer"])
+        self.assertEqual(updated["last_reset_value"], 42000.0)
+

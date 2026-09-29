@@ -3,7 +3,7 @@
  * Type: custom:task-manager-card
  */
 
-const CARD_VERSION = "1.0.30";
+const CARD_VERSION = "1.0.31";
 
 class TaskManagerCard extends HTMLElement {
   constructor() {
@@ -14,6 +14,7 @@ class TaskManagerCard extends HTMLElement {
     this._currentFilter = "all";
     this._tasks = [];
     this._users = [];
+    this._things = [];
   }
 
   _escape(str) {
@@ -93,6 +94,7 @@ class TaskManagerCard extends HTMLElement {
       if (res) {
         if (Array.isArray(res.tasks)) this._tasks = res.tasks;
         if (Array.isArray(res.users)) this._users = res.users;
+        if (Array.isArray(res.things)) this._things = res.things;
         this._render();
       }
     } catch (err) {
@@ -430,6 +432,16 @@ class TaskManagerCard extends HTMLElement {
                     ${t.dependencies && t.dependencies.length > 0 ? `
                       <span class="badge" style="background:rgba(234,179,8,0.15); color:#ca8a04;">🔗 ${t.dependencies.length} ${de ? "Abh." : "deps"}</span>
                     ` : ""}
+                    ${(() => {
+                      if (!t.linked_thing_id || !Array.isArray(this._things)) return "";
+                      const th = this._things.find(x => x.id === t.linked_thing_id);
+                      if (!th) return "";
+                      if (th.is_odometer) {
+                        const delta = Math.max(0, (parseFloat(th.current_value) || 0) - (parseFloat(th.last_reset_value) || 0));
+                        return `<span class="badge" style="background:rgba(2,132,199,0.15); color:#0284c7;">🚗 ${this._escape(th.name)}: ${delta} / ${th.target_value} ${this._escape(th.unit || "")}</span>`;
+                      }
+                      return `<span class="badge" style="background:rgba(2,132,199,0.15); color:#0284c7;">⚙️ ${this._escape(th.name)}: ${th.current_value} / ${th.threshold_operator || ">="} ${th.target_value} ${this._escape(th.unit || "")}</span>`;
+                    })()}
                     ${t.task_type === "reading" ? `
                       <span class="badge" style="background:rgba(6,182,212,0.15); color:#0891b2;">
                         📟 ${(t.registers && t.registers.length > 0)

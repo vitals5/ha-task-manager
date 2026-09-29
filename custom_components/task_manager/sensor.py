@@ -355,9 +355,17 @@ class TaskManagerThingSensor(SensorEntity):
 
         target = float(thing.get("target_value", 100))
         cur = float(thing.get("current_value", 0))
-        pct = round((cur / target) * 100, 1) if target > 0 else 0.0
+        is_odo = bool(thing.get("is_odometer", False))
+        if is_odo:
+            base = float(thing.get("last_reset_value") if thing.get("last_reset_value") is not None else cur)
+            delta = max(0.0, cur - base)
+            pct = round((delta / target) * 100, 1) if target > 0 else 0.0
+        else:
+            base = None
+            delta = None
+            pct = round((cur / target) * 100, 1) if target > 0 else 0.0
 
-        return {
+        attrs = {
             "thing_id": self._thing_id,
             "category": thing.get("category", ""),
             "area_id": thing.get("area_id"),
@@ -377,7 +385,14 @@ class TaskManagerThingSensor(SensorEntity):
             "progress_percent": pct,
             "auto_task_creation": thing.get("auto_task_creation", False),
             "last_reset": thing.get("last_reset", ""),
+            "is_odometer": is_odo,
         }
+        if is_odo:
+            attrs["last_reset_value"] = base
+            attrs["delta_since_reset"] = round(delta, 2) if delta is not None else 0.0
+            attrs["next_threshold_value"] = round(base + target, 2)
+
+        return attrs
 
 
 class TaskManagerTaskSensor(SensorEntity):

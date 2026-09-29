@@ -93,6 +93,18 @@ def is_thing_threshold_reached(thing: dict[str, Any]) -> bool:
     except (ValueError, TypeError):
         current = 0.0
 
+    if bool(thing.get("is_odometer", False)):
+        base_val = thing.get("last_reset_value")
+        if base_val is None:
+            base_val = current
+        else:
+            try:
+                base_val = float(base_val)
+            except (ValueError, TypeError):
+                base_val = current
+        delta = current - base_val
+        return delta >= threshold
+
     if operator in (THRESHOLD_OP_LTE, "lte", "down", "countdown", "<"):
         return current <= threshold
     return current >= threshold
@@ -954,12 +966,16 @@ class TaskManagerData:
             thing = self.get_thing(linked_thing_id)
             if thing:
                 if thing_action == THING_ACTION_RESET:
-                    operator = thing.get("threshold_operator", THRESHOLD_OP_GTE)
-                    if operator in (THRESHOLD_OP_LTE, "lte", "down", "countdown", "<"):
-                        thing["current_value"] = float(thing.get("initial_value", 100))
+                    if bool(thing.get("is_odometer", False)):
+                        thing["last_reset_value"] = float(thing.get("current_value", 0))
+                        thing["last_reset"] = now_str
                     else:
-                        thing["current_value"] = 0.0
-                    thing["last_reset"] = now_str
+                        operator = thing.get("threshold_operator", THRESHOLD_OP_GTE)
+                        if operator in (THRESHOLD_OP_LTE, "lte", "down", "countdown", "<"):
+                            thing["current_value"] = float(thing.get("initial_value", 100))
+                        else:
+                            thing["current_value"] = 0.0
+                        thing["last_reset"] = now_str
                 elif thing_action == THING_ACTION_INCREMENT:
                     thing["current_value"] = float(thing.get("current_value", 0)) + 1
                 elif thing_action == THING_ACTION_DECREMENT:
@@ -1463,6 +1479,18 @@ class TaskManagerData:
         if operator not in (THRESHOLD_OP_GTE, THRESHOLD_OP_LTE):
             operator = THRESHOLD_OP_GTE
 
+        is_odometer = bool(thing_data.get("is_odometer", False))
+        last_reset_val = thing_data.get("last_reset_value")
+        if last_reset_val is not None and str(last_reset_val).strip() not in ("", "None", "null"):
+            try:
+                last_reset_val = float(last_reset_val)
+            except (ValueError, TypeError):
+                last_reset_val = current_value if is_odometer else None
+        elif is_odometer:
+            last_reset_val = current_value
+        else:
+            last_reset_val = None
+
         new_thing = {
             "id": thing_id,
             "name": thing_data.get("name", "New Thing"),
@@ -1486,6 +1514,8 @@ class TaskManagerData:
             "auto_task_creation": bool(thing_data.get("auto_task_creation", False)),
             "auto_task_title": thing_data.get("auto_task_title", f"Maintain {thing_data.get('name', 'Thing')}"),
             "last_reset": thing_data.get("last_reset", ""),
+            "is_odometer": is_odometer,
+            "last_reset_value": last_reset_val,
         }
         self.things.append(new_thing)
         self._log_activity("thing_created", {"thing_id": thing_id, "name": new_thing["name"]})
@@ -1511,6 +1541,23 @@ class TaskManagerData:
 
         if "script_entity_id" in updates:
             thing["script_entity_id"] = updates["script_entity_id"] or None
+
+        if "is_odometer" in updates:
+            thing["is_odometer"] = bool(updates["is_odometer"])
+            if thing["is_odometer"] and thing.get("last_reset_value") is None:
+                thing["last_reset_value"] = float(thing.get("current_value", 0))
+
+        if "last_reset_value" in updates:
+            l_val = updates["last_reset_value"]
+            if l_val is not None and str(l_val).strip() not in ("", "None", "null"):
+                try:
+                    thing["last_reset_value"] = float(l_val)
+                except (ValueError, TypeError):
+                    pass
+            elif thing.get("is_odometer"):
+                thing["last_reset_value"] = float(thing.get("current_value", 0))
+            else:
+                thing["last_reset_value"] = None
 
         if is_thing_threshold_reached(thing):
             today_str = dt_util.now().date().strftime("%Y-%m-%d")
@@ -1542,17 +1589,25 @@ class TaskManagerData:
         today_str = dt_util.now().date().strftime("%Y-%m-%d")
 
         if reset:
-            operator = thing.get("threshold_operator", THRESHOLD_OP_GTE)
-            if operator in (THRESHOLD_OP_LTE, "lte", "down", "countdown", "<"):
-                thing["current_value"] = float(thing.get("initial_value", 100))
+            if bool(thing.get("is_odometer", False)):
+                thing["last_reset_value"] = float(thing.get("current_value", 0))
+                thing["last_reset"] = now_str
             else:
-                thing["current_value"] = 0.0
-            thing["last_reset"] = now_str
+                operator = thing.get("threshold_operator", THRESHOLD_OP_GTE)
+                if operator in (THRESHOLD_OP_LTE, "lte", "down", "countdown", "<"):
+                    thing["current_value"] = float(thing.get("initial_value", 100))
+                else:
+                    thing["current_value"] = 0.0
+                thing["last_reset"] = now_str
         elif value is not None:
             thing["current_value"] = float(value)
+            if bool(thing.get("is_odometer", False)) and thing.get("last_reset_value") is None:
+                thing["last_reset_value"] = float(value)
         elif delta is not None:
             cur = float(thing.get("current_value", 0))
             thing["current_value"] = max(0.0, cur + float(delta))
+            if bool(thing.get("is_odometer", False)) and thing.get("last_reset_value") is None:
+                thing["last_reset_value"] = thing["current_value"]
 
         # Check threshold
         if is_thing_threshold_reached(thing):
