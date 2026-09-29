@@ -176,9 +176,51 @@ async def async_read_external_tasks(hass: HomeAssistant, entity_id: str) -> list
     """Read tasks from an external Home Assistant todo entity."""
     tasks: list[dict[str, Any]] = []
 
-    # Method 1: Try reading directly from todo entity in hass.data
+    # Method 1: Call Home Assistant todo.get_items service (fetches both needs_action and completed)
+    if hasattr(hass, "services") and hasattr(hass.services, "async_call"):
+        try:
+            response = await hass.services.async_call(
+                "todo",
+                "get_items",
+                {"status": ["needs_action", "completed"]},
+                target={"entity_id": entity_id},
+                blocking=True,
+                return_response=True,
+            )
+            if response and isinstance(response, dict) and entity_id in response:
+                entity_data = response.get(entity_id, {})
+                items = entity_data.get("items", [])
+                for item in items:
+                    uid = item.get("uid") or item.get("id")
+                    if not uid:
+                        continue
+                    due_val = item.get("due") or item.get("due_date")
+                    due_date = None
+                    due_time = None
+                    if due_val:
+                        if "T" in due_val:
+                            parts = due_val.split("T")
+                            due_date = parts[0]
+                            due_time = parts[1][:5]
+                        else:
+                            due_date = due_val[:10]
+
+                    is_done = item.get("status") == "completed"
+                    tasks.append({
+                        "uid": str(uid),
+                        "title": item.get("summary", "") or item.get("title", ""),
+                        "description": item.get("description", "") or "",
+                        "status": "completed" if is_done else "pending",
+                        "due_date": due_date,
+                        "due_time": due_time,
+                    })
+                return tasks
+        except Exception as err:
+            _LOGGER.debug("Could not read via todo.get_items service from entity %s: %s", entity_id, err)
+
+    # Method 2: Try reading directly from todo entity in hass.data
     try:
-        todo_comp = hass.data.get("todo")
+        todo_comp = hass.data.get("todo") if hasattr(hass, "data") else None
         if todo_comp and hasattr(todo_comp, "get_entity"):
             entity = todo_comp.get_entity(entity_id)
             if entity and hasattr(entity, "todo_items") and entity.todo_items is not None:
@@ -213,46 +255,6 @@ async def async_read_external_tasks(hass: HomeAssistant, entity_id: str) -> list
                 return tasks
     except Exception as err:
         _LOGGER.debug("Could not read directly from entity %s: %s", entity_id, err)
-
-    # Method 2: Call Home Assistant todo.get_items service
-    try:
-        response = await hass.services.async_call(
-            "todo",
-            "get_items",
-            {"status": ["needs_action", "completed"]},
-            target={"entity_id": entity_id},
-            blocking=True,
-            return_response=True,
-        )
-        if response and isinstance(response, dict):
-            entity_data = response.get(entity_id, {})
-            items = entity_data.get("items", [])
-            for item in items:
-                uid = item.get("uid") or item.get("id")
-                if not uid:
-                    continue
-                due_val = item.get("due") or item.get("due_date")
-                due_date = None
-                due_time = None
-                if due_val:
-                    if "T" in due_val:
-                        parts = due_val.split("T")
-                        due_date = parts[0]
-                        due_time = parts[1][:5]
-                    else:
-                        due_date = due_val[:10]
-
-                is_done = item.get("status") == "completed"
-                tasks.append({
-                    "uid": str(uid),
-                    "title": item.get("summary", "") or item.get("title", ""),
-                    "description": item.get("description", "") or "",
-                    "status": "completed" if is_done else "pending",
-                    "due_date": due_date,
-                    "due_time": due_time,
-                })
-    except Exception as err:
-        _LOGGER.error("Failed to fetch items from external todo %s: %s", entity_id, err)
 
     return tasks
 

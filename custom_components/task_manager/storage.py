@@ -1,6 +1,7 @@
 """Data storage and management for the Task Manager integration."""
 from __future__ import annotations
 
+import asyncio
 import calendar
 import copy
 from datetime import date, datetime, timedelta
@@ -1776,6 +1777,8 @@ class TaskManagerStorage:
         self.hass = hass
         self.data = TaskManagerData()
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        self._sync_lock: asyncio.Lock | None = None
+        self._sync_pending = False
 
     async def async_load(self) -> None:
         """Load stored data from disk."""
@@ -1816,17 +1819,29 @@ class TaskManagerStorage:
         return data
 
     async def async_sync_providers(self) -> None:
-        """Fetch items from all configured external providers."""
-        for provider in self.data.providers:
-            e_id = provider.get("entity_id")
-            if not e_id:
-                continue
-            try:
-                items = await async_read_external_tasks(self.hass, e_id)
-                self.data.external_tasks_cache[e_id] = items
-            except Exception as err:
-                _LOGGER.error("Error syncing provider %s: %s", e_id, err)
-        async_dispatcher_send(self.hass, SIGNAL_TASK_MANAGER_UPDATED)
+        """Fetch items from all configured external providers with concurrency control."""
+        if not hasattr(self, "_sync_lock") or self._sync_lock is None:
+            self._sync_lock = asyncio.Lock()
+
+        if self._sync_lock.locked():
+            self._sync_pending = True
+            return
+
+        async with self._sync_lock:
+            while True:
+                self._sync_pending = False
+                for provider in self.data.providers:
+                    e_id = provider.get("entity_id")
+                    if not e_id:
+                        continue
+                    try:
+                        items = await async_read_external_tasks(self.hass, e_id)
+                        self.data.external_tasks_cache[e_id] = items
+                    except Exception as err:
+                        _LOGGER.error("Error syncing provider %s: %s", e_id, err)
+                async_dispatcher_send(self.hass, SIGNAL_TASK_MANAGER_UPDATED)
+                if not getattr(self, "_sync_pending", False):
+                    break
 
     def fire_task_event(
         self,
@@ -1975,6 +1990,39 @@ class TaskManagerStorage:
             if len(parts) < 3:
                 return None
             e_id, uid = parts[1], parts[2]
+
+            existing_task = None
+            for t in self.data.get_all_tasks(include_external=True):
+                if t.get("id") == task_id:
+                    existing_task = dict(t)
+                    break
+
+            if not existing_task:
+                cached_items = self.data.external_tasks_cache.get(e_id, [])
+                target_item = next((i for i in cached_items if str(i.get("uid")) == uid), None)
+                provider = next((p for p in self.data.providers if p.get("entity_id") == e_id), {})
+                overlay = self.data.get_overlay(uid)
+                if target_item or overlay or provider:
+                    existing_task = {
+                        "id": task_id,
+                        "external_uid": uid,
+                        "title": target_item.get("title", "") if target_item else overlay.get("title", "External Task"),
+                        "description": target_item.get("description", "") if target_item else "",
+                        "status": "pending",
+                        "due_date": target_item.get("due_date") if target_item else None,
+                        "due_time": target_item.get("due_time") if target_item else None,
+                        "is_external": True,
+                        "provider_entity_id": e_id,
+                        "provider_name": provider.get("name", e_id),
+                        "provider_type": provider.get("provider_type", "generic"),
+                        "provider_icon": provider.get("icon", "mdi:format-list-checks"),
+                        "priority": overlay.get("priority", PRIORITY_NONE),
+                        "assignees": overlay.get("assignees", []),
+                        "current_assignee": overlay.get("current_assignee"),
+                    }
+                else:
+                    return None
+
             await async_update_external_task(self.hass, e_id, uid, status="completed")
 
             cached_items = self.data.external_tasks_cache.get(e_id, [])
@@ -1992,7 +2040,7 @@ class TaskManagerStorage:
                     u["points"] = u.get("points", 0) + points
                     u["completed_count"] = u.get("completed_count", 0) + 1
 
-            now_str = dt_util.now().isoformat()
+            now_str = completed_at or dt_util.now().isoformat()
             overlay["completed_at"] = now_str
             overlay["completed_by"] = effective_user
             hist_item = {
@@ -2029,11 +2077,19 @@ class TaskManagerStorage:
                         await self._async_run_thing_script(thing.get("script_entity_id"), thing)
 
             await self.async_save()
+
+            completed_task = dict(existing_task)
+            completed_task["status"] = "completed"
+            completed_task["completed_at"] = now_str
+            completed_task["completed_by"] = effective_user
+
             for t in self.data.get_all_tasks(include_external=True):
                 if t.get("id") == task_id:
-                    self.fire_task_event(EVENT_TASK_COMPLETED, t, {"user_id": effective_user})
-                    return t
-            return None
+                    completed_task = t
+                    break
+
+            self.fire_task_event(EVENT_TASK_COMPLETED, completed_task, {"user_id": effective_user})
+            return completed_task
 
         # Internal task
         task = self.data.complete_task(
@@ -2187,12 +2243,54 @@ class TaskManagerStorage:
             if len(parts) < 3:
                 return None
             e_id, uid = parts[1], parts[2]
+
+            existing_task = None
+            for t in self.data.get_all_tasks(include_external=True):
+                if t.get("id") == task_id:
+                    existing_task = dict(t)
+                    break
+
+            if not existing_task:
+                cached_items = self.data.external_tasks_cache.get(e_id, [])
+                target_item = next((i for i in cached_items if str(i.get("uid")) == uid), None)
+                provider = next((p for p in self.data.providers if p.get("entity_id") == e_id), {})
+                overlay = self.data.get_overlay(uid)
+                if target_item or overlay or provider:
+                    existing_task = {
+                        "id": task_id,
+                        "external_uid": uid,
+                        "title": target_item.get("title", "") if target_item else overlay.get("title", "External Task"),
+                        "description": target_item.get("description", "") if target_item else "",
+                        "status": "completed",
+                        "due_date": target_item.get("due_date") if target_item else None,
+                        "due_time": target_item.get("due_time") if target_item else None,
+                        "is_external": True,
+                        "provider_entity_id": e_id,
+                        "provider_name": provider.get("name", e_id),
+                        "provider_type": provider.get("provider_type", "generic"),
+                        "provider_icon": provider.get("icon", "mdi:format-list-checks"),
+                        "priority": overlay.get("priority", PRIORITY_NONE),
+                        "assignees": overlay.get("assignees", []),
+                        "current_assignee": overlay.get("current_assignee"),
+                    }
+                else:
+                    return None
+
             await async_update_external_task(self.hass, e_id, uid, status="needs_action")
 
             cached_items = self.data.external_tasks_cache.get(e_id, [])
             target_item = next((i for i in cached_items if str(i.get("uid")) == uid), None)
             if target_item:
                 target_item["status"] = "pending"
+            elif existing_task:
+                self.data.external_tasks_cache.setdefault(e_id, []).append({
+                    "uid": uid,
+                    "title": existing_task.get("title", ""),
+                    "description": existing_task.get("description", ""),
+                    "status": "pending",
+                    "due_date": existing_task.get("due_date"),
+                    "due_time": existing_task.get("due_time"),
+                })
 
             overlay = self.data.get_overlay(uid)
             overlay["completed_at"] = None
@@ -2200,11 +2298,19 @@ class TaskManagerStorage:
             self.data.set_overlay(uid, overlay)
 
             await self.async_save()
+
+            reset_task = dict(existing_task)
+            reset_task["status"] = "pending"
+            reset_task["completed_at"] = None
+            reset_task["completed_by"] = None
+
             for t in self.data.get_all_tasks(include_external=True):
                 if t.get("id") == task_id:
-                    self.fire_task_event(EVENT_TASK_REOPENED, t)
-                    return t
-            return None
+                    reset_task = t
+                    break
+
+            self.fire_task_event(EVENT_TASK_REOPENED, reset_task)
+            return reset_task
 
         task = self.data.reset_task(task_id)
         if task:

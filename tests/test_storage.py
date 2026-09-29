@@ -774,6 +774,109 @@ class TestTaskManagerStorageAsync(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(moved)
         self.assertEqual(moved["title"], "Clean Balcony")
 
+    async def test_complete_external_task_race_condition(self):
+        """Test completing external task when provider removes completed item during completion."""
+        hass = MagicMock()
+        hass.bus = MagicMock()
+        hass.bus.async_fire = MagicMock()
+        hass.services = MagicMock()
+        hass.services.async_call = AsyncMock()
+
+        storage = TaskManagerStorage(hass)
+        storage.async_save = AsyncMock()
+
+        storage.data.add_provider("todo.microsoft_todo", "Microsoft ToDo", "microsoft_todo")
+        storage.data.external_tasks_cache["todo.microsoft_todo"] = [
+            {
+                "uid": "ms_task_999",
+                "title": "Clean Garage",
+                "description": "Recycle boxes",
+                "status": "pending",
+                "due_date": "2026-09-30",
+            }
+        ]
+
+        task_id = "ext:todo.microsoft_todo:ms_task_999"
+
+        # Simulate race condition: during async_save, external sync purges completed task from cache
+        async def mock_save_side_effect():
+            storage.data.external_tasks_cache["todo.microsoft_todo"] = []
+        storage.async_save.side_effect = mock_save_side_effect
+
+        result = await storage.async_complete_task(task_id, user_id="user_household")
+        self.assertIsNotNone(result)
+        self.assertEqual(result["id"], task_id)
+        self.assertEqual(result["title"], "Clean Garage")
+        self.assertEqual(result["status"], "completed")
+
+        completed_events = [c for c in hass.bus.async_fire.call_args_list if c[0][0] == const_mod.EVENT_TASK_COMPLETED]
+        self.assertTrue(len(completed_events) > 0)
+        self.assertEqual(completed_events[0][0][1]["task_id"], task_id)
+
+        overlay = storage.data.get_overlay("ms_task_999")
+        self.assertIsNotNone(overlay.get("completed_at"))
+
+    async def test_reset_external_task(self):
+        """Test reopening/resetting an external task."""
+        hass = MagicMock()
+        hass.bus = MagicMock()
+        hass.bus.async_fire = MagicMock()
+        hass.services = MagicMock()
+        hass.services.async_call = AsyncMock()
+
+        storage = TaskManagerStorage(hass)
+        storage.async_save = AsyncMock()
+
+        storage.data.add_provider("todo.microsoft_todo", "Microsoft ToDo", "microsoft_todo")
+        storage.data.external_tasks_cache["todo.microsoft_todo"] = [
+            {
+                "uid": "ms_task_888",
+                "title": "Paint fence",
+                "description": "",
+                "status": "completed",
+            }
+        ]
+        storage.data.set_overlay("ms_task_888", {"completed_at": "2026-09-29T10:00:00"})
+
+        task_id = "ext:todo.microsoft_todo:ms_task_888"
+
+        result = await storage.async_reset_task(task_id)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["id"], task_id)
+        self.assertEqual(result["status"], "pending")
+
+        reopened_events = [c for c in hass.bus.async_fire.call_args_list if c[0][0] == const_mod.EVENT_TASK_REOPENED]
+        self.assertTrue(len(reopened_events) > 0)
+
+        overlay = storage.data.get_overlay("ms_task_888")
+        self.assertIsNone(overlay.get("completed_at"))
+
+    async def test_async_sync_providers_lock(self):
+        """Test provider sync concurrency control."""
+        import asyncio
+        hass = MagicMock()
+        storage = TaskManagerStorage(hass)
+        storage.data.add_provider("todo.test_sync", "Test Sync", "generic")
+
+        orig_read = storage_mod.async_read_external_tasks
+        call_count = 0
+        async def mock_read(h, e):
+            nonlocal call_count
+            call_count += 1
+            await asyncio.sleep(0.01)
+            return []
+        storage_mod.async_read_external_tasks = mock_read
+
+        try:
+            await asyncio.gather(
+                storage.async_sync_providers(),
+                storage.async_sync_providers(),
+                storage.async_sync_providers(),
+            )
+            self.assertLessEqual(call_count, 2)
+        finally:
+            storage_mod.async_read_external_tasks = orig_read
+
     def test_repeat_every_weekday(self):
         """Test repeat_every_weekday schedule calculation."""
         res = calculate_next_due_date("2026-09-26", {

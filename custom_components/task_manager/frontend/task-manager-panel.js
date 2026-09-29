@@ -863,6 +863,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       } catch (err) {
         console.error(`Task Manager: Error calling ${type}`, err);
         alert(`Error: ${err.message || err}`);
+        await this._fetchData();
       }
     }
 
@@ -1259,6 +1260,8 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           this._showToast(`🎉 ${this.t("recurringTaskCompleted", { title: updatedTask.title, nextDue: updatedTask.due_date })}`);
         } else if (updatedTask) {
           this._showToast(`🎉 ${this.t("taskCompleted", { title: updatedTask.title })}`);
+        } else if (prevTask) {
+          this._showToast(`🎉 ${this.t("taskCompleted", { title: prevTask.title })}`);
         }
       }
 
