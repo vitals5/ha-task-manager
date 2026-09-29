@@ -31,6 +31,20 @@ The entire workflow is managed within an integrated, mobile- and tablet-friendly
 
 ---
 
+## 📖 In-Depth Documentation Guides
+
+Explore the dedicated documentation guides for detailed walkthroughs, real-world examples, and configuration references:
+
+- 📋 [**Tasks & Chores Management**](docs/tasks_and_chores.md) – Recurrence cadences, subtasks, rotation, QR quick-completion, and pause/resume.
+- ⚙️ [**Things & Odometer Tracking**](docs/things_and_odometers.md) – Monotonic counters, car maintenance (30,000 km or 24 months), and HA sensor linkage.
+- 📟 [**Utility & Meter Readings**](docs/meter_readings.md) – Multi-register counters (HT/NT/Feed-in), consumption deltas, history editing, and CSV export.
+- 🧰 [**Spare Parts & Inventory Shelf**](docs/spare_parts.md) – Parts inventory, reorder links, low-stock alerts, and appliance warranty tracking.
+- 📊 [**Lovelace Dashboard Card**](docs/lovelace_card.md) – Custom card setup, visual editor, options, and YAML examples.
+- 🤖 [**Actions & Services Reference**](docs/services_reference.md) – Exhaustive reference for all 18 Home Assistant services with parameter schemas.
+- ⚡ [**Automations, Events & Blueprints**](docs/automations_and_events.md) – Event Bus triggers, precision reminders, mobile alerts, and daily digest blueprint.
+
+---
+
 ## 📋 Core Capabilities
 
 ### 1. Chores & Maintenance Management
