@@ -876,7 +876,7 @@ class TaskManagerData:
             and rec.get("type", RECURRENCE_NONE) not in (RECURRENCE_NONE, "none", "")
             and int(rec.get("interval", 1)) > 0
         )
-        is_recurring = rec.get("enabled", False) and (has_time_fallback or bool(linked_thing_id))
+        is_recurring = (rec.get("enabled", False) and has_time_fallback) or bool(linked_thing_id)
 
         if is_recurring:
             # Smart Subtasks Reset: reset all subtasks when recurring task completes

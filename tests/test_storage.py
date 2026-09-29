@@ -446,6 +446,43 @@ class TestTaskManagerStorage(unittest.TestCase):
         self.assertEqual(updated_task["due_date"], "2026-10-03")
         self.assertEqual(updated_task["status"], "pending")
 
+    def test_task_linked_to_thing_no_recurrence_waits_for_next_trigger(self):
+        """Test task linked to Thing with NO recurrence enabled waits for next trigger upon completion."""
+        thing = self.data.create_thing({
+            "name": "Dehumidifier Tank",
+            "threshold_operator": ">=",
+            "target_value": 1,
+            "current_value": 0,
+            "unit": "full",
+        })
+
+        # Create task with recurrence completely disabled (as produced when user unchecks recurrence in UI)
+        task = self.data.create_task({
+            "title": "Empty dehumidifier tank",
+            "linked_thing_id": thing["id"],
+            "recurrence": {
+                "enabled": False,
+                "type": "none",
+                "interval": 1,
+            },
+        })
+        # Since threshold not reached and no fallback, due date is FAR_FUTURE_DUE_DATE
+        self.assertEqual(task["due_date"], FAR_FUTURE_DUE_DATE)
+
+        # Sensor triggers threshold
+        self.data.update_thing_value(thing["id"], value=1)
+        updated = self.data.get_task(task["id"])
+        self.assertEqual(updated["due_date"], "2026-09-26")
+
+        # User completes task
+        completed = self.data.complete_task(task["id"])
+        # Should NOT be marked 'completed' status! It should remain 'pending' and reset to FAR_FUTURE_DUE_DATE
+        self.assertEqual(completed["status"], "pending")
+        self.assertEqual(completed["due_date"], FAR_FUTURE_DUE_DATE)
+
+        # Thing should be reset
+        self.assertEqual(self.data.get_thing(thing["id"])["current_value"], 0.0)
+
     def test_thing_script_entity_crud(self):
         """Test creating and updating Thing with script_entity_id."""
         thing = self.data.create_thing({

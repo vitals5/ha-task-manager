@@ -414,8 +414,8 @@ class TaskManagerCard extends HTMLElement {
                       <span class="badge" style="background:rgba(100,116,139,0.15); color:#64748b;">⏸️ ${de ? "Pausiert" : "Paused"}</span>
                     ` : ""}
                     ${t.due_date ? `
-                      <span class="badge ${isOverdue ? "badge-overdue" : isToday ? "badge-due-today" : "badge-date"}">
-                        ${isOverdue ? (de ? "⚠️ Überfällig: " : "⚠️ Overdue: ") : isToday ? (de ? "🔥 Heute" : "🔥 Today") : "📅 "} ${t.due_date}
+                      <span class="badge ${t.due_date >= "2099-01-01" && t.linked_thing_id ? "badge-date" : isOverdue ? "badge-overdue" : isToday ? "badge-due-today" : "badge-date"}">
+                        ${t.due_date >= "2099-01-01" && t.linked_thing_id ? `⚡ ${de ? "Wartet auf Schwellwert" : "Waiting for threshold"}` : `${isOverdue ? (de ? "⚠️ Überfällig: " : "⚠️ Overdue: ") : isToday ? (de ? "🔥 Heute" : "🔥 Today") : "📅 "} ${t.due_date}`}
                       </span>
                     ` : ""}
                     ${this._config.show_priority && t.priority && t.priority !== "none" ? `
