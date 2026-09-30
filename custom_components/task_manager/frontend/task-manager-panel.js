@@ -1365,11 +1365,11 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         if (expandBtn) {
           if (shouldExpand) {
             expandBtn.classList.add("active");
-            expandBtn.innerHTML = `<span>▲</span> <span class="toggle-text">${this.t("collapseActions")}</span>`;
+            expandBtn.innerHTML = `<span>▲</span>`;
             expandBtn.setAttribute("title", this.t("collapseActions"));
           } else {
             expandBtn.classList.remove("active");
-            expandBtn.innerHTML = `<span>⋯</span> <span class="toggle-text">${this.t("actions")}</span>`;
+            expandBtn.innerHTML = `<span>⋯</span>`;
             expandBtn.setAttribute("title", this.t("expandActions"));
           }
         }
@@ -2084,7 +2084,12 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           .content-area {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 20px 24px;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
           }
 
           /* Filters toolbar */
@@ -2095,12 +2100,25 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             align-items: center;
             justify-content: space-between;
             margin-bottom: 18px;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
           }
 
           .filter-pills {
             display: flex;
             gap: 6px;
             overflow-x: auto;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .filter-pills::-webkit-scrollbar {
+            display: none;
           }
 
           .filter-pill {
@@ -2334,16 +2352,22 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           .task-toggle-btn {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            padding: 5px 12px;
-            font-size: 12px;
-            font-weight: 600;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+            min-height: 32px;
+            padding: 0;
+            font-size: 16px;
+            font-weight: 700;
             border-radius: 8px;
             border: 1px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.25)));
             background: var(--secondary-background-color, rgba(127, 127, 127, 0.08));
             color: var(--secondary-text-color, #64748b);
             cursor: pointer;
             transition: all 0.15s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
           }
 
           .task-toggle-btn:hover,
@@ -2877,8 +2901,11 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             font-size: 18px;
           }
           :host(.tablet-mode) .task-toggle-btn {
-            padding: 8px 16px;
-            font-size: 14px;
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            min-height: 38px;
+            font-size: 18px;
           }
 
           /* Floating Action Button (FAB) for Mobile */
@@ -3049,6 +3076,11 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             .content-area {
               padding: 12px 10px;
               padding-bottom: 90px;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+              overflow-x: hidden;
             }
 
             .toolbar {
@@ -3056,10 +3088,18 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               align-items: stretch;
               gap: 10px;
               margin-bottom: 12px;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
             }
 
             .filter-pills {
-              padding-bottom: 2px;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+              padding-bottom: 4px;
               scrollbar-width: none;
               -webkit-overflow-scrolling: touch;
             }
@@ -3077,33 +3117,61 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
             .filter-selects {
               display: grid;
-              grid-template-columns: repeat(3, 1fr);
+              grid-template-columns: repeat(3, minmax(0, 1fr));
               gap: 6px;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+            }
+
+            @media (max-width: 480px) {
+              .filter-selects {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+              }
+              #filter-provider {
+                grid-column: 1 / -1;
+              }
             }
 
             #search-input {
               grid-column: 1 / -1;
               width: 100%;
+              max-width: 100%;
+              min-width: 0;
               font-size: 16px;
               padding: 8px 12px;
+              box-sizing: border-box;
             }
 
             .filter-selects .select-input {
               width: 100%;
+              max-width: 100%;
               min-width: 0;
               padding: 6px 4px;
               font-size: 11px;
+              box-sizing: border-box;
+              overflow: hidden;
+              text-overflow: ellipsis;
             }
 
             .task-grid {
               grid-template-columns: 1fr;
               gap: 10px;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
             }
 
             .task-card {
               padding: 14px;
               border-radius: 12px;
               gap: 10px;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
             }
 
             .check-btn {
@@ -3622,7 +3690,6 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
             <button type="button" class="task-toggle-btn ${isExpanded ? "active" : ""}" data-toggle-task-expand="${task.id}" title="${isExpanded ? this.t("collapseActions") : this.t("expandActions")}">
               <span>${isExpanded ? "▲" : "⋯"}</span>
-              <span class="toggle-text">${isExpanded ? this.t("collapseActions") : this.t("actions")}</span>
             </button>
           </div>
 

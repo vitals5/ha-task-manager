@@ -133,6 +133,7 @@ max_items: 15
 ### 7. External Todo Providers & Sync
 - **Supported Providers**:
   - Google Tasks (`google_tasks`)
+  - Microsoft 365 To-Do / Outlook Tasks (`microsoft_todo` or generic `todo.*`)
   - Todoist (`todoist`)
   - CalDAV / Nextcloud (`caldav`)
   - Local To-do (`local_todo`)

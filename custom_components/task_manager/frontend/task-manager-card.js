@@ -3,7 +3,7 @@
  * Type: custom:task-manager-card
  */
 
-const CARD_VERSION = "1.0.33";
+const CARD_VERSION = "1.0.34";
 
 class TaskManagerCard extends HTMLElement {
   constructor() {
@@ -44,6 +44,7 @@ class TaskManagerCard extends HTMLElement {
   }
 
   setConfig(config) {
+    const maxVal = config.max_tasks !== undefined ? config.max_tasks : config.max_items;
     this._config = {
       title: "Task Manager",
       default_filter: "all",
@@ -52,8 +53,16 @@ class TaskManagerCard extends HTMLElement {
       show_assignee: true,
       show_priority: true,
       max_items: 20,
+      max_tasks: 20,
       ...config,
     };
+    if (maxVal !== undefined && maxVal !== null && maxVal !== "") {
+      const num = Number(maxVal);
+      if (!isNaN(num) && num > 0) {
+        this._config.max_items = num;
+        this._config.max_tasks = num;
+      }
+    }
     if (!this._currentFilter || this._currentFilter === "all") {
       this._currentFilter = this._config.default_filter || "all";
     }
@@ -145,8 +154,12 @@ class TaskManagerCard extends HTMLElement {
       return (pOrder[a.priority] || 5) - (pOrder[b.priority] || 5);
     });
 
-    if (this._config.max_items && this._config.max_items > 0) {
-      list = list.slice(0, this._config.max_items);
+    const maxVal = this._config.max_items !== undefined ? this._config.max_items : this._config.max_tasks;
+    if (maxVal !== undefined && maxVal !== null && maxVal !== "") {
+      const limit = Number(maxVal);
+      if (!isNaN(limit) && limit > 0) {
+        list = list.slice(0, limit);
+      }
     }
 
     return list;
@@ -599,23 +612,35 @@ class TaskManagerCardEditor extends HTMLElement {
     this._hass = hass;
   }
 
+  _isGerman() {
+    const lang = (this._hass && (this._hass.language || (this._hass.locale && this._hass.locale.language))) || "en";
+    return lang.startsWith("de");
+  }
+
   _valueChanged(ev) {
     if (!this._config || !ev.target) return;
     const target = ev.target;
-    const configValue = target.configValue;
+    const configValue = target.dataset.configValue || target.getAttribute("data-config-value") || target.getAttribute(".configvalue") || target.configValue;
     if (!configValue) return;
 
     let value = target.value;
     if (target.type === "checkbox") {
       value = target.checked;
     } else if (target.type === "number") {
-      value = parseInt(target.value, 10);
+      value = target.value === "" ? "" : Number(target.value);
     }
+
+    if (this._config[configValue] === value) return;
 
     this._config = {
       ...this._config,
       [configValue]: value,
     };
+    if (configValue === "max_items") {
+      this._config.max_tasks = value;
+    } else if (configValue === "max_tasks") {
+      this._config.max_items = value;
+    }
 
     const event = new CustomEvent("config-changed", {
       detail: { config: this._config },
@@ -627,6 +652,9 @@ class TaskManagerCardEditor extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot) return;
+
+    const de = this._isGerman();
+    const maxVal = this._config.max_items !== undefined ? this._config.max_items : (this._config.max_tasks !== undefined ? this._config.max_tasks : 20);
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -669,48 +697,59 @@ class TaskManagerCardEditor extends HTMLElement {
 
       <div class="card-config">
         <div class="form-row">
-          <label>Title</label>
-          <input type="text" .configValue="${"title"}" id="ed-title" value="${this._config.title || "Task Manager"}">
+          <label>${de ? "Titel" : "Title"}</label>
+          <input type="text" data-config-value="title" id="ed-title" value="${this._escape(this._config.title !== undefined ? this._config.title : "Task Manager")}">
         </div>
 
         <div class="form-row">
-          <label>Default Filter</label>
-          <select .configValue="${"default_filter"}" id="ed-filter">
-            <option value="all" ${this._config.default_filter === "all" ? "selected" : ""}>All</option>
-            <option value="today" ${this._config.default_filter === "today" ? "selected" : ""}>Today</option>
-            <option value="due_soon" ${this._config.default_filter === "due_soon" ? "selected" : ""}>Due Soon</option>
-            <option value="overdue" ${this._config.default_filter === "overdue" ? "selected" : ""}>Overdue</option>
-            <option value="completed" ${this._config.default_filter === "completed" ? "selected" : ""}>Completed</option>
+          <label>${de ? "Standard-Filter" : "Default Filter"}</label>
+          <select data-config-value="default_filter" id="ed-filter">
+            <option value="all" ${this._config.default_filter === "all" ? "selected" : ""}>${de ? "Alle" : "All"}</option>
+            <option value="today" ${this._config.default_filter === "today" ? "selected" : ""}>${de ? "Heute" : "Today"}</option>
+            <option value="due_soon" ${this._config.default_filter === "due_soon" ? "selected" : ""}>${de ? "Bald fällig" : "Due Soon"}</option>
+            <option value="overdue" ${this._config.default_filter === "overdue" ? "selected" : ""}>${de ? "Überfällig" : "Overdue"}</option>
+            <option value="completed" ${this._config.default_filter === "completed" ? "selected" : ""}>${de ? "Erledigt" : "Completed"}</option>
           </select>
         </div>
 
         <div class="form-row">
-          <label>Max Tasks to Display</label>
-          <input type="number" .configValue="${"max_items"}" id="ed-max" value="${this._config.max_items || 20}" min="1" max="100">
+          <label>${de ? "Maximale Anzahl Aufgaben" : "Max Tasks to Display"}</label>
+          <input type="number" data-config-value="max_items" id="ed-max" value="${maxVal}" min="1" max="100">
         </div>
 
         <label class="toggle-row">
-          <input type="checkbox" .configValue="${"show_add"}" id="ed-add" ${this._config.show_add !== false ? "checked" : ""}>
-          <span>Show Quick Add Input Row</span>
+          <input type="checkbox" data-config-value="show_add" id="ed-add" ${this._config.show_add !== false ? "checked" : ""}>
+          <span>${de ? "Schnell-Hinzufügen-Zeile anzeigen" : "Show Quick Add Input Row"}</span>
         </label>
 
         <label class="toggle-row">
-          <input type="checkbox" .configValue="${"show_priority"}" id="ed-prio" ${this._config.show_priority !== false ? "checked" : ""}>
-          <span>Show Priority Badges</span>
+          <input type="checkbox" data-config-value="show_priority" id="ed-prio" ${this._config.show_priority !== false ? "checked" : ""}>
+          <span>${de ? "Prioritäts-Badges anzeigen" : "Show Priority Badges"}</span>
         </label>
 
         <label class="toggle-row">
-          <input type="checkbox" .configValue="${"show_assignee"}" id="ed-assignee" ${this._config.show_assignee !== false ? "checked" : ""}>
-          <span>Show Assigned Member</span>
+          <input type="checkbox" data-config-value="show_assignee" id="ed-assignee" ${this._config.show_assignee !== false ? "checked" : ""}>
+          <span>${de ? "Zuständiges Mitglied anzeigen" : "Show Assigned Member"}</span>
         </label>
       </div>
     `;
 
     const inputs = this.shadowRoot.querySelectorAll("input, select");
     inputs.forEach(input => {
+      input.configValue = input.dataset.configValue;
       input.addEventListener("change", (e) => this._valueChanged(e));
       input.addEventListener("input", (e) => this._valueChanged(e));
     });
+  }
+
+  _escape(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 }
 
