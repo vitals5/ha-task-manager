@@ -3,7 +3,7 @@
  * Type: custom:task-manager-card
  */
 
-const CARD_VERSION = "1.0.35";
+const CARD_VERSION = "1.0.36";
 
 class TaskManagerCard extends HTMLElement {
   constructor() {
@@ -376,7 +376,7 @@ class TaskManagerCard extends HTMLElement {
         <div class="header">
           <div class="title">
             <span>📋</span>
-            <span>${this._config.title || (de ? "Aufgaben & Chores" : "Task Manager")}</span>
+            <span>${this._config.title || (de ? "Aufgaben" : "Task Manager")}</span>
           </div>
           <div style="font-size:12px; font-weight:600; color:var(--secondary-text-color, #64748b);">
             ${tasks.length} ${de ? (tasks.length === 1 ? "Aufgabe" : "Aufgaben") : (tasks.length === 1 ? "task" : "tasks")}

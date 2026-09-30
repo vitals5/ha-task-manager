@@ -22,7 +22,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
   const I18N = {
     en: {
       appName: "Task Manager",
-      chores: "Tasks & Chores",
+      chores: "Tasks",
       openTasksCount: "{count} open tasks",
       calendar: "Calendar",
       things: "Things",
@@ -339,7 +339,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
     },
     de: {
       appName: "Task Manager",
-      chores: "Aufgaben & Chores",
+      chores: "Aufgaben",
       openTasksCount: "{count} offene Aufgaben",
       calendar: "Kalender",
       things: "Things",
