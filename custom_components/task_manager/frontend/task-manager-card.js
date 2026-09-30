@@ -3,7 +3,268 @@
  * Type: custom:task-manager-card
  */
 
-const CARD_VERSION = "1.0.37";
+const CARD_VERSION = "1.0.38";
+
+const CARD_I18N = {
+  en: {
+    titleDefault: "Task Manager",
+    taskSingular: "task",
+    taskPlural: "tasks",
+    filterAll: "All",
+    filterToday: "Today",
+    filterDueSoon: "Due Soon",
+    filterOverdue: "Overdue",
+    filterPaused: "Paused",
+    filterDone: "Done",
+    addTaskPlaceholder: "Add a new task...",
+    add: "Add",
+    noTasks: "No open tasks in this view",
+    complete: "Complete",
+    reopen: "Reopen",
+    skip: "Skip",
+    task: "Task",
+    waitingThreshold: "Waiting for threshold",
+    overduePrefix: "⚠️ Overdue: ",
+    todayPrefix: "🔥 Today",
+    deps: "deps",
+    reading: "Reading",
+    parts: "parts",
+    readingPromptReg: 'Enter reading for "{name}" ({unit}) [Previous: {prev}]:',
+    readingPromptVal: 'Enter reading value ({unit}) [Previous: {prev}]:',
+    edTitle: "Title",
+    edDefaultFilter: "Default Filter",
+    edCompleted: "Completed",
+    edMaxTasks: "Max Tasks to Display",
+    edShowAdd: "Show Quick Add Input Row",
+    edShowPriority: "Show Priority Badges",
+    edShowAssignee: "Show Assigned Member",
+  },
+  de: {
+    titleDefault: "Aufgaben",
+    taskSingular: "Aufgabe",
+    taskPlural: "Aufgaben",
+    filterAll: "Alle",
+    filterToday: "Heute",
+    filterDueSoon: "Bald fällig",
+    filterOverdue: "Überfällig",
+    filterPaused: "Pausiert",
+    filterDone: "Erledigt",
+    addTaskPlaceholder: "Neue Aufgabe hinzufügen...",
+    add: "Hinzufügen",
+    noTasks: "Keine offenen Aufgaben in dieser Ansicht",
+    complete: "Erledigen",
+    reopen: "Wiedereröffnen",
+    skip: "Überspringen",
+    task: "Aufgabe",
+    waitingThreshold: "Wartet auf Schwellwert",
+    overduePrefix: "⚠️ Überfällig: ",
+    todayPrefix: "🔥 Heute",
+    deps: "Abh.",
+    reading: "Zählerablesung",
+    parts: "Teile",
+    readingPromptReg: 'Zählerstand für "{name}" eingeben ({unit}) [Vorher: {prev}]:',
+    readingPromptVal: 'Zählerstand eingeben ({unit}) [Vorher: {prev}]:',
+    edTitle: "Titel",
+    edDefaultFilter: "Standard-Filter",
+    edCompleted: "Erledigt",
+    edMaxTasks: "Maximale Anzahl Aufgaben",
+    edShowAdd: "Schnell-Hinzufügen-Zeile anzeigen",
+    edShowPriority: "Prioritäts-Badges anzeigen",
+    edShowAssignee: "Zuständiges Mitglied anzeigen",
+  },
+  fr: {
+    titleDefault: "Tâches",
+    taskSingular: "tâche",
+    taskPlural: "tâches",
+    filterAll: "Toutes",
+    filterToday: "Aujourd'hui",
+    filterDueSoon: "Bientôt",
+    filterOverdue: "En retard",
+    filterPaused: "En pause",
+    filterDone: "Terminé",
+    addTaskPlaceholder: "Ajouter une nouvelle tâche...",
+    add: "Ajouter",
+    noTasks: "Aucune tâche ouverte dans cette vue",
+    complete: "Terminer",
+    reopen: "Rouvrir",
+    skip: "Ignorer",
+    task: "Tâche",
+    waitingThreshold: "En attente du seuil",
+    overduePrefix: "⚠️ En retard : ",
+    todayPrefix: "🔥 Aujourd'hui",
+    deps: "dép.",
+    reading: "Relevé",
+    parts: "pièces",
+    readingPromptReg: 'Saisir le relevé pour "{name}" ({unit}) [Précédent : {prev}] :',
+    readingPromptVal: 'Saisir la valeur du relevé ({unit}) [Précédent : {prev}] :',
+    edTitle: "Titre",
+    edDefaultFilter: "Filtre par défaut",
+    edCompleted: "Terminées",
+    edMaxTasks: "Nombre max de tâches à afficher",
+    edShowAdd: "Afficher le champ d'ajout rapide",
+    edShowPriority: "Afficher les badges de priorité",
+    edShowAssignee: "Afficher le membre assigné",
+  },
+  es: {
+    titleDefault: "Tareas",
+    taskSingular: "tarea",
+    taskPlural: "tareas",
+    filterAll: "Todas",
+    filterToday: "Hoy",
+    filterDueSoon: "Vence pronto",
+    filterOverdue: "Vencida",
+    filterPaused: "En pausa",
+    filterDone: "Completada",
+    addTaskPlaceholder: "Añadir una nueva tarea...",
+    add: "Añadir",
+    noTasks: "No hay tareas pendientes en esta vista",
+    complete: "Completar",
+    reopen: "Reabrir",
+    skip: "Omitir",
+    task: "Tarea",
+    waitingThreshold: "Esperando umbral",
+    overduePrefix: "⚠️ Vencida: ",
+    todayPrefix: "🔥 Hoy",
+    deps: "deps",
+    reading: "Lectura",
+    parts: "piezas",
+    readingPromptReg: 'Introducir lectura para "{name}" ({unit}) [Anterior: {prev}]:',
+    readingPromptVal: 'Introducir valor de lectura ({unit}) [Anterior: {prev}]:',
+    edTitle: "Título",
+    edDefaultFilter: "Filtro predeterminado",
+    edCompleted: "Completadas",
+    edMaxTasks: "Máx tareas a mostrar",
+    edShowAdd: "Mostrar fila de añadir rápido",
+    edShowPriority: "Mostrar insignias de prioridad",
+    edShowAssignee: "Mostrar miembro asignado",
+  },
+  it: {
+    titleDefault: "Attività",
+    taskSingular: "attività",
+    taskPlural: "attività",
+    filterAll: "Tutte",
+    filterToday: "Oggi",
+    filterDueSoon: "In scadenza",
+    filterOverdue: "In ritardo",
+    filterPaused: "In pausa",
+    filterDone: "Completate",
+    addTaskPlaceholder: "Aggiungi una nuova attività...",
+    add: "Aggiungi",
+    noTasks: "Nessuna attività aperta in questa visualizzazione",
+    complete: "Completa",
+    reopen: "Riapri",
+    skip: "Salta",
+    task: "Attività",
+    waitingThreshold: "In attesa della soglia",
+    overduePrefix: "⚠️ In ritardo: ",
+    todayPrefix: "🔥 Oggi",
+    deps: "dip.",
+    reading: "Lettura",
+    parts: "parti",
+    readingPromptReg: 'Inserisci lettura per "{name}" ({unit}) [Precedente: {prev}]:',
+    readingPromptVal: 'Inserisci valore lettura ({unit}) [Precedente: {prev}]:',
+    edTitle: "Titolo",
+    edDefaultFilter: "Filtro predefinito",
+    edCompleted: "Completate",
+    edMaxTasks: "Max attività da mostrare",
+    edShowAdd: "Mostra riga di inserimento rapido",
+    edShowPriority: "Mostra badge priorità",
+    edShowAssignee: "Mostra membro assegnato",
+  },
+  nl: {
+    titleDefault: "Taken",
+    taskSingular: "taak",
+    taskPlural: "taken",
+    filterAll: "Alle",
+    filterToday: "Vandaag",
+    filterDueSoon: "Binnenkort",
+    filterOverdue: "Achterstallig",
+    filterPaused: "Gepauzeerd",
+    filterDone: "Voltooid",
+    addTaskPlaceholder: "Nieuwe taak toevoegen...",
+    add: "Toevoegen",
+    noTasks: "Geen open taken in deze weergave",
+    complete: "Voltooien",
+    reopen: "Heropenen",
+    skip: "Overslaan",
+    task: "Taak",
+    waitingThreshold: "Wachten op drempelwaarde",
+    overduePrefix: "⚠️ Achterstallig: ",
+    todayPrefix: "🔥 Vandaag",
+    deps: "afh.",
+    reading: "Meterstand",
+    parts: "onderdelen",
+    readingPromptReg: 'Voer meterstand in voor "{name}" ({unit}) [Vorige: {prev}]:',
+    readingPromptVal: 'Voer meterstandwaarde in ({unit}) [Vorige: {prev}]:',
+    edTitle: "Titel",
+    edDefaultFilter: "Standaardfilter",
+    edCompleted: "Voltooid",
+    edMaxTasks: "Max aantal taken",
+    edShowAdd: "Snelle invoerregel tonen",
+    edShowPriority: "Prioriteitsbadges tonen",
+    edShowAssignee: "Toegewezen lid tonen",
+  },
+  pl: {
+    titleDefault: "Zadania",
+    taskSingular: "zadanie",
+    taskPlural: "zadań",
+    filterAll: "Wszystkie",
+    filterToday: "Dzisiaj",
+    filterDueSoon: "Wkrótce",
+    filterOverdue: "Zaległe",
+    filterPaused: "Wstrzymane",
+    filterDone: "Ukończone",
+    addTaskPlaceholder: "Dodaj nowe zadanie...",
+    add: "Dodaj",
+    noTasks: "Brak otwartych zadań w tym widoku",
+    complete: "Ukończ",
+    reopen: "Wznów",
+    skip: "Pomiń",
+    task: "Zadanie",
+    waitingThreshold: "Oczekiwanie na próg",
+    overduePrefix: "⚠️ Zaległe: ",
+    todayPrefix: "🔥 Dzisiaj",
+    deps: "zal.",
+    reading: "Odczyt licznika",
+    parts: "części",
+    readingPromptReg: 'Wprowadź odczyt dla "{name}" ({unit}) [Poprzedni: {prev}]:',
+    readingPromptVal: 'Wprowadź wartość odczytu ({unit}) [Poprzedni: {prev}]:',
+    edTitle: "Tytuł",
+    edDefaultFilter: "Domyślny filtr",
+    edCompleted: "Ukończone",
+    edMaxTasks: "Maks. liczba zadań do wyświetlenia",
+    edShowAdd: "Pokaż pasek szybkiego dodawania",
+    edShowPriority: "Pokaż oznaczenia priorytetów",
+    edShowAssignee: "Pokaż przypisanego członka",
+  }
+};
+
+function _getCardLang(hass) {
+  const raw = (hass && (hass.language || (hass.locale && hass.locale.language))) || "en";
+  const l = String(raw).toLowerCase();
+  for (const code of ["de", "fr", "es", "it", "nl", "pl"]) {
+    if (l.startsWith(code)) return code;
+  }
+  return "en";
+}
+
+function _tCard(lang, key, params = null) {
+  const dict = CARD_I18N[lang] || CARD_I18N.en;
+  let text = dict[key] !== undefined ? dict[key] : (CARD_I18N.en[key] !== undefined ? CARD_I18N.en[key] : key);
+  if (typeof text === "string" && params && typeof params === "object") {
+    for (const [k, v] of Object.entries(params)) {
+      text = text.replace(new RegExp(`{${k}}`, "g"), v);
+    }
+  }
+  return text;
+}
+
+function _tTaskCount(lang, count) {
+  const dict = CARD_I18N[lang] || CARD_I18N.en;
+  if (lang === "fr") return count <= 1 ? dict.taskSingular : dict.taskPlural;
+  return count === 1 ? dict.taskSingular : dict.taskPlural;
+}
+
 
 class TaskManagerCard extends HTMLElement {
   constructor() {
@@ -165,15 +426,18 @@ class TaskManagerCard extends HTMLElement {
     return list;
   }
 
-  _isGerman() {
-    const lang = (this._hass && (this._hass.language || (this._hass.locale && this._hass.locale.language))) || "en";
-    return lang.startsWith("de");
+  _getLang() {
+    return _getCardLang(this._hass);
+  }
+
+  _t(key, params = null) {
+    return _tCard(this._getLang(), key, params);
   }
 
   _render() {
     if (!this.shadowRoot) return;
 
-    const de = this._isGerman();
+    const lang = this._getLang();
     const todayStr = new Date().toISOString().slice(0, 10);
     const tasks = this._getFilteredTasks();
     const overdueCount = this._tasks.filter(t => t.status === "pending" && t.due_date && t.due_date < todayStr).length;
@@ -376,36 +640,36 @@ class TaskManagerCard extends HTMLElement {
         <div class="header">
           <div class="title">
             <span>📋</span>
-            <span>${this._config.title || (de ? "Aufgaben" : "Task Manager")}</span>
+            <span>${this._config.title || this._t("titleDefault")}</span>
           </div>
           <div style="font-size:12px; font-weight:600; color:var(--secondary-text-color, #64748b);">
-            ${tasks.length} ${de ? (tasks.length === 1 ? "Aufgabe" : "Aufgaben") : (tasks.length === 1 ? "task" : "tasks")}
+            ${tasks.length} ${_tTaskCount(lang, tasks.length)}
           </div>
         </div>
 
         <div class="filter-row">
-          <button class="filter-chip ${this._currentFilter === "all" ? "active" : ""}" data-filter="all">${de ? "Alle" : "All"}</button>
-          <button class="filter-chip ${this._currentFilter === "today" ? "active" : ""}" data-filter="today">🔥 ${de ? "Heute" : "Today"}</button>
-          <button class="filter-chip ${this._currentFilter === "due_soon" ? "active" : ""}" data-filter="due_soon">⏳ ${de ? "Bald fällig" : "Due Soon"}</button>
+          <button class="filter-chip ${this._currentFilter === "all" ? "active" : ""}" data-filter="all">${this._t("filterAll")}</button>
+          <button class="filter-chip ${this._currentFilter === "today" ? "active" : ""}" data-filter="today">🔥 ${this._t("filterToday")}</button>
+          <button class="filter-chip ${this._currentFilter === "due_soon" ? "active" : ""}" data-filter="due_soon">⏳ ${this._t("filterDueSoon")}</button>
           ${overdueCount > 0 ? `
-            <button class="filter-chip ${this._currentFilter === "overdue" ? "active" : ""}" data-filter="overdue">⚠️ ${de ? "Überfällig" : "Overdue"} (${overdueCount})</button>
+            <button class="filter-chip ${this._currentFilter === "overdue" ? "active" : ""}" data-filter="overdue">⚠️ ${this._t("filterOverdue")} (${overdueCount})</button>
           ` : ""}
           ${pausedCount > 0 ? `
-            <button class="filter-chip ${this._currentFilter === "inactive" ? "active" : ""}" data-filter="inactive">⏸️ ${de ? "Pausiert" : "Paused"} (${pausedCount})</button>
+            <button class="filter-chip ${this._currentFilter === "inactive" ? "active" : ""}" data-filter="inactive">⏸️ ${this._t("filterPaused")} (${pausedCount})</button>
           ` : ""}
-          <button class="filter-chip ${this._currentFilter === "completed" ? "active" : ""}" data-filter="completed">✓ ${de ? "Erledigt" : "Done"}</button>
+          <button class="filter-chip ${this._currentFilter === "completed" ? "active" : ""}" data-filter="completed">✓ ${this._t("filterDone")}</button>
         </div>
 
         ${this._config.show_add ? `
           <div class="add-row">
-            <input type="text" class="add-input" id="card-add-input" placeholder="${de ? "Neue Aufgabe hinzufügen..." : "Add a new task..."}">
-            <button class="add-btn" id="card-add-btn" title="${de ? "Hinzufügen" : "Add"}">+</button>
+            <input type="text" class="add-input" id="card-add-input" placeholder="${this._t("addTaskPlaceholder")}">
+            <button class="add-btn" id="card-add-btn" title="${this._t("add")}">+</button>
           </div>
         ` : ""}
 
         <div class="task-list">
           ${tasks.length === 0 ? `
-            <div class="empty-state">🎉 ${de ? "Keine offenen Aufgaben in dieser Ansicht" : "No open tasks in this view"}</div>
+            <div class="empty-state">🎉 ${this._t("noTasks")}</div>
           ` : tasks.map(t => {
             const isDone = t.status === "completed";
             const isOverdue = !isDone && t.due_date && t.due_date < todayStr;
@@ -419,18 +683,18 @@ class TaskManagerCard extends HTMLElement {
 
             return `
               <div class="task-item">
-                <button class="task-check ${isDone ? "checked" : ""}" data-id="${t.id}" data-action="${isDone ? "reset" : "complete"}" title="${isDone ? (de ? "Wiedereröffnen" : "Reopen") : (de ? "Erledigen" : "Complete")}">
+                <button class="task-check ${isDone ? "checked" : ""}" data-id="${t.id}" data-action="${isDone ? "reset" : "complete"}" title="${isDone ? this._t("reopen") : this._t("complete")}">
                   ✓
                 </button>
                 <div class="task-content">
-                  <div class="task-title ${isDone ? "done" : ""}">${t.title || (de ? "Aufgabe" : "Task")}</div>
+                  <div class="task-title ${isDone ? "done" : ""}">${t.title || this._t("task")}</div>
                   <div class="task-meta">
                     ${t.is_active === false ? `
-                      <span class="badge" style="background:rgba(100,116,139,0.15); color:#64748b;">⏸️ ${de ? "Pausiert" : "Paused"}</span>
+                      <span class="badge" style="background:rgba(100,116,139,0.15); color:#64748b;">⏸️ ${this._t("filterPaused")}</span>
                     ` : ""}
                     ${t.due_date ? `
                       <span class="badge ${t.due_date >= "2099-01-01" && t.linked_thing_id ? "badge-date" : isOverdue ? "badge-overdue" : isToday ? "badge-due-today" : "badge-date"}">
-                        ${t.due_date >= "2099-01-01" && t.linked_thing_id ? `⚡ ${de ? "Wartet auf Schwellwert" : "Waiting for threshold"}` : `${isOverdue ? (de ? "⚠️ Überfällig: " : "⚠️ Overdue: ") : isToday ? (de ? "🔥 Heute" : "🔥 Today") : "📅 "} ${t.due_date}`}
+                        ${t.due_date >= "2099-01-01" && t.linked_thing_id ? `⚡ ${this._t("waitingThreshold")}` : `${isOverdue ? this._t("overduePrefix") : isToday ? this._t("todayPrefix") : "📅 "} ${t.due_date}`}
                       </span>
                     ` : ""}
                     ${this._config.show_priority && t.priority && t.priority !== "none" ? `
@@ -443,7 +707,7 @@ class TaskManagerCard extends HTMLElement {
                       <span class="badge" style="background:rgba(16,185,129,0.12); color:#10b981;">🔁 ${t.times_completed}x</span>
                     ` : ""}
                     ${t.dependencies && t.dependencies.length > 0 ? `
-                      <span class="badge" style="background:rgba(234,179,8,0.15); color:#ca8a04;">🔗 ${t.dependencies.length} ${de ? "Abh." : "deps"}</span>
+                      <span class="badge" style="background:rgba(234,179,8,0.15); color:#ca8a04;">🔗 ${t.dependencies.length} ${this._t("deps")}</span>
                     ` : ""}
                     ${(() => {
                       if (!t.linked_thing_id || !Array.isArray(this._things)) return "";
@@ -459,11 +723,11 @@ class TaskManagerCard extends HTMLElement {
                       <span class="badge" style="background:rgba(6,182,212,0.15); color:#0891b2;">
                         📟 ${(t.registers && t.registers.length > 0)
                           ? t.registers.map(r => `${this._escape(r.name || 'R')}: ${r.last_value !== undefined && r.last_value !== null ? r.last_value : '—'}`).join(" | ")
-                          : (t.last_reading_value !== undefined && t.last_reading_value !== null ? `${t.last_reading_value} ${this._escape(t.reading_unit || "")}` : (de ? "Zählerablesung" : "Reading"))}
+                          : (t.last_reading_value !== undefined && t.last_reading_value !== null ? `${t.last_reading_value} ${this._escape(t.reading_unit || "")}` : this._t("reading"))}
                       </span>
                     ` : ""}
                     ${t.consumed_parts && t.consumed_parts.length > 0 ? `
-                      <span class="badge" style="background:rgba(249,115,22,0.15); color:#ea580c;">📦 ${t.consumed_parts.length} ${de ? "Teile" : "parts"}</span>
+                      <span class="badge" style="background:rgba(249,115,22,0.15); color:#ea580c;">📦 ${t.consumed_parts.length} ${this._t("parts")}</span>
                     ` : ""}
                     ${t.tags && t.tags.length > 0 ? t.tags.map(tg => `
                       <span class="badge" style="background:rgba(139,92,246,0.12); color:#8b5cf6;">🏷️ ${this._escape(tg)}</span>
@@ -471,7 +735,7 @@ class TaskManagerCard extends HTMLElement {
                   </div>
                 </div>
                 ${!isDone ? `
-                  <button class="task-skip-btn" data-id="${t.id}" title="${de ? "Überspringen" : "Skip"}" style="background:transparent; border:none; color:var(--secondary-text-color, #64748b); cursor:pointer; font-size:16px; padding:6px 10px; border-radius:6px; min-width:32px; min-height:32px; display:inline-flex; align-items:center; justify-content:center;" onmouseover="this.style.color='var(--primary-color, #2563eb)'" onmouseout="this.style.color='var(--secondary-text-color, #64748b)'">
+                  <button class="task-skip-btn" data-id="${t.id}" title="${this._t("skip")}" style="background:transparent; border:none; color:var(--secondary-text-color, #64748b); cursor:pointer; font-size:16px; padding:6px 10px; border-radius:6px; min-width:32px; min-height:32px; display:inline-flex; align-items:center; justify-content:center;" onmouseover="this.style.color='var(--primary-color, #2563eb)'" onmouseout="this.style.color='var(--secondary-text-color, #64748b)'">
                     ⏭️
                   </button>
                 ` : ""}
@@ -527,9 +791,11 @@ class TaskManagerCard extends HTMLElement {
                   const readings = [];
                   let cancelled = false;
                   for (const reg of task.registers) {
-                    const promptMsg = de
-                      ? `Zählerstand für "${reg.name || 'Register'}" eingeben (${reg.unit || task.reading_unit || ''}) [Vorher: ${reg.last_value !== undefined && reg.last_value !== null ? reg.last_value : '—'}]:`
-                      : `Enter reading for "${reg.name || 'Register'}" (${reg.unit || task.reading_unit || ''}) [Previous: ${reg.last_value !== undefined && reg.last_value !== null ? reg.last_value : '—'}]:`;
+                    const promptMsg = this._t("readingPromptReg", {
+                      name: reg.name || 'Register',
+                      unit: reg.unit || task.reading_unit || '',
+                      prev: reg.last_value !== undefined && reg.last_value !== null ? reg.last_value : '—'
+                    });
                     const inputVal = prompt(promptMsg, reg.last_value !== undefined && reg.last_value !== null ? reg.last_value : "");
                     if (inputVal === null) {
                       cancelled = true;
@@ -542,9 +808,10 @@ class TaskManagerCard extends HTMLElement {
                   if (cancelled) return;
                   if (readings.length > 0) payload.readings = readings;
                 } else {
-                  const promptMsg = de
-                    ? `Zählerstand eingeben (${task.reading_unit || ''}) [Vorher: ${task.last_reading_value !== undefined && task.last_reading_value !== null ? task.last_reading_value : '—'}]:`
-                    : `Enter reading value (${task.reading_unit || ''}) [Previous: ${task.last_reading_value !== undefined && task.last_reading_value !== null ? task.last_reading_value : '—'}]:`;
+                  const promptMsg = this._t("readingPromptVal", {
+                    unit: task.reading_unit || '',
+                    prev: task.last_reading_value !== undefined && task.last_reading_value !== null ? task.last_reading_value : '—'
+                  });
                   const inputVal = prompt(promptMsg, task.last_reading_value !== undefined && task.last_reading_value !== null ? task.last_reading_value : "");
                   if (inputVal === null) return;
                   if (inputVal.trim() !== "") payload.reading_value = inputVal.trim();
@@ -612,9 +879,12 @@ class TaskManagerCardEditor extends HTMLElement {
     this._hass = hass;
   }
 
-  _isGerman() {
-    const lang = (this._hass && (this._hass.language || (this._hass.locale && this._hass.locale.language))) || "en";
-    return lang.startsWith("de");
+  _getLang() {
+    return _getCardLang(this._hass);
+  }
+
+  _t(key, params = null) {
+    return _tCard(this._getLang(), key, params);
   }
 
   _valueChanged(ev) {
@@ -653,7 +923,7 @@ class TaskManagerCardEditor extends HTMLElement {
   _render() {
     if (!this.shadowRoot) return;
 
-    const de = this._isGerman();
+    const lang = this._getLang();
     const maxVal = this._config.max_items !== undefined ? this._config.max_items : (this._config.max_tasks !== undefined ? this._config.max_tasks : 20);
 
     this.shadowRoot.innerHTML = `
@@ -697,39 +967,39 @@ class TaskManagerCardEditor extends HTMLElement {
 
       <div class="card-config">
         <div class="form-row">
-          <label>${de ? "Titel" : "Title"}</label>
+          <label>${this._t("edTitle")}</label>
           <input type="text" data-config-value="title" id="ed-title" value="${this._escape(this._config.title !== undefined ? this._config.title : "Task Manager")}">
         </div>
 
         <div class="form-row">
-          <label>${de ? "Standard-Filter" : "Default Filter"}</label>
+          <label>${this._t("edDefaultFilter")}</label>
           <select data-config-value="default_filter" id="ed-filter">
-            <option value="all" ${this._config.default_filter === "all" ? "selected" : ""}>${de ? "Alle" : "All"}</option>
-            <option value="today" ${this._config.default_filter === "today" ? "selected" : ""}>${de ? "Heute" : "Today"}</option>
-            <option value="due_soon" ${this._config.default_filter === "due_soon" ? "selected" : ""}>${de ? "Bald fällig" : "Due Soon"}</option>
-            <option value="overdue" ${this._config.default_filter === "overdue" ? "selected" : ""}>${de ? "Überfällig" : "Overdue"}</option>
-            <option value="completed" ${this._config.default_filter === "completed" ? "selected" : ""}>${de ? "Erledigt" : "Completed"}</option>
+            <option value="all" ${this._config.default_filter === "all" ? "selected" : ""}>${this._t("filterAll")}</option>
+            <option value="today" ${this._config.default_filter === "today" ? "selected" : ""}>${this._t("filterToday")}</option>
+            <option value="due_soon" ${this._config.default_filter === "due_soon" ? "selected" : ""}>${this._t("filterDueSoon")}</option>
+            <option value="overdue" ${this._config.default_filter === "overdue" ? "selected" : ""}>${this._t("filterOverdue")}</option>
+            <option value="completed" ${this._config.default_filter === "completed" ? "selected" : ""}>${this._t("edCompleted")}</option>
           </select>
         </div>
 
         <div class="form-row">
-          <label>${de ? "Maximale Anzahl Aufgaben" : "Max Tasks to Display"}</label>
+          <label>${this._t("edMaxTasks")}</label>
           <input type="number" data-config-value="max_items" id="ed-max" value="${maxVal}" min="1" max="100">
         </div>
 
         <label class="toggle-row">
           <input type="checkbox" data-config-value="show_add" id="ed-add" ${this._config.show_add !== false ? "checked" : ""}>
-          <span>${de ? "Schnell-Hinzufügen-Zeile anzeigen" : "Show Quick Add Input Row"}</span>
+          <span>${this._t("edShowAdd")}</span>
         </label>
 
         <label class="toggle-row">
           <input type="checkbox" data-config-value="show_priority" id="ed-prio" ${this._config.show_priority !== false ? "checked" : ""}>
-          <span>${de ? "Prioritäts-Badges anzeigen" : "Show Priority Badges"}</span>
+          <span>${this._t("edShowPriority")}</span>
         </label>
 
         <label class="toggle-row">
           <input type="checkbox" data-config-value="show_assignee" id="ed-assignee" ${this._config.show_assignee !== false ? "checked" : ""}>
-          <span>${de ? "Zuständiges Mitglied anzeigen" : "Show Assigned Member"}</span>
+          <span>${this._t("edShowAssignee")}</span>
         </label>
       </div>
     `;

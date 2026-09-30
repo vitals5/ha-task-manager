@@ -48,7 +48,7 @@ The entire workflow is managed within an integrated, mobile- and tablet-friendly
 - 🏆 **Optional Gamification**: Points rewards, streaks (🔥), leaderboard podium, completion sound, and confetti—or toggle **Clean Mode** to completely hide gamification for a distraction-free productivity tool.
 - 🔗 **External Todo Sync**: Bi-directional sync with Google Tasks, Todoist, CalDAV/Nextcloud, Local To-do, Bring!, Shopping List, or any `todo.*` entity.
 - 🤖 **Deep Home Assistant Integration**: Native `todo` and `calendar` platforms, sensors, binary sensors, button entities, events, services, and ready-to-use notification blueprints.
-- 🌐 **100% Bilingual**: Complete English and German localization with zero hardcoded text.
+- 🌐 **Multilingual (7 Languages)**: Complete localization in English, German (Deutsch), French (Français), Spanish (Español), Italian (Italiano), Dutch (Nederlands), and Polish (Polski) across the Home Assistant backend, frontend sidebar panel, Lovelace card, and visual card editor.
 
 ---
 

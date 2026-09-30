@@ -1,0 +1,198 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Task Manager configuratie",
+        "description": "Wil je de Task Manager integratie configureren? Taken, gamification en instellingen kunnen rechtstreeks via het zijbalkpaneel worden beheerd."
+      }
+    },
+    "abort": {
+      "already_configured": "Task Manager is al geconfigureerd."
+    }
+  },
+  "entity": {
+    "calendar": {
+      "all": {
+        "name": "Task Manager taken"
+      }
+    },
+    "sensor": {
+      "total_tasks": {
+        "name": "Totaal taken"
+      },
+      "pending_tasks": {
+        "name": "Openstaande taken"
+      },
+      "overdue_tasks": {
+        "name": "Verlopen taken"
+      },
+      "completed_today_tasks": {
+        "name": "Vandaag voltooid"
+      }
+    }
+  },
+  "services": {
+    "create_task": {
+      "name": "Taak aanmaken",
+      "description": "Maakt een nieuwe taak of klus aan in Task Manager.",
+      "fields": {
+        "title": {
+          "name": "Titel",
+          "description": "Titel of naam van de taak."
+        },
+        "description": {
+          "name": "Beschrijving",
+          "description": "Extra notities of instructies voor de taak."
+        },
+        "due_date": {
+          "name": "Vervaldatum",
+          "description": "Vervaldatum in JJJJ-MM-DD formaat (standaard: vandaag)."
+        },
+        "priority": {
+          "name": "Prioriteit",
+          "description": "Prioriteitsniveau (p1=Urgent, p2=Hoog, p3=Gemiddeld, p4=Laag, none=Geen)."
+        },
+        "assignee": {
+          "name": "Toegewezen gebruikers-ID",
+          "description": "ID van de gebruiker aan wie deze taak wordt toegewezen."
+        },
+        "points": {
+          "name": "Punten",
+          "description": "Beloningspunten bij voltooiing."
+        },
+        "linked_thing_id": {
+          "name": "Gekoppelde Thing-ID",
+          "description": "ID van een Thing gekoppeld aan deze taak."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Taak voltooien",
+      "description": "Voltooit een taak, kent punten toe, wisselt toegewezen personen en berekent herhaling.",
+      "fields": {
+        "task_id": {
+          "name": "Taak-ID",
+          "description": "Unieke identificatie van de taak."
+        },
+        "task_title": {
+          "name": "Taaktitel",
+          "description": "Zoek en voltooi de openstaande taak met deze exacte titel."
+        },
+        "user_id": {
+          "name": "Voltooid door gebruikers-ID",
+          "description": "Gebruikers-ID die de punten ontvangt."
+        }
+      }
+    },
+    "reset_task": {
+      "name": "Taak resetten",
+      "description": "Zet een voltooide taak terug naar openstaand.",
+      "fields": {
+        "task_id": {
+          "name": "Taak-ID",
+          "description": "Unieke identificatie van de taak."
+        },
+        "task_title": {
+          "name": "Taaktitel",
+          "description": "De titel van de te resetten taak."
+        }
+      }
+    },
+    "delete_task": {
+      "name": "Taak verwijderen",
+      "description": "Verwijdert een taak permanent.",
+      "fields": {
+        "task_id": {
+          "name": "Taak-ID",
+          "description": "Unieke identificatie van de te verwijderen taak."
+        }
+      }
+    },
+    "update_thing": {
+      "name": "Thing bijwerken",
+      "description": "Werkt een Thing-teller of -meter bij, verhoogt of reset deze.",
+      "fields": {
+        "thing_id": {
+          "name": "Thing-ID",
+          "description": "ID van het bij te werken thing."
+        },
+        "value": {
+          "name": "Absolute waarde",
+          "description": "Stel de huidige waarde rechtstreeks in."
+        },
+        "delta": {
+          "name": "Delta verandering",
+          "description": "Verhoog of verlaag de huidige waarde met dit bedrag."
+        },
+        "reset": {
+          "name": "Reset naar nul",
+          "description": "Zet de huidige waarde terug naar 0."
+        },
+        "target_value": {
+          "name": "Doel- / drempelwaarde",
+          "description": "Activeringsdrempel voor gekoppelde taken."
+        },
+        "threshold_operator": {
+          "name": "Drempeloperator",
+          "description": "Operatorconditie: >= (oplopend) of <= (aflopend)."
+        },
+        "external_entity_id": {
+          "name": "Externe entiteit-ID",
+          "description": "Optionele numerieke Home Assistant entiteit om automatisch te synchroniseren."
+        },
+        "script_entity_id": {
+          "name": "Voltooiingsscript",
+          "description": "Home Assistant script uitgevoerd bij het voltooien van een gekoppelde taak."
+        },
+        "is_odometer": {
+          "name": "Continue teller (Odometer)",
+          "description": "Inschakelen voor monotoon stijgende tellers (bijv. kilometerteller auto)."
+        },
+        "last_reset_value": {
+          "name": "Stand bij laatste onderhoud",
+          "description": "Tellerstand op het moment van het laatste onderhoud."
+        }
+      }
+    },
+    "increment_thing": {
+      "name": "Thing verhogen",
+      "description": "Verhoogt of verlaagt de tellerstand van een Thing.",
+      "fields": {
+        "entity_id": {
+          "name": "Entiteit / Sensor",
+          "description": "Sensor-entiteit van het Thing."
+        },
+        "thing_id": {
+          "name": "Thing-ID",
+          "description": "Unieke identificatie van het Thing."
+        },
+        "amount": {
+          "name": "Aantal / Stap",
+          "description": "Aantal om mee te verhogen (standaard: 1)."
+        },
+        "delta": {
+          "name": "Delta",
+          "description": "Alias voor Aantal."
+        }
+      }
+    },
+    "award_points": {
+      "name": "Punten toekennen",
+      "description": "Past gamification-punten aan voor een gezinslid.",
+      "fields": {
+        "user_id": {
+          "name": "Gebruikers-ID",
+          "description": "Doelgebruikers-ID."
+        },
+        "points": {
+          "name": "Punten",
+          "description": "Aantal toe te kennen punten."
+        },
+        "reason": {
+          "name": "Reden",
+          "description": "Notitie of reden voor puntenaanpassing."
+        }
+      }
+    }
+  }
+}

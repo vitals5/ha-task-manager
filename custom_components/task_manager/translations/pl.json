@@ -1,0 +1,198 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Konfiguracja Task Managera",
+        "description": "Czy chcesz skonfigurować integrację Task Manager? Zadania, grywalizacja i ustawienia mogą być zarządzane bezpośrednio w panelu bocznym."
+      }
+    },
+    "abort": {
+      "already_configured": "Task Manager jest już skonfigurowany."
+    }
+  },
+  "entity": {
+    "calendar": {
+      "all": {
+        "name": "Zadania Task Managera"
+      }
+    },
+    "sensor": {
+      "total_tasks": {
+        "name": "Wszystkie zadania"
+      },
+      "pending_tasks": {
+        "name": "Oczekujące zadania"
+      },
+      "overdue_tasks": {
+        "name": "Zaległe zadania"
+      },
+      "completed_today_tasks": {
+        "name": "Ukończone dzisiaj"
+      }
+    }
+  },
+  "services": {
+    "create_task": {
+      "name": "Utwórz zadanie",
+      "description": "Tworzy nowe zadanie domowe w Task Managerze.",
+      "fields": {
+        "title": {
+          "name": "Tytuł",
+          "description": "Tytuł lub nazwa zadania."
+        },
+        "description": {
+          "name": "Opis",
+          "description": "Dodatkowe uwagi lub instrukcje do zadania."
+        },
+        "due_date": {
+          "name": "Termin wykonania",
+          "description": "Termin w formacie RRRR-MM-DD (domyślnie: dzisiaj)."
+        },
+        "priority": {
+          "name": "Priorytet",
+          "description": "Poziom priorytetu (p1=Pilne, p2=Wysoki, p3=Średni, p4=Niski, none=Brak)."
+        },
+        "assignee": {
+          "name": "ID przypisanego użytkownika",
+          "description": "ID użytkownika, do którego przypisane jest to zadanie."
+        },
+        "points": {
+          "name": "Punkty",
+          "description": "Punkty nagrody za ukończenie."
+        },
+        "linked_thing_id": {
+          "name": "ID powiązanego Thing",
+          "description": "ID urządzenia lub przedmiotu powiązanego z tym zadaniem."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Ukończ zadanie",
+      "description": "Kończy zadanie, przyznaje punkty, zmienia przypisaną osobę i oblicza powtarzalność.",
+      "fields": {
+        "task_id": {
+          "name": "ID zadania",
+          "description": "Unikalny identyfikator zadania."
+        },
+        "task_title": {
+          "name": "Tytuł zadania",
+          "description": "Znajdź i ukończ oczekujące zadanie o dokładnie takim tytule."
+        },
+        "user_id": {
+          "name": "Ukończone przez ID użytkownika",
+          "description": "ID użytkownika, który otrzymuje punkty."
+        }
+      }
+    },
+    "reset_task": {
+      "name": "Zresetuj zadanie",
+      "description": "Przywraca ukończone zadanie do stanu oczekującego.",
+      "fields": {
+        "task_id": {
+          "name": "ID zadania",
+          "description": "Unikalny identyfikator zadania."
+        },
+        "task_title": {
+          "name": "Tytuł zadania",
+          "description": "Tytuł zadania do zresetowania."
+        }
+      }
+    },
+    "delete_task": {
+      "name": "Usuń zadanie",
+      "description": "Usuwa zadanie na stałe.",
+      "fields": {
+        "task_id": {
+          "name": "ID zadania",
+          "description": "Unikalny identyfikator usuwanego zadania."
+        }
+      }
+    },
+    "update_thing": {
+      "name": "Zaktualizuj Thing",
+      "description": "Aktualizuje, zwiększa lub resetuje licznik urządzenia Thing.",
+      "fields": {
+        "thing_id": {
+          "name": "ID Thing",
+          "description": "ID aktualizowanego Thing."
+        },
+        "value": {
+          "name": "Wartość bezwzględna",
+          "description": "Ustaw bieżącą wartość bezpośrednio."
+        },
+        "delta": {
+          "name": "Zmiana delta",
+          "description": "Zwiększ lub zmniejsz bieżącą wartość o tę kwotę."
+        },
+        "reset": {
+          "name": "Reset do zera",
+          "description": "Zresetuj bieżącą wartość do 0."
+        },
+        "target_value": {
+          "name": "Wartość docelowa / próg",
+          "description": "Próg wyzwalania powiązanych zadań."
+        },
+        "threshold_operator": {
+          "name": "Operator progu",
+          "description": "Warunek operatora: >= (rosnący) lub <= (malejący)."
+        },
+        "external_entity_id": {
+          "name": "ID zewnętrznej encji",
+          "description": "Opcjonalna encja numeryczna Home Assistant do synchronizacji."
+        },
+        "script_entity_id": {
+          "name": "Skrypt ukończenia",
+          "description": "Skrypt Home Assistant wykonywany po ukończeniu powiązanego zadania."
+        },
+        "is_odometer": {
+          "name": "Licznik ciągły (Drogomierz)",
+          "description": "Włącz dla stale rosnących liczników (np. przebieg auta)."
+        },
+        "last_reset_value": {
+          "name": "Odczyt przy ostatniej konserwacji",
+          "description": "Odczyt licznika w momencie ostatniej konserwacji."
+        }
+      }
+    },
+    "increment_thing": {
+      "name": "Zwiększ Thing",
+      "description": "Zwiększa lub zmniejsza wartość licznika urządzenia Thing.",
+      "fields": {
+        "entity_id": {
+          "name": "Encja / Czujnik",
+          "description": "Encja czujnika urządzenia Thing."
+        },
+        "thing_id": {
+          "name": "ID Thing",
+          "description": "Unikalny identyfikator Thing."
+        },
+        "amount": {
+          "name": "Ilość / Krok",
+          "description": "Wartość do zwiększenia (domyślnie: 1)."
+        },
+        "delta": {
+          "name": "Delta",
+          "description": "Alias dla Ilość."
+        }
+      }
+    },
+    "award_points": {
+      "name": "Przyznaj punkty",
+      "description": "Dostosowuje punkty grywalizacji dla członka rodziny.",
+      "fields": {
+        "user_id": {
+          "name": "ID użytkownika",
+          "description": "Docelowy ID użytkownika."
+        },
+        "points": {
+          "name": "Punkty",
+          "description": "Liczba przyznawanych punktów."
+        },
+        "reason": {
+          "name": "Powód",
+          "description": "Notatka lub powód zmiany punktów."
+        }
+      }
+    }
+  }
+}

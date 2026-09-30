@@ -1,0 +1,198 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configuration de Task Manager",
+        "description": "Voulez-vous configurer l'intégration Task Manager ? Les tâches, la gamification et les paramètres peuvent être gérés directement depuis le panneau latéral."
+      }
+    },
+    "abort": {
+      "already_configured": "Task Manager est déjà configuré."
+    }
+  },
+  "entity": {
+    "calendar": {
+      "all": {
+        "name": "Tâches de Task Manager"
+      }
+    },
+    "sensor": {
+      "total_tasks": {
+        "name": "Tâches totales"
+      },
+      "pending_tasks": {
+        "name": "Tâches en attente"
+      },
+      "overdue_tasks": {
+        "name": "Tâches en retard"
+      },
+      "completed_today_tasks": {
+        "name": "Terminées aujourd'hui"
+      }
+    }
+  },
+  "services": {
+    "create_task": {
+      "name": "Créer une tâche",
+      "description": "Crée une nouvelle tâche ou corvée dans Task Manager.",
+      "fields": {
+        "title": {
+          "name": "Titre",
+          "description": "Titre ou nom de la tâche."
+        },
+        "description": {
+          "name": "Description",
+          "description": "Notes ou instructions supplémentaires pour la tâche."
+        },
+        "due_date": {
+          "name": "Date d'échéance",
+          "description": "Date d'échéance au format AAAA-MM-JJ (par défaut aujourd'hui)."
+        },
+        "priority": {
+          "name": "Priorité",
+          "description": "Niveau de priorité (p1=Urgent, p2=Élevé, p3=Moyen, p4=Faible, none=Aucun)."
+        },
+        "assignee": {
+          "name": "ID utilisateur assigné",
+          "description": "ID de l'utilisateur à qui assigner cette tâche."
+        },
+        "points": {
+          "name": "Points",
+          "description": "Points de récompense lors de l'accomplissement."
+        },
+        "linked_thing_id": {
+          "name": "ID de l'objet lié",
+          "description": "ID d'un objet lié à cette tâche (par ex. thing_water_filter)."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Terminer la tâche",
+      "description": "Termine une tâche, attribue des points, fait pivoter les personnes assignées et calcule la récurrence.",
+      "fields": {
+        "task_id": {
+          "name": "ID de la tâche",
+          "description": "Identifiant unique de la tâche."
+        },
+        "task_title": {
+          "name": "Titre de la tâche",
+          "description": "Trouve et termine la tâche en attente correspondant exactement à ce titre."
+        },
+        "user_id": {
+          "name": "Terminé par l'utilisateur ID",
+          "description": "ID de l'utilisateur recevant les points (par défaut la personne assignée)."
+        }
+      }
+    },
+    "reset_task": {
+      "name": "Réinitialiser la tâche",
+      "description": "Rétablit une tâche terminée en attente.",
+      "fields": {
+        "task_id": {
+          "name": "ID de la tâche",
+          "description": "Identifiant unique de la tâche."
+        },
+        "task_title": {
+          "name": "Titre de la tâche",
+          "description": "Titre de la tâche à réinitialiser."
+        }
+      }
+    },
+    "delete_task": {
+      "name": "Supprimer la tâche",
+      "description": "Supprime définitivement une tâche.",
+      "fields": {
+        "task_id": {
+          "name": "ID de la tâche",
+          "description": "Identifiant unique de la tâche à supprimer."
+        }
+      }
+    },
+    "update_thing": {
+      "name": "Mettre à jour l'objet (Thing)",
+      "description": "Met à jour, incrémente ou réinitialise un compteur d'objet.",
+      "fields": {
+        "thing_id": {
+          "name": "ID de l'objet",
+          "description": "ID de l'objet à mettre à jour (par ex. thing_robot_dustbin)."
+        },
+        "value": {
+          "name": "Valeur absolue",
+          "description": "Définir directement la valeur actuelle."
+        },
+        "delta": {
+          "name": "Variation (delta)",
+          "description": "Incrémenter ou décrémenter la valeur actuelle de ce montant."
+        },
+        "reset": {
+          "name": "Remettre à zéro",
+          "description": "Remettre la valeur actuelle à 0."
+        },
+        "target_value": {
+          "name": "Valeur cible / seuil",
+          "description": "Seuil de déclenchement pour les tâches liées."
+        },
+        "threshold_operator": {
+          "name": "Opérateur de seuil",
+          "description": "Condition d'opérateur : >= (croissant) ou <= (décroissant)."
+        },
+        "external_entity_id": {
+          "name": "Entité externe ID",
+          "description": "Entité numérique Home Assistant optionnelle pour la synchronisation automatique."
+        },
+        "script_entity_id": {
+          "name": "Script d'exécution",
+          "description": "Script Home Assistant exécuté lors de l'achèvement d'une tâche liée."
+        },
+        "is_odometer": {
+          "name": "Compteur continu (Odomètre)",
+          "description": "Activer pour les compteurs strictement croissants (par ex. odomètre voiture)."
+        },
+        "last_reset_value": {
+          "name": "Relevé au dernier entretien",
+          "description": "Relevé du compteur au moment du dernier entretien."
+        }
+      }
+    },
+    "increment_thing": {
+      "name": "Incrémenter l'objet (Thing)",
+      "description": "Incrémente ou décrémente la valeur d'un objet.",
+      "fields": {
+        "entity_id": {
+          "name": "Entité / Capteur",
+          "description": "Entité capteur de l'objet (par ex. sensor.task_manager_thing_coffee_machine)."
+        },
+        "thing_id": {
+          "name": "ID de l'objet",
+          "description": "Identifiant unique de l'objet."
+        },
+        "amount": {
+          "name": "Quantité / Pas",
+          "description": "Montant à incrémenter (par défaut : 1). Utilisez des nombres négatifs pour décrémenter."
+        },
+        "delta": {
+          "name": "Delta",
+          "description": "Alias pour Quantité."
+        }
+      }
+    },
+    "award_points": {
+      "name": "Attribuer des points",
+      "description": "Ajuste les points de gamification d'un membre du foyer.",
+      "fields": {
+        "user_id": {
+          "name": "ID utilisateur",
+          "description": "ID de l'utilisateur cible."
+        },
+        "points": {
+          "name": "Points",
+          "description": "Nombre de points à attribuer."
+        },
+        "reason": {
+          "name": "Motif",
+          "description": "Note ou motif de l'ajustement des points."
+        }
+      }
+    }
+  }
+}

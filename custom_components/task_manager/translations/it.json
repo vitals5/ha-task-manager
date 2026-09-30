@@ -1,0 +1,198 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurazione di Task Manager",
+        "description": "Vuoi configurare l'integrazione di Task Manager? Le attività, la gamification e le impostazioni possono essere gestite direttamente dal pannello laterale."
+      }
+    },
+    "abort": {
+      "already_configured": "Task Manager è già configurato."
+    }
+  },
+  "entity": {
+    "calendar": {
+      "all": {
+        "name": "Attività di Task Manager"
+      }
+    },
+    "sensor": {
+      "total_tasks": {
+        "name": "Totale attività"
+      },
+      "pending_tasks": {
+        "name": "Attività in sospeso"
+      },
+      "overdue_tasks": {
+        "name": "Attività scadute"
+      },
+      "completed_today_tasks": {
+        "name": "Completate oggi"
+      }
+    }
+  },
+  "services": {
+    "create_task": {
+      "name": "Crea attività",
+      "description": "Crea una nuova attività o mansione in Task Manager.",
+      "fields": {
+        "title": {
+          "name": "Titolo",
+          "description": "Titolo o nome dell'attività."
+        },
+        "description": {
+          "name": "Descrizione",
+          "description": "Note o istruzioni aggiuntive per l'attività."
+        },
+        "due_date": {
+          "name": "Data di scadenza",
+          "description": "Data di scadenza nel formato AAAA-MM-GG (predefinita: oggi)."
+        },
+        "priority": {
+          "name": "Priorità",
+          "description": "Livello di priorità (p1=Urgente, p2=Alta, p3=Media, p4=Bassa, none=Nessuna)."
+        },
+        "assignee": {
+          "name": "ID utente assegnato",
+          "description": "ID dell'utente a cui assegnare l'attività."
+        },
+        "points": {
+          "name": "Punti",
+          "description": "Punti ricompensa al completamento."
+        },
+        "linked_thing_id": {
+          "name": "ID Thing collegato",
+          "description": "ID di un Thing collegato a questa attività."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Completa attività",
+      "description": "Completa un'attività, assegna punti, ruota gli incaricati e calcola la ricorrenza.",
+      "fields": {
+        "task_id": {
+          "name": "ID attività",
+          "description": "Identificatore univoco dell'attività."
+        },
+        "task_title": {
+          "name": "Titolo attività",
+          "description": "Trova e completa l'attività in sospeso con questo titolo esatto."
+        },
+        "user_id": {
+          "name": "Completato da ID utente",
+          "description": "ID dell'utente che riceve i punti."
+        }
+      }
+    },
+    "reset_task": {
+      "name": "Ripristina attività",
+      "description": "Ripristina un'attività completata a in sospeso.",
+      "fields": {
+        "task_id": {
+          "name": "ID attività",
+          "description": "Identificatore univoco dell'attività."
+        },
+        "task_title": {
+          "name": "Titolo attività",
+          "description": "Titolo dell'attività da ripristinare."
+        }
+      }
+    },
+    "delete_task": {
+      "name": "Elimina attività",
+      "description": "Elimina definitivamente un'attività.",
+      "fields": {
+        "task_id": {
+          "name": "ID attività",
+          "description": "Identificatore univoco dell'attività da eliminare."
+        }
+      }
+    },
+    "update_thing": {
+      "name": "Aggiorna Thing",
+      "description": "Aggiorna, incrementa o azzera un contatore Thing.",
+      "fields": {
+        "thing_id": {
+          "name": "ID Thing",
+          "description": "ID del thing da aggiornare."
+        },
+        "value": {
+          "name": "Valore assoluto",
+          "description": "Imposta direttamente il valore corrente."
+        },
+        "delta": {
+          "name": "Variazione delta",
+          "description": "Incrementa o decrementa il valore corrente di questa quantità."
+        },
+        "reset": {
+          "name": "Azzera",
+          "description": "Ripristina il valore corrente a 0."
+        },
+        "target_value": {
+          "name": "Valore target / soglia",
+          "description": "Soglia di attivazione per le attività collegate."
+        },
+        "threshold_operator": {
+          "name": "Operatore soglia",
+          "description": "Condizione operatore: >= (crescente) o <= (decrescente)."
+        },
+        "external_entity_id": {
+          "name": "ID entità esterna",
+          "description": "Entità numerica Home Assistant opzionale per sincronizzazione."
+        },
+        "script_entity_id": {
+          "name": "Script di completamento",
+          "description": "Script Home Assistant eseguito al completamento di un'attività collegata."
+        },
+        "is_odometer": {
+          "name": "Contatore continuo (Odometro)",
+          "description": "Abilita per contatori monotonamente crescenti (es. contachilometri auto)."
+        },
+        "last_reset_value": {
+          "name": "Lettura all'ultima manutenzione",
+          "description": "Lettura del contatore all'ultima manutenzione."
+        }
+      }
+    },
+    "increment_thing": {
+      "name": "Incrementa Thing",
+      "description": "Incrementa o decrementa il valore del contatore di un Thing.",
+      "fields": {
+        "entity_id": {
+          "name": "Entità / Sensore",
+          "description": "Entità sensore del Thing."
+        },
+        "thing_id": {
+          "name": "ID Thing",
+          "description": "Identificatore univoco del Thing."
+        },
+        "amount": {
+          "name": "Quantità / Passo",
+          "description": "Quantità da incrementare (predefinito: 1)."
+        },
+        "delta": {
+          "name": "Delta",
+          "description": "Alias per Quantità."
+        }
+      }
+    },
+    "award_points": {
+      "name": "Assegna punti",
+      "description": "Modifica i punti di gamification per un membro della famiglia.",
+      "fields": {
+        "user_id": {
+          "name": "ID utente",
+          "description": "ID utente di destinazione."
+        },
+        "points": {
+          "name": "Punti",
+          "description": "Numero di punti da assegnare."
+        },
+        "reason": {
+          "name": "Motivo",
+          "description": "Nota o motivo della modifica dei punti."
+        }
+      }
+    }
+  }
+}
