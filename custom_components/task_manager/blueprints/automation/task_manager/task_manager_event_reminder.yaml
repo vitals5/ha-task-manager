@@ -1,0 +1,174 @@
+blueprint:
+  name: Task Manager - Event-based Task Reminder Notification
+  description: >
+    Sends an instant notification when a task reminder is triggered (e.g. 15 minutes,
+    1 hour, or 1 day before due time). Supports filtering by assignee, tag, and priority,
+    and opens the Task Manager panel on mobile tap.
+  domain: automation
+  source_url: https://raw.githubusercontent.com/vitals5/ha-task-manager/main/blueprints/automation/task_manager/task_manager_event_reminder.yaml
+  input:
+    notify_service:
+      name: Notification Service
+      description: The service to send notifications through (e.g. notify.notify, notify.mobile_app_yourphone, or notify.persistent_notification).
+      default: notify.notify
+      selector:
+        text:
+    assignee_filter:
+      name: Assignee Filter (Optional)
+      description: Only send notification if the task is assigned to this member / user ID (leave blank to notify for all assignees).
+      default: ""
+      selector:
+        text:
+    tag_filter:
+      name: Tag / Label Filter (Optional)
+      description: Only notify if the task has this tag / label (leave blank to notify for all tasks).
+      default: ""
+      selector:
+        text:
+    min_priority:
+      name: Minimum Priority
+      description: Only notify for tasks with at least this priority.
+      default: none
+      selector:
+        select:
+          options:
+            - label: "All Priorities (None, Low, Medium, High, Urgent)"
+              value: "none"
+            - label: "Low or higher"
+              value: "low"
+            - label: "Medium or higher"
+              value: "medium"
+            - label: "High or higher"
+              value: "high"
+            - label: "Urgent only"
+              value: "urgent"
+    include_due_events:
+      name: Also notify on Daily Due Event
+      description: Also trigger on task_manager_task_due (midnight event when chore is due today).
+      default: false
+      selector:
+        boolean:
+    include_overdue_events:
+      name: Also notify on Daily Overdue Event
+      description: Also trigger on task_manager_task_overdue (midnight event when chore is overdue).
+      default: false
+      selector:
+        boolean:
+    click_url:
+      name: Click / Action URL
+      description: Relative URL to open when tapping the notification on mobile (default /task-manager).
+      default: "/task-manager"
+      selector:
+        text:
+    custom_title:
+      name: Notification Title Template (Optional)
+      description: Custom title header. Leave blank for default "⏰ Erinnerung: <Aufgabe>". Supports Jinja templates.
+      default: ""
+      selector:
+        text:
+    custom_message:
+      name: Notification Message Template (Optional)
+      description: Custom message body. Leave blank for default reminder text. Supports Jinja templates.
+      default: ""
+      selector:
+        text:
+          multiline: true
+
+mode: parallel
+max: 20
+
+trigger:
+  - platform: event
+    event_type: task_manager_task_reminder
+    id: reminder
+  - platform: event
+    event_type: task_manager_task_due
+    id: due
+  - platform: event
+    event_type: task_manager_task_overdue
+    id: overdue
+
+variables:
+  assignee_filter: !input assignee_filter
+  tag_filter: !input tag_filter
+  min_priority: !input min_priority
+  include_due_events: !input include_due_events
+  include_overdue_events: !input include_overdue_events
+  notify_service: !input notify_service
+  click_url: !input click_url
+  custom_title: !input custom_title
+  custom_message: !input custom_message
+
+  trigger_id: "{{ trigger.id }}"
+  t_assignee: "{{ trigger.event.data.assignee | default('', true) }}"
+  t_tags: "{{ trigger.event.data.tags | default([], true) }}"
+  t_priority: "{{ trigger.event.data.priority | default('none', true) }}"
+  t_title: "{{ trigger.event.data.task_title | default('Aufgabe', true) }}"
+  t_offset: "{{ trigger.event.data.reminder_offset_minutes | default(0, true) | int }}"
+  t_due_time: "{{ trigger.event.data.due_time | default('', true) }}"
+  t_due_date: "{{ trigger.event.data.due_date | default('', true) }}"
+
+  prio_map:
+    none: 0
+    low: 1
+    medium: 2
+    high: 3
+    urgent: 4
+  event_prio_weight: "{{ prio_map.get(t_priority, 0) }}"
+  min_prio_weight: "{{ prio_map.get(min_priority, 0) }}"
+
+  assignee_match: "{{ assignee_filter == '' or assignee_filter == t_assignee }}"
+  tag_match: "{{ tag_filter == '' or tag_filter in t_tags }}"
+  priority_match: "{{ event_prio_weight >= min_prio_weight }}"
+  type_match: >
+    {{
+      (trigger_id == 'reminder') or
+      (trigger_id == 'due' and include_due_events) or
+      (trigger_id == 'overdue' and include_overdue_events)
+    }}
+
+  final_title: >
+    {% if custom_title != '' %}
+      {{ custom_title }}
+    {% elif trigger_id == 'overdue' %}
+      ⚠️ Überfällig: {{ t_title }}
+    {% elif trigger_id == 'due' %}
+      📅 Heute fällig: {{ t_title }}
+    {% else %}
+      ⏰ Erinnerung: {{ t_title }}
+    {% endif %}
+
+  final_message: >
+    {% if custom_message != '' %}
+      {{ custom_message }}
+    {% elif trigger_id == 'overdue' %}
+      Aufgabe '{{ t_title }}' ist seit {{ t_due_date }} überfällig!
+    {% elif trigger_id == 'due' %}
+      Aufgabe '{{ t_title }}' ist heute fällig{% if t_due_time %} um {{ t_due_time }}{% endif %}.
+    {% else %}
+      {% if t_offset == 0 %}
+        Aufgabe '{{ t_title }}' ist jetzt fällig!
+      {% elif t_offset < 60 %}
+        Aufgabe '{{ t_title }}' ist fällig in {{ t_offset }} Minute(n){% if t_due_time %} (um {{ t_due_time }}){% endif %}!
+      {% elif t_offset < 1440 %}
+        Aufgabe '{{ t_title }}' ist fällig in {{ (t_offset / 60) | round(1) }} Stunde(n){% if t_due_time %} (um {{ t_due_time }}){% endif %}!
+      {% else %}
+        Aufgabe '{{ t_title }}' ist fällig in {{ (t_offset / 1440) | round(0) }} Tag(en)!
+      {% endif %}
+      {% if t_assignee %} (Zugewiesen: {{ t_assignee }}){% endif %}
+    {% endif %}
+
+condition:
+  - condition: template
+    value_template: "{{ type_match and assignee_match and tag_match and priority_match }}"
+
+action:
+  - service: "{{ notify_service }}"
+    data:
+      title: "{{ final_title }}"
+      message: "{{ final_message }}"
+      data:
+        url: "{{ click_url }}"
+        clickAction: "{{ click_url }}"
+        tag: "task_manager_{{ trigger.event.data.task_id }}"
+        group: "task_manager_reminders"

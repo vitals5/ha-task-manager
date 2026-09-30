@@ -304,10 +304,26 @@ action:
 
 ---
 
-### 5. Daily Task Reminders via Blueprint
-Task Manager includes a ready-to-use automation blueprint:
-- **File**: `blueprints/automation/task_manager/task_manager_notify.yaml`
-- **Features**: Sends a daily digest at your chosen time for tasks that are due, overdue, or due soon, with optional tag and assignee filtering.
+### 5. Automation Blueprints
+
+Task Manager includes ready-to-use automation blueprints. They are **automatically installed** into your Home Assistant instance when Task Manager starts, or you can import them manually with 1 click:
+
+#### Blueprint 1: Instant Event-based Task Reminders (`task_manager_event_reminder.yaml`)
+Sends an immediate notification whenever an individual task reminder arrives (e.g. 15 minutes, 1 hour, or 1 day before due time). Supports assignee filtering, tag filtering, priority thresholding, and opens the Task Manager panel on mobile tap.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2Fvitals5%2Fha-task-manager%2Fmain%2Fblueprints%2Fautomation%2Ftask_manager%2Ftask_manager_event_reminder.yaml)
+
+- **Raw Import URL**: `https://raw.githubusercontent.com/vitals5/ha-task-manager/main/blueprints/automation/task_manager/task_manager_event_reminder.yaml`
+
+#### Blueprint 2: Daily Chores Digest (`task_manager_notify.yaml`)
+Sends a consolidated daily summary at your chosen time (e.g. 09:00 AM) listing all tasks that are due today, overdue, or due soon, with optional tag and assignee filtering.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2Fvitals5%2Fha-task-manager%2Fmain%2Fblueprints%2Fautomation%2Ftask_manager%2Ftask_manager_notify.yaml)
+
+- **Raw Import URL**: `https://raw.githubusercontent.com/vitals5/ha-task-manager/main/blueprints/automation/task_manager/task_manager_notify.yaml`
+
+> [!TIP]
+> **Manual Import Note**: Always use the **Raw URL** (`https://raw.githubusercontent.com/...`) or the 1-Click badge above. If you copy the standard GitHub browser page URL (`https://github.com/.../blob/...`), Home Assistant downloads the GitHub HTML page instead of YAML, resulting in the error: `mapping values are not allowed here ... --tab-size-preference: 4;`.
 
 ---
 

@@ -49,15 +49,40 @@ When creating a task, you can select reminder offsets:
 
 ---
 
-## Daily Digest Blueprint
+---
 
-Task Manager includes a pre-packaged automation blueprint:
-- **Location**: `blueprints/automation/task_manager/task_manager_notify.yaml`
-- **Features**:
-  - Sends a consolidated notification at a scheduled hour (e.g. `09:00 AM`).
+## Ready-to-Use Automation Blueprints
+
+Task Manager comes with two pre-packaged automation blueprints. They are **automatically installed** into your Home Assistant `<config>/blueprints/automation/task_manager/` folder when the integration loads, or you can import them directly:
+
+### 1. Instant Event Reminder Blueprint (`task_manager_event_reminder.yaml`)
+Triggered immediately when a task reminder event arrives (e.g. 15 minutes, 1 hour, or 1 day before the configured due time).
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2Fvitals5%2Fha-task-manager%2Fmain%2Fblueprints%2Fautomation%2Ftask_manager%2Ftask_manager_event_reminder.yaml)
+
+- **Raw Import URL**: `https://raw.githubusercontent.com/vitals5/ha-task-manager/main/blueprints/automation/task_manager/task_manager_event_reminder.yaml`
+- **Capabilities**:
+  - Catches `task_manager_task_reminder` events in real-time.
+  - Optional toggle to also notify on daily due (`task_manager_task_due`) and overdue (`task_manager_task_overdue`) events.
+  - Filter by assigned user (`assignee_filter`).
+  - Filter by label/tag (`tag_filter`).
+  - Filter by minimum priority (`min_priority`: low, medium, high, urgent).
+  - Tapping the notification on iOS or Android automatically opens the Task Manager panel (`/task-manager`).
+  - Fully customizable message and title with Jinja template support.
+
+### 2. Daily Digest Blueprint (`task_manager_notify.yaml`)
+Sends a consolidated notification at your chosen hour (e.g. `09:00 AM`).
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2Fvitals5%2Fha-task-manager%2Fmain%2Fblueprints%2Fautomation%2Ftask_manager%2Ftask_manager_notify.yaml)
+
+- **Raw Import URL**: `https://raw.githubusercontent.com/vitals5/ha-task-manager/main/blueprints/automation/task_manager/task_manager_notify.yaml`
+- **Capabilities**:
   - Summarizes all tasks that are **due today**, **overdue**, or **due soon**.
   - Includes overdue day counts (e.g. *Clean Gutters (Overdue by 3d)*).
-  - Supports filtering by **Tag** or **Assignee** (great for sending personal digests to individual family members).
+  - Supports filtering by **Tag** or **Assignee** (great for personal morning briefings).
+
+> [!NOTE]
+> **Blueprint Import Error Fix**: If you ever encounter `mapping values are not allowed here ... --tab-size-preference: 4;` when importing blueprints, ensure you use the **Raw URL** (or click the badge above). Copying the standard GitHub web page URL causes Home Assistant to download GitHub's HTML page instead of YAML.
 
 ---
 

@@ -384,6 +384,21 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
         expected = ["domain", "name"] + sorted(k for k in raw if k not in ("domain", "name"))
         self.assertEqual(keys, expected, "Manifest keys must be: domain, name, then alphabetical order (Hassfest requirement)")
 
+    async def test_async_setup_blueprints(self):
+        """Test _async_setup_blueprints copies blueprints to Home Assistant blueprints folder."""
+        import tempfile
+        hass = MagicMock()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass.config.path.side_effect = lambda *args: os.path.join(tmpdir, *args)
+            hass.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
+            await task_manager._async_setup_blueprints(hass)
+
+            dest_dir = os.path.join(tmpdir, "blueprints", "automation", "task_manager")
+            self.assertTrue(os.path.isdir(dest_dir))
+            files = os.listdir(dest_dir)
+            self.assertIn("task_manager_notify.yaml", files)
+            self.assertIn("task_manager_event_reminder.yaml", files)
+
 
 if __name__ == "__main__":
     unittest.main()

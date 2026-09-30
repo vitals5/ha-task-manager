@@ -1,6 +1,7 @@
 """The Task Manager integration."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 import logging
 import os
@@ -200,6 +201,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Set up custom sidebar panel & static HTTP assets
     await _async_setup_frontend(hass)
 
+    # Automatically install bundled blueprints to Home Assistant blueprints folder
+    await _async_setup_blueprints(hass)
+
     _LOGGER.info("Task Manager integration setup completed successfully")
     return True
 
@@ -215,7 +219,7 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
     else:
         hass.http.register_static_path(URL_BASE, FRONTEND_DIR, cache_headers=False)
 
-    version_str = "1.0.34"
+    version_str = "1.0.35"
     try:
         card_file = os.path.join(FRONTEND_DIR, "task-manager-card.js")
         if os.path.exists(card_file):
@@ -272,7 +276,7 @@ async def _async_setup_frontend(hass: HomeAssistant) -> None:
             hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _on_ha_started)
 
     # 3. Register custom sidebar panel
-    panel_version = "1.0.34"
+    panel_version = "1.0.35"
     try:
         js_file = os.path.join(FRONTEND_DIR, "task-manager-panel.js")
         if os.path.exists(js_file):
@@ -322,3 +326,39 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _LOGGER.debug("Could not remove panel: %s", err)
             hass.data.pop(f"{DOMAIN}_card_registered", None)
     return unload_ok
+
+
+async def _async_setup_blueprints(hass: HomeAssistant) -> None:
+    """Ensure Task Manager blueprints are automatically available in Home Assistant."""
+    def _sync_blueprints() -> None:
+        import shutil
+        src_dir = os.path.join(os.path.dirname(__file__), "blueprints", "automation", "task_manager")
+        if not os.path.isdir(src_dir):
+            return
+
+        config_obj = getattr(hass, "config", None)
+        if not config_obj or not hasattr(config_obj, "path") or not callable(config_obj.path):
+            return
+
+        dest_dir = config_obj.path("blueprints", "automation", "task_manager")
+        try:
+            os.makedirs(dest_dir, exist_ok=True)
+            for fname in os.listdir(src_dir):
+                if fname.endswith((".yaml", ".yml")):
+                    src_file = os.path.join(src_dir, fname)
+                    dst_file = os.path.join(dest_dir, fname)
+                    if not os.path.exists(dst_file) or os.path.getmtime(src_file) > os.path.getmtime(dst_file):
+                        shutil.copy2(src_file, dst_file)
+                        _LOGGER.info("Installed Task Manager blueprint to %s", dst_file)
+        except Exception as err:
+            _LOGGER.debug("Could not copy blueprints to %s: %s", dest_dir, err)
+
+    if hasattr(hass, "async_add_executor_job") and callable(hass.async_add_executor_job):
+        try:
+            res = hass.async_add_executor_job(_sync_blueprints)
+            if asyncio.iscoroutine(res) or hasattr(res, "__await__"):
+                await res
+        except Exception as err:
+            _LOGGER.debug("Could not run async_add_executor_job for blueprints: %s", err)
+    else:
+        _sync_blueprints()
