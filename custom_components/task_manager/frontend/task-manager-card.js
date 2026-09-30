@@ -3,7 +3,7 @@
  * Type: custom:task-manager-card
  */
 
-const CARD_VERSION = "1.0.36";
+const CARD_VERSION = "1.0.37";
 
 class TaskManagerCard extends HTMLElement {
   constructor() {

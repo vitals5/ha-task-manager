@@ -399,6 +399,25 @@ class TestTaskManagerInit(unittest.IsolatedAsyncioTestCase):
             self.assertIn("task_manager_notify.yaml", files)
             self.assertIn("task_manager_event_reminder.yaml", files)
 
+    def test_blueprint_yaml_syntax(self):
+        """Test that all blueprint YAML files parse cleanly with PyYAML."""
+        import yaml
+        yaml.SafeLoader.add_constructor("!input", lambda loader, node: node.value)
+
+        bp_dirs = [
+            os.path.join(os.path.dirname(__file__), "..", "blueprints", "automation", "task_manager"),
+            os.path.join(os.path.dirname(__file__), "..", "custom_components", "task_manager", "blueprints", "automation", "task_manager"),
+        ]
+        for b_dir in bp_dirs:
+            for fname in os.listdir(b_dir):
+                if fname.endswith((".yaml", ".yml")):
+                    fpath = os.path.join(b_dir, fname)
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        data = yaml.safe_load(f)
+                    self.assertIsInstance(data, dict, f"Failed parsing {fpath}")
+                    self.assertIn("blueprint", data)
+                    self.assertIn("trigger", data)
+
 
 if __name__ == "__main__":
     unittest.main()

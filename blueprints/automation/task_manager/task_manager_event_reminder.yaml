@@ -62,7 +62,7 @@ blueprint:
         text:
     custom_title:
       name: Notification Title Template (Optional)
-      description: Custom title header. Leave blank for default "⏰ Erinnerung: <Aufgabe>". Supports Jinja templates.
+      description: 'Custom title header. Leave blank for default "⏰ Erinnerung: <Aufgabe>". Supports Jinja templates.'
       default: ""
       selector:
         text:
