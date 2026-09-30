@@ -1,5 +1,9 @@
 # Tasks & Chores Management
 
+<p align="center">
+  <img src="images/tasks_mobile.jpg" alt="Tasks & Chores Interface" width="340">
+</p>
+
 Task Manager provides a rich task scheduling and management system tailored for households, vacation homes, and workshops.
 
 ---

@@ -1,5 +1,9 @@
 # Spare Parts & Supplies Shelf
 
+<p align="center">
+  <img src="images/parts_mobile.jpg" alt="Spare Parts & Inventory Shelf" width="340">
+</p>
+
 Task Manager features a dedicated **Parts Shelf** tab to track spare parts, consumables, filters, and maintenance supplies.
 
 ---

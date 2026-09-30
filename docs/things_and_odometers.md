@@ -1,5 +1,9 @@
 # Things & Odometer Tracking
 
+<p align="center">
+  <img src="images/things_mobile.jpg" alt="Things & Appliances Interface" width="340">
+</p>
+
 In Task Manager, **"Things"** represent non-task physical appliances, machinery, vehicles, filters, and consumables that require maintenance after a certain amount of use or wear.
 
 ---

@@ -1,11 +1,32 @@
-# Task Manager for Home Assistant
+<p align="center">
+  <img src="docs/images/logo.png" alt="Task Manager Logo" width="128" height="128">
+</p>
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
-[![GitHub Release](https://img.shields.io/github/v/release/vitals5/ha-task-manager?color=blue)](https://github.com/vitals5/ha-task-manager/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
+<h1 align="center">Task Manager for Home Assistant</h1>
 
-A modern, collaborative household task, chore, and maintenance manager for Home Assistant.
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=vitals5&repository=ha-task-manager&category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance and open a repository inside the Home Assistant Community Store."></a>
+</p>
+
+<p align="center">
+  <a href="https://hacs.xyz/"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
+  <a href="https://github.com/vitals5/ha-task-manager/releases"><img src="https://img.shields.io/github/v/release/vitals5/ha-task-manager?color=blue" alt="GitHub Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://www.home-assistant.io/"><img src="https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg" alt="Home Assistant"></a>
+</p>
+
+<p align="center">
+  <strong>A modern, collaborative household task, chore, and maintenance manager for Home Assistant.</strong>
+</p>
+
+<p align="center">
+  <a href="docs/images/tasks_mobile.jpg"><img src="docs/images/tasks_mobile.jpg" alt="Tasks & Chores" width="31%"></a>&nbsp;
+  <a href="docs/images/things_mobile.jpg"><img src="docs/images/things_mobile.jpg" alt="Things & Maintenance" width="31%"></a>&nbsp;
+  <a href="docs/images/parts_mobile.jpg"><img src="docs/images/parts_mobile.jpg" alt="Spare Parts & Inventory" width="31%"></a>
+</p>
+<p align="center">
+  <em>Tasks & Utility Readings &nbsp;•&nbsp; Things & Appliance Lifespans &nbsp;•&nbsp; Spare Parts Shelf & Low-Stock Alerts</em>
+</p>
 
 Task Manager combines powerful chore tracking, recurring cadences, appliance and vehicle maintenance ("Things" with Odometer mode), utility meter readings with consumption history, spare parts inventory management, gamification, and native Home Assistant platforms (To-do, Calendar, Sensors, Buttons, and Events) into an all-in-one productivity suite.
 
@@ -172,16 +193,20 @@ Task Manager automatically exposes native Home Assistant entities:
 
 ### Method 1: Installation via HACS (Recommended)
 
-1. Ensure [HACS](https://hacs.xyz/) is installed and active in your Home Assistant instance.
-2. In Home Assistant, open **HACS** > **Integrations**.
-3. Click the three dots `⋮` in the top right corner and choose **Custom repositories**.
-4. Paste the repository URL:
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=vitals5&repository=ha-task-manager&category=integration)
+
+**One-Click Install:** Click the badge above to add and open the repository directly inside Home Assistant!
+
+**Manual HACS Steps:**
+1. In Home Assistant, open **HACS** > **Integrations**.
+2. Click the three dots `⋮` in the top right corner and choose **Custom repositories**.
+3. Paste the repository URL:
    ```text
    https://github.com/vitals5/ha-task-manager
    ```
-5. Select **Integration** as the Category and click **Add**.
-6. Find **Task Manager** in the list and click **Download**.
-7. Restart Home Assistant.
+4. Select **Integration** as the Category and click **Add**.
+5. Find **Task Manager** in the list and click **Download**.
+6. Restart Home Assistant.
 
 ### Method 2: Manual Installation
 
