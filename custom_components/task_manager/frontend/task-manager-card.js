@@ -11,6 +11,8 @@ const CARD_I18N = {
     taskSingular: "task",
     taskPlural: "tasks",
     filterAll: "All",
+    showMoreTasks: "Show {count} more tasks ({overdue} overdue)",
+    showFewerTasks: "Show fewer",
     filterToday: "Today",
     filterDueSoon: "Due Soon",
     filterOverdue: "Overdue",
@@ -36,6 +38,7 @@ const CARD_I18N = {
     edCompleted: "Completed",
     edMaxTasks: "Max Tasks to Display",
     edShowAdd: "Show Quick Add Input Row",
+    edShowSkip: "Show Skip button",
     edShowPriority: "Show Priority Badges",
     edShowAssignee: "Show Assigned Member",
   },
@@ -44,6 +47,8 @@ const CARD_I18N = {
     taskSingular: "Aufgabe",
     taskPlural: "Aufgaben",
     filterAll: "Alle",
+    showMoreTasks: "{count} weitere Aufgaben anzeigen ({overdue} überfällig)",
+    showFewerTasks: "Weniger anzeigen",
     filterToday: "Heute",
     filterDueSoon: "Bald fällig",
     filterOverdue: "Überfällig",
@@ -69,6 +74,7 @@ const CARD_I18N = {
     edCompleted: "Erledigt",
     edMaxTasks: "Maximale Anzahl Aufgaben",
     edShowAdd: "Schnell-Hinzufügen-Zeile anzeigen",
+    edShowSkip: "Schaltfläche „Überspringen“ anzeigen",
     edShowPriority: "Prioritäts-Badges anzeigen",
     edShowAssignee: "Zuständiges Mitglied anzeigen",
   },
@@ -77,6 +83,8 @@ const CARD_I18N = {
     taskSingular: "tâche",
     taskPlural: "tâches",
     filterAll: "Toutes",
+    showMoreTasks: "Afficher {count} tâches de plus ({overdue} en retard)",
+    showFewerTasks: "Afficher moins",
     filterToday: "Aujourd'hui",
     filterDueSoon: "Bientôt",
     filterOverdue: "En retard",
@@ -102,6 +110,7 @@ const CARD_I18N = {
     edCompleted: "Terminées",
     edMaxTasks: "Nombre max de tâches à afficher",
     edShowAdd: "Afficher le champ d'ajout rapide",
+    edShowSkip: "Afficher le bouton « Ignorer »",
     edShowPriority: "Afficher les badges de priorité",
     edShowAssignee: "Afficher le membre assigné",
   },
@@ -110,6 +119,8 @@ const CARD_I18N = {
     taskSingular: "tarea",
     taskPlural: "tareas",
     filterAll: "Todas",
+    showMoreTasks: "Mostrar {count} tareas más ({overdue} vencidas)",
+    showFewerTasks: "Mostrar menos",
     filterToday: "Hoy",
     filterDueSoon: "Vence pronto",
     filterOverdue: "Vencida",
@@ -135,6 +146,7 @@ const CARD_I18N = {
     edCompleted: "Completadas",
     edMaxTasks: "Máx tareas a mostrar",
     edShowAdd: "Mostrar fila de añadir rápido",
+    edShowSkip: "Mostrar el botón « Omitir »",
     edShowPriority: "Mostrar insignias de prioridad",
     edShowAssignee: "Mostrar miembro asignado",
   },
@@ -143,6 +155,8 @@ const CARD_I18N = {
     taskSingular: "attività",
     taskPlural: "attività",
     filterAll: "Tutte",
+    showMoreTasks: "Mostra altre {count} attività ({overdue} in ritardo)",
+    showFewerTasks: "Mostra meno",
     filterToday: "Oggi",
     filterDueSoon: "In scadenza",
     filterOverdue: "In ritardo",
@@ -168,6 +182,7 @@ const CARD_I18N = {
     edCompleted: "Completate",
     edMaxTasks: "Max attività da mostrare",
     edShowAdd: "Mostra riga di inserimento rapido",
+    edShowSkip: "Mostra il pulsante « Salta »",
     edShowPriority: "Mostra badge priorità",
     edShowAssignee: "Mostra membro assegnato",
   },
@@ -176,6 +191,8 @@ const CARD_I18N = {
     taskSingular: "taak",
     taskPlural: "taken",
     filterAll: "Alle",
+    showMoreTasks: "Toon {count} extra taken ({overdue} achterstallig)",
+    showFewerTasks: "Minder tonen",
     filterToday: "Vandaag",
     filterDueSoon: "Binnenkort",
     filterOverdue: "Achterstallig",
@@ -201,6 +218,7 @@ const CARD_I18N = {
     edCompleted: "Voltooid",
     edMaxTasks: "Max aantal taken",
     edShowAdd: "Snelle invoerregel tonen",
+    edShowSkip: "Knop ‘Overslaan’ tonen",
     edShowPriority: "Prioriteitsbadges tonen",
     edShowAssignee: "Toegewezen lid tonen",
   },
@@ -209,6 +227,8 @@ const CARD_I18N = {
     taskSingular: "zadanie",
     taskPlural: "zadań",
     filterAll: "Wszystkie",
+    showMoreTasks: "Pokaż więcej zadań: {count} ({overdue} zaległych)",
+    showFewerTasks: "Pokaż mniej",
     filterToday: "Dzisiaj",
     filterDueSoon: "Wkrótce",
     filterOverdue: "Zaległe",
@@ -234,6 +254,7 @@ const CARD_I18N = {
     edCompleted: "Ukończone",
     edMaxTasks: "Maks. liczba zadań do wyświetlenia",
     edShowAdd: "Pokaż pasek szybkiego dodawania",
+    edShowSkip: "Pokaż przycisk „Pomiń”",
     edShowPriority: "Pokaż oznaczenia priorytetów",
     edShowAssignee: "Pokaż przypisanego członka",
   }
@@ -273,7 +294,10 @@ class TaskManagerCard extends HTMLElement {
     this._config = {};
     this._hass = null;
     this._currentFilter = "all";
+    this._taskBatches = 1;
     this._tasks = [];
+    this._pendingTaskActions = new Set();
+    this._recentlyCompleted = new Set();
     this._users = [];
     this._things = [];
   }
@@ -293,6 +317,7 @@ class TaskManagerCard extends HTMLElement {
       title: "Task Manager",
       default_filter: "all",
       show_add: true,
+      show_skip: true,
       show_completed: true,
       show_assignee: true,
       show_priority: true,
@@ -310,6 +335,7 @@ class TaskManagerCard extends HTMLElement {
       title: "Task Manager",
       default_filter: "all",
       show_add: true,
+      show_skip: true,
       show_completed: true,
       show_assignee: true,
       show_priority: true,
@@ -324,6 +350,7 @@ class TaskManagerCard extends HTMLElement {
         this._config.max_tasks = num;
       }
     }
+    this._taskBatches = 1;
     if (!this._currentFilter || this._currentFilter === "all") {
       this._currentFilter = this._config.default_filter || "all";
     }
@@ -415,14 +442,6 @@ class TaskManagerCard extends HTMLElement {
       return (pOrder[a.priority] || 5) - (pOrder[b.priority] || 5);
     });
 
-    const maxVal = this._config.max_items !== undefined ? this._config.max_items : this._config.max_tasks;
-    if (maxVal !== undefined && maxVal !== null && maxVal !== "") {
-      const limit = Number(maxVal);
-      if (!isNaN(limit) && limit > 0) {
-        list = list.slice(0, limit);
-      }
-    }
-
     return list;
   }
 
@@ -439,7 +458,12 @@ class TaskManagerCard extends HTMLElement {
 
     const lang = this._getLang();
     const todayStr = new Date().toISOString().slice(0, 10);
-    const tasks = this._getFilteredTasks();
+    const filteredTasks = this._getFilteredTasks();
+    const limit = Number(this._config.max_items ?? this._config.max_tasks);
+    const batchSize = limit > 0 ? Math.max(1, Math.trunc(limit)) : 0;
+    const tasks = limit > 0 ? filteredTasks.slice(0, batchSize * this._taskBatches) : filteredTasks;
+    const nextTasks = filteredTasks.slice(tasks.length, tasks.length + batchSize);
+    const nextOverdue = nextTasks.filter(t => t.status === "pending" && t.due_date && t.due_date < todayStr).length;
     const overdueCount = this._tasks.filter(t => t.status === "pending" && t.due_date && t.due_date < todayStr).length;
     const pausedCount = this._tasks.filter(t => t.is_active === false).length;
 
@@ -457,6 +481,9 @@ class TaskManagerCard extends HTMLElement {
           border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--divider-color, rgba(127,127,127,0.15)));
           box-sizing: border-box;
           overflow: hidden;
+        }
+        .task-limit-toggle {
+          margin-top: 12px;
         }
         .header {
           display: flex;
@@ -563,22 +590,48 @@ class TaskManagerCard extends HTMLElement {
           width: 26px;
           height: 26px;
           border-radius: 7px;
-          border: 1.5px solid var(--ha-card-border-color, #94a3b8);
-          background: transparent;
+          border: 2px solid var(--secondary-text-color, #64748b);
+          background: var(--card-background-color, #fff);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 15px;
-          color: transparent;
           flex-shrink: 0;
           padding: 0;
           transition: all 0.15s ease;
         }
-        .task-check.checked {
+        .task-check[aria-disabled="false"]:hover {
+          border-color: var(--primary-color, #0284c7);
+        }
+        .task-check:focus-visible {
+          outline: 2px solid var(--primary-color, #0284c7);
+          outline-offset: 2px;
+        }
+        .task-check.checked,
+        .task-check.just-completed {
           background: var(--success-color, #10b981);
           border-color: var(--success-color, #10b981);
-          color: #ffffff;
+        }
+        .task-check.checked::after,
+        .task-check.just-completed::after {
+          content: "";
+          width: 6px;
+          height: 11px;
+          border: solid var(--text-primary-color, white);
+          border-width: 0 2px 2px 0;
+          transform: translateY(-1px) rotate(45deg);
+        }
+        .task-check.just-completed {
+          animation: task-check-pop 280ms ease-out;
+        }
+        @keyframes task-check-pop {
+          45% { transform: scale(1.18); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .task-check {
+            animation: none !important;
+            transition: none;
+          }
         }
         .task-content {
           flex: 1;
@@ -667,11 +720,12 @@ class TaskManagerCard extends HTMLElement {
           </div>
         ` : ""}
 
-        <div class="task-list">
+        <div class="task-list" id="card-task-list">
           ${tasks.length === 0 ? `
             <div class="empty-state">🎉 ${this._t("noTasks")}</div>
           ` : tasks.map(t => {
             const isDone = t.status === "completed";
+            const justCompleted = this._recentlyCompleted.has(t.id);
             const isOverdue = !isDone && t.due_date && t.due_date < todayStr;
             const isToday = !isDone && t.due_date === todayStr;
 
@@ -683,9 +737,7 @@ class TaskManagerCard extends HTMLElement {
 
             return `
               <div class="task-item">
-                <button class="task-check ${isDone ? "checked" : ""}" data-id="${t.id}" data-action="${isDone ? "reset" : "complete"}" title="${isDone ? this._t("reopen") : this._t("complete")}">
-                  ✓
-                </button>
+                <button class="task-check ${isDone ? "checked" : ""} ${justCompleted ? "just-completed" : ""}" data-id="${t.id}" data-action="${isDone ? "reset" : "complete"}" title="${isDone ? this._t("reopen") : this._t("complete")}" aria-disabled="${justCompleted || this._pendingTaskActions.has(t.id)}"></button>
                 <div class="task-content">
                   <div class="task-title ${isDone ? "done" : ""}">${t.title || this._t("task")}</div>
                   <div class="task-meta">
@@ -734,7 +786,7 @@ class TaskManagerCard extends HTMLElement {
                     `).join("") : ""}
                   </div>
                 </div>
-                ${!isDone ? `
+                ${!isDone && this._config.show_skip !== false ? `
                   <button class="task-skip-btn" data-id="${t.id}" title="${this._t("skip")}" style="background:transparent; border:none; color:var(--secondary-text-color, #64748b); cursor:pointer; font-size:16px; padding:6px 10px; border-radius:6px; min-width:32px; min-height:32px; display:inline-flex; align-items:center; justify-content:center;" onmouseover="this.style.color='var(--primary-color, #2563eb)'" onmouseout="this.style.color='var(--secondary-text-color, #64748b)'">
                     ⏭️
                   </button>
@@ -743,6 +795,18 @@ class TaskManagerCard extends HTMLElement {
             `;
           }).join("")}
         </div>
+        ${nextTasks.length ? `
+          <button type="button" class="filter-chip task-limit-toggle" id="card-show-more"
+            aria-controls="card-task-list">
+            ${this._t("showMoreTasks", { count: nextTasks.length, overdue: nextOverdue })}
+          </button>
+        ` : ""}
+        ${limit > 0 && tasks.length > batchSize ? `
+          <button type="button" class="filter-chip task-limit-toggle" id="card-show-fewer"
+            aria-controls="card-task-list">
+            ${this._t("showFewerTasks")}
+          </button>
+        ` : ""}
       </ha-card>
     `;
 
@@ -754,11 +818,24 @@ class TaskManagerCard extends HTMLElement {
     if (!root) return;
 
     // Filters
-    root.querySelectorAll(".filter-chip").forEach(btn => {
+    root.querySelectorAll(".filter-chip[data-filter]").forEach(btn => {
       btn.addEventListener("click", () => {
         this._currentFilter = btn.getAttribute("data-filter") || "all";
+        this._taskBatches = 1;
         this._render();
       });
+    });
+
+    root.getElementById("card-show-more")?.addEventListener("click", () => {
+      this._taskBatches += 1;
+      this._render();
+      (root.getElementById("card-show-more") || root.getElementById("card-show-fewer"))?.focus();
+    });
+
+    root.getElementById("card-show-fewer")?.addEventListener("click", () => {
+      this._taskBatches = 1;
+      this._render();
+      root.getElementById("card-show-more")?.focus();
     });
 
     // Skip Task
@@ -781,11 +858,20 @@ class TaskManagerCard extends HTMLElement {
       btn.addEventListener("click", async () => {
         const taskId = btn.getAttribute("data-id");
         const action = btn.getAttribute("data-action");
-        if (taskId && this._hass) {
+        if (!taskId || !this._hass || this._pendingTaskActions.has(taskId) ||
+            this._recentlyCompleted.has(taskId)) return;
+        const haUserId = this._hass.user?.id;
+        const member = action === "complete" && haUserId
+          ? this._users.find(user => user.ha_user_id === haUserId)
+          : null;
+        this._pendingTaskActions.add(taskId);
+        btn.setAttribute("aria-disabled", "true");
+        try {
           try {
             if (action === "complete") {
               const task = this._tasks.find(t => t.id === taskId);
               const payload = { type: "task_manager/complete_task", task_id: taskId };
+              if (member) payload.user_id = member.id;
               if (task && task.task_type === "reading") {
                 if (task.registers && task.registers.length > 0) {
                   const readings = [];
@@ -824,9 +910,21 @@ class TaskManagerCard extends HTMLElement {
           } catch (e) {
             // Service fallback
             const srv = action === "complete" ? "complete_task" : "reopen_task";
-            await this._hass.callService("task_manager", srv, { task_id: taskId });
+            await this._hass.callService("task_manager", srv, { task_id: taskId, ...(member ? { user_id: member.id } : {}) });
+          }
+          if (action === "complete") {
+            this._recentlyCompleted.add(taskId);
+            this._render();
+            setTimeout(() => {
+              this._recentlyCompleted.delete(taskId);
+              this._render();
+            }, 900);
           }
           await this._fetchTasks();
+        } finally {
+          this._pendingTaskActions.delete(taskId);
+          const currentButton = root.querySelector(`.task-check[data-id="${CSS.escape(taskId)}"]`);
+          currentButton?.setAttribute("aria-disabled", String(this._recentlyCompleted.has(taskId)));
         }
       });
     });
@@ -990,6 +1088,11 @@ class TaskManagerCardEditor extends HTMLElement {
         <label class="toggle-row">
           <input type="checkbox" data-config-value="show_add" id="ed-add" ${this._config.show_add !== false ? "checked" : ""}>
           <span>${this._t("edShowAdd")}</span>
+        </label>
+
+        <label class="toggle-row">
+          <input type="checkbox" data-config-value="show_skip" id="ed-skip" ${this._config.show_skip !== false ? "checked" : ""}>
+          <span>${this._t("edShowSkip")}</span>
         </label>
 
         <label class="toggle-row">

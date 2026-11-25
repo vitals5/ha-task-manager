@@ -36,6 +36,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       editThing: "Edit Thing",
       addUser: "New Member",
       editUser: "Edit Member",
+      homeAssistantUser: "Home Assistant user",
       addLabel: "New Label",
       editLabel: "Edit Label",
       all: "All",
@@ -61,6 +62,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       assignee: "Assignee",
       label: "Label",
       rotation: "Rotation",
+      rotationParticipants: "Rotation participants",
       subtasks: "Subtasks",
       autoResets: "auto-resets",
       points: "Points",
@@ -239,6 +241,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       lastDoneDate: "Last Done Date",
       advancedOptions: "Advanced & Overrides",
       parts: "Spare Parts & Supplies",
+      completionHistory: "Completions",
+      noCompletions: "No completions recorded.",
+      allHistoryTasks: "All tasks",
       addPart: "New Spare Part",
       editPart: "Edit Spare Part",
       deletePart: "Delete Spare Part",
@@ -310,6 +315,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       notesLabel: "Notes / Work Log",
       completedAtLabel: "Completion Date & Time",
       completeWithDetails: "Complete with Details",
+      completedBy: "Completed by",
       skip: "Skip",
       skipTask: "Skip Task",
       skipConfirm: "Skip this task recurrence? Next due date will be calculated without awarding points.",
@@ -358,6 +364,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       editThing: "Thing bearbeiten",
       addUser: "Neues Mitglied",
       editUser: "Mitglied bearbeiten",
+      homeAssistantUser: "Home Assistant-Benutzer",
       addLabel: "Neues Label",
       editLabel: "Label bearbeiten",
       all: "Alle",
@@ -383,6 +390,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       assignee: "Zuständig",
       label: "Label",
       rotation: "Rotation",
+      rotationParticipants: "Teilnehmende der Rotation",
       subtasks: "Teilaufgaben",
       autoResets: "automatisch zurückgesetzt",
       points: "Punkte",
@@ -561,6 +569,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       lastDoneDate: "Letztes Erledigt-Datum",
       advancedOptions: "Erweitert & HA Overrides",
       parts: "Ersatzteile & Vorrat",
+      completionHistory: "Erledigungen",
+      noCompletions: "Keine Erledigungen erfasst.",
+      allHistoryTasks: "Alle Aufgaben",
       addPart: "Neues Ersatzteil",
       editPart: "Ersatzteil bearbeiten",
       deletePart: "Ersatzteil löschen",
@@ -632,6 +643,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       notesLabel: "Notizen / Arbeitsbericht",
       completedAtLabel: "Erledigungszeitpunkt",
       completeWithDetails: "Mit Details erledigen",
+      completedBy: "Erledigt von",
       skip: "Überspringen",
       skipTask: "Aufgabe überspringen",
       skipConfirm: "Diese Fälligkeit überspringen? Der nächste Termin wird berechnet, ohne Punkte zu vergeben.",
@@ -680,6 +692,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       editThing: "Modifier l'objet",
       addUser: "Nouveau membre",
       editUser: "Modifier le membre",
+      homeAssistantUser: "Utilisateur Home Assistant",
       addLabel: "Nouvelle étiquette",
       editLabel: "Modifier l'étiquette",
       all: "Toutes",
@@ -705,6 +718,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       assignee: "Attribué à",
       label: "Étiquette",
       rotation: "Rotation",
+      rotationParticipants: "Participants à la rotation",
       subtasks: "Sous-tâches",
       autoResets: "réinit. auto",
       points: "Points",
@@ -959,6 +973,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       notesLabel: "Notes / Rapport d'intervention",
       completedAtLabel: "Date & heure d'achèvement",
       completeWithDetails: "Terminer avec détails",
+      completedBy: "Terminé par",
       skip: "Passer",
       skipTask: "Passer la tâche",
       skipConfirm: "Passer cette occurrence de la tâche ? La prochaine date sera calculée sans attribuer de points.",
@@ -1002,6 +1017,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       editThing: "Editar Thing",
       addUser: "Nuevo miembro",
       editUser: "Editar miembro",
+      homeAssistantUser: "Usuario de Home Assistant",
       addLabel: "Nueva etiqueta",
       editLabel: "Editar etiqueta",
       all: "Todas",
@@ -1027,6 +1043,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       assignee: "Asignado a",
       label: "Etiqueta",
       rotation: "Rotación",
+      rotationParticipants: "Participantes en la rotación",
       subtasks: "Subtareas",
       autoResets: "reinicio auto",
       points: "Puntos",
@@ -1281,6 +1298,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       notesLabel: "Notas / Registro de trabajo",
       completedAtLabel: "Fecha y hora de finalización",
       completeWithDetails: "Completar con detalles",
+      completedBy: "Completada por",
       skip: "Saltar",
       skipTask: "Saltar tarea",
       skipConfirm: "¿Saltar esta ocurrencia de la tarea? La próxima fecha se calculará sin otorgar puntos.",
@@ -1324,6 +1342,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       editThing: "Modifica Thing",
       addUser: "Nuovo membro",
       editUser: "Modifica membro",
+      homeAssistantUser: "Utente Home Assistant",
       addLabel: "Nuova etichetta",
       editLabel: "Modifica etichetta",
       all: "Tutte",
@@ -1349,6 +1368,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       assignee: "Assegnato a",
       label: "Etichetta",
       rotation: "Rotazione",
+      rotationParticipants: "Partecipanti alla rotazione",
       subtasks: "Sotto-attività",
       autoResets: "ripristino auto",
       points: "Punti",
@@ -1603,6 +1623,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       notesLabel: "Note / Registro lavoro",
       completedAtLabel: "Data e ora di completamento",
       completeWithDetails: "Completa con dettagli",
+      completedBy: "Completato da",
       skip: "Salta",
       skipTask: "Salta attività",
       skipConfirm: "Saltare questa ricorrenza dell'attività? La prossima data verrà calcolata senza assegnare punti.",
@@ -1646,6 +1667,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       editThing: "Thing bewerken",
       addUser: "Nieuw lid",
       editUser: "Lid bewerken",
+      homeAssistantUser: "Home Assistant-gebruiker",
       addLabel: "Nieuw label",
       editLabel: "Label bewerken",
       all: "Alle",
@@ -1671,6 +1693,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       assignee: "Toegewezen aan",
       label: "Label",
       rotation: "Rotatie",
+      rotationParticipants: "Deelnemers aan de rotatie",
       subtasks: "Deeltaken",
       autoResets: "auto-reset",
       points: "Punten",
@@ -1925,6 +1948,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       notesLabel: "Notities / Werkrapport",
       completedAtLabel: "Voltooiingsdatum en -tijd",
       completeWithDetails: "Voltooien met details",
+      completedBy: "Voltooid door",
       skip: "Overslaan",
       skipTask: "Taak overslaan",
       skipConfirm: "Deze herhaling van de taak overslaan? Volgende datum wordt berekend zonder punten toekenning.",
@@ -1968,6 +1992,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       editThing: "Edytuj Thing",
       addUser: "Nowy członek",
       editUser: "Edytuj członka",
+      homeAssistantUser: "Użytkownik Home Assistant",
       addLabel: "Nowa etykieta",
       editLabel: "Edytuj etykietę",
       all: "Wszystkie",
@@ -1993,6 +2018,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       assignee: "Przypisane do",
       label: "Etykieta",
       rotation: "Rotacja",
+      rotationParticipants: "Uczestnicy rotacji",
       subtasks: "Podzadania",
       autoResets: "auto-reset",
       points: "Punkty",
@@ -2247,6 +2273,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       notesLabel: "Notatki / Raport z prac",
       completedAtLabel: "Data i godzina ukończenia",
       completeWithDetails: "Ukończ ze szczegółami",
+      completedBy: "Ukończone przez",
       skip: "Pomiń",
       skipTask: "Pomiń zadanie",
       skipConfirm: "Pominąć to wystąpienie zadania? Następny termin zostanie obliczony bez przyznawania punktów.",
@@ -2292,6 +2319,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         parts: []
       };
       this._currentTab = "chores";
+      this._historyTaskId = "";
       this._filterStatus = "all";
       this._filterAssignee = "all";
       this._filterLabel = "all";
@@ -2307,6 +2335,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       this._availableTodoEntities = [];
       this._urlParamsHandled = false;
       this._justCompletedTaskId = null;
+      this._pendingTaskActions = new Set();
       this._expandedTaskId = null;
     }
 
@@ -2900,11 +2929,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
     }
 
     async completeTask(taskId, details = null) {
-      this._playSuccessSound();
-      this._triggerConfetti();
       const payload = {
         task_id: taskId,
-        user_id: this._activeUser
+        user_id: details?.user_id !== undefined ? details.user_id : this._activeUser
       };
       if (details) {
         if (details.reading_value !== undefined && details.reading_value !== null && details.reading_value !== "") {
@@ -2938,6 +2965,8 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       const updatedTask = (this._data.tasks || []).find(t => t.id === taskId);
       this._justCompletedTaskId = taskId;
       this._render();
+      this._playSuccessSound();
+      this._triggerConfetti();
 
       if (!this._urlParamsHandled) {
         if (updatedTask && isRecurring && updatedTask.due_date) {
@@ -3152,9 +3181,26 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       }
     }
 
-    openUserModal(user = null) {
-      this._modalState = { type: "user", user: user || this._getNewUserTemplate() };
+    async openUserModal(user = null) {
+      const modal = { type: "user", user: user || this._getNewUserTemplate() };
+      this._modalState = modal;
       this._render();
+      if (!this._hass.user?.is_admin) return;
+
+      try {
+        const accounts = await this._hass.callWS({ type: "config/auth/list" });
+        if (this._modalState !== modal) return;
+        modal.accounts = accounts.filter(account => !account.system_generated)
+          .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+        const field = this.shadowRoot.getElementById("m-user-account-field");
+        if (field) field.innerHTML = this._renderUserAccountField();
+      } catch (err) {
+        console.error("Task Manager: Could not load Home Assistant users", err);
+        if (this._modalState === modal) {
+          const field = this.shadowRoot.getElementById("m-user-account-field");
+          if (field) field.textContent = err.message || String(err);
+        }
+      }
     }
 
     openLabelModal(label = null) {
@@ -3837,32 +3883,51 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           }
 
           .check-btn {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            border: 2px solid var(--ha-card-border-color, var(--divider-color, rgba(127, 127, 127, 0.4)));
-            background: transparent;
+            width: 26px;
+            height: 26px;
+            border-radius: 7px;
+            border: 2px solid var(--secondary-text-color, #64748b);
+            background: var(--card-background-color, #fff);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            color: transparent;
-            transition: all 0.2s ease;
-            margin-top: 2px;
+            padding: 0;
+            transition: all 0.15s ease;
           }
-
-          .check-btn:hover {
-            border-color: var(--success-color, #10b981);
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--success-color, #10b981);
+          .check-btn[aria-disabled="false"]:hover {
+            border-color: var(--primary-color, #0284c7);
           }
-
+          .check-btn:focus-visible {
+            outline: 2px solid var(--primary-color, #0284c7);
+            outline-offset: 2px;
+          }
           .check-btn.checked,
-          .completed-task .check-btn {
-            background: var(--success-color, #10b981) !important;
-            border-color: var(--success-color, #10b981) !important;
-            color: #ffffff !important;
+          .check-btn.just-completed {
+            background: var(--success-color, #10b981);
+            border-color: var(--success-color, #10b981);
+          }
+          .check-btn.checked::after,
+          .check-btn.just-completed::after {
+            content: "";
+            width: 6px;
+            height: 11px;
+            border: solid var(--text-primary-color, white);
+            border-width: 0 2px 2px 0;
+            transform: translateY(-1px) rotate(45deg);
+          }
+          .check-btn.just-completed {
+            animation: task-check-pop 280ms ease-out;
+          }
+          @keyframes task-check-pop {
+            45% { transform: scale(1.18); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .check-btn {
+              animation: none !important;
+              transition: none;
+            }
           }
 
           .task-card.just-completed {
@@ -4002,7 +4067,19 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             border-color: var(--primary-color, #2563eb);
           }
 
-          .task-actions-drawer {
+          .completion-history-entry {
+          padding: 12px;
+          border-bottom: 1px solid var(--divider-color);
+          overflow-wrap: anywhere;
+        }
+        .completion-history-entry summary {
+          cursor: pointer;
+        }
+        .completion-history-entry > div {
+          margin-top: 6px;
+          white-space: pre-wrap;
+        }
+        .task-actions-drawer {
             display: none;
             border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.12));
             padding-top: 12px;
@@ -4371,6 +4448,27 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             color: var(--secondary-text-color, #475569);
           }
 
+          .form-group[hidden] {
+            display: none;
+          }
+
+          .form-checkbox-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .form-checkbox-option {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            background: var(--secondary-background-color, rgba(127, 127, 127, 0.08));
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+          }
+
           /* Entity Combobox / Dropdown */
           .entity-picker-wrapper {
             position: relative;
@@ -4511,10 +4609,6 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           }
           :host(.tablet-mode) .task-card {
             padding: 20px;
-          }
-          :host(.tablet-mode) .check-btn {
-            width: 36px;
-            height: 36px;
           }
           :host(.tablet-mode) .task-action-btn {
             min-height: 46px;
@@ -4798,12 +4892,6 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               box-sizing: border-box;
             }
 
-            .check-btn {
-              width: 32px;
-              height: 32px;
-              font-size: 14px;
-            }
-
             .task-title {
               font-size: 14px;
             }
@@ -5020,6 +5108,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           <div class="nav-tab ${this._currentTab === "calendar" ? "active" : ""}" data-tab="calendar">
             📅 ${this.t("calendar")}
           </div>
+          <div class="nav-tab ${this._currentTab === "history" ? "active" : ""}" data-tab="history">
+            🕒 ${this.t("completionHistory")}
+          </div>
           <div class="nav-tab ${this._currentTab === "things" ? "active" : ""}" data-tab="things">
             ⚙️ ${this.t("things")} <span class="badge-pill">${this._data.things.length}</span>
           </div>
@@ -5082,6 +5173,8 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       switch (this._currentTab) {
         case "chores":
           return this._renderChoresView();
+        case "history":
+          return this._renderCompletionHistory();
         case "calendar":
           return this._renderCalendarView();
         case "things":
@@ -5095,6 +5188,58 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         default:
           return "";
       }
+    }
+
+    _renderCompletionHistory() {
+      const tasks = [...this._data.tasks].sort((a, b) => a.title.localeCompare(b.title, this.lang));
+      const selected = tasks.find(task => task.id === this._historyTaskId);
+      const entries = (selected ? [selected] : tasks).flatMap(task =>
+        (task.history || []).map(entry => ({
+          task,
+          entry,
+          timestamp: Date.parse(entry.completed_at)
+        }))
+      );
+      entries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      const users = new Map(this._data.users.map(user => [user.id, user.name]));
+
+      return `
+        <div class="toolbar">
+          <select id="completion-history-task" class="text-input" aria-label="${this.t("allHistoryTasks")}">
+            <option value="">${this.t("allHistoryTasks")}</option>
+            ${tasks.map(task => `
+              <option value="${this._escape(task.id)}" ${task === selected ? "selected" : ""}>
+                ${this._escape(task.title)}
+              </option>
+            `).join("")}
+          </select>
+        </div>
+        ${entries.length ? entries.map(({ task, entry, timestamp }) => {
+          const date = Number.isFinite(timestamp)
+            ? new Date(timestamp).toLocaleString(this.lang, { dateStyle: "medium", timeStyle: "short" })
+            : entry.completed_at || "—";
+          const user = users.get(entry.user_id) || entry.user_id;
+          const readings = entry.readings?.length ? entry.readings :
+            entry.reading_value != null ? [{ value: entry.reading_value, unit: entry.reading_unit }] : [];
+          const details = [
+            entry.notes,
+            entry.duration_minutes != null ? `${this.t("durationMinutesLabel")} · ${entry.duration_minutes}` : null,
+            entry.cost != null ? `${this.t("costLabel")} · ${entry.cost}` : null,
+            ...readings.map(reading => [reading.name, reading.value, reading.unit].filter(value => value != null && value !== "").join(" ")),
+            ...(entry.consumed_parts || []).map(part => `${part.quantity} × ${part.name}`)
+          ].filter(Boolean);
+          const summary = `
+            <strong>${this._escape(task.title)}</strong> · ${this._escape(date)}
+            ${user ? ` · ${this._escape(user)}` : ""}
+          `;
+          return details.length ? `
+            <details class="completion-history-entry">
+              <summary>${summary}</summary>
+              ${details.map(detail => `<div>${this._escape(String(detail))}</div>`).join("")}
+            </details>
+          ` : `<div class="completion-history-entry">${summary}</div>`;
+        }).join("") : `<p>${this.t("noCompletions")}</p>`}
+      `;
     }
 
     // ================= VIEW: CHORES =================
@@ -5174,9 +5319,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
       return `
         <div class="task-card priority-${task.priority} ${isCompleted ? "completed-task" : ""} ${isJustCompleted ? "just-completed" : ""} ${task.is_active === false ? "is-paused" : ""} ${isExpanded ? "is-expanded" : ""}" data-task-id="${task.id}">
           <div class="task-top">
-            <button class="check-btn ${isJustCompleted ? "checked" : ""}" data-complete-task="${task.id}" title="${isCompleted ? this.t("reset") : this.t("done")}">
-              ✓
-            </button>
+            <button type="button" class="check-btn ${isCompleted ? "checked" : ""} ${isJustCompleted ? "just-completed" : ""}" data-complete-task="${task.id}" title="${isCompleted ? this.t("reset") : this.t("done")}" aria-disabled="${isJustCompleted || this._pendingTaskActions.has(task.id)}"></button>
             <div class="task-info">
               <div class="task-title" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
                 <span>${this._escape(task.title)}</span>
@@ -5349,6 +5492,10 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             <button type="button" class="task-action-btn" data-edit-task="${task.id}" title="${this.t("edit")}">
               <span class="btn-icon">✏️</span>
               <span>${this.t("edit")}</span>
+            </button>
+            <button type="button" class="task-action-btn" data-completion-history="${this._escape(task.id)}">
+              <span class="btn-icon" aria-hidden="true">🕒</span>
+              <span>${this.t("completionHistory")}</span>
             </button>
             <button type="button" class="task-action-btn btn-danger" data-delete-task="${task.id}" title="${this.t("delete")}">
               <span class="btn-icon">🗑️</span>
@@ -6177,7 +6324,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             <!-- Reminders -->
             <div class="form-group">
               <label class="form-label">🔔 ${this.t("reminders")}</label>
-              <div style="display:flex; flex-wrap:wrap; gap:8px;">
+              <div class="form-checkbox-options">
                 ${[
                   { val: 0, label: this.t("atDueTime") },
                   { val: 15, label: this.t("minBefore", { min: "15" }) },
@@ -6186,7 +6333,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
                 ].map(r => {
                   const checked = (task.reminders || []).includes(r.val);
                   return `
-                    <label style="display:flex; align-items:center; gap:4px; font-size:12px; background:var(--secondary-background-color, rgba(127,127,127,0.08)); padding:4px 8px; border-radius:6px; cursor:pointer;">
+                    <label class="form-checkbox-option">
                       <input type="checkbox" class="m-reminder-checkbox" value="${r.val}" ${checked ? "checked" : ""}>
                       <span>${r.label}</span>
                     </label>
@@ -6247,6 +6394,20 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
                   <option value="least_completed" ${task.rotation_mode === "least_completed" ? "selected" : ""}>${this.t("leastCompleted")}</option>
                   <option value="random" ${task.rotation_mode === "random" ? "selected" : ""}>${this.t("random")}</option>
                 </select>
+              </div>
+            </div>
+
+            <div class="form-group" id="m-task-rotation-participants" role="group" aria-labelledby="m-task-rotation-participants-label"
+              ${!task.rotation_mode || task.rotation_mode === "none" ? "hidden" : ""}>
+              <span class="form-label" id="m-task-rotation-participants-label">${this.t("rotationParticipants")}</span>
+              <div class="form-checkbox-options">
+                ${this._data.users.map(u => `
+                  <label class="form-checkbox-option">
+                    <input type="checkbox" class="m-task-rotation-participant" value="${u.id}"
+                      ${(task.assignees || []).includes(u.id) || u.id === task.current_assignee ? "checked" : ""}>
+                    <span>${this._escape(u.name)}</span>
+                  </label>
+                `).join("")}
               </div>
             </div>
 
@@ -6752,6 +6913,10 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
     _renderCompleteDetailsModal() {
       const task = (this._modalState && this._modalState.task) || {};
+      const users = this._data.users || [];
+      const haUserId = this._hass?.user?.id;
+      const linkedMember = haUserId ? users.find(user => user.ha_user_id === haUserId) : null;
+      const completedBy = linkedMember?.id || task.current_assignee;
       const parts = this._data.parts || [];
       const isReading = task.task_type === "reading";
       const nowIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -6764,6 +6929,15 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             <h2 style="margin:0 0 12px 0; font-size:18px;">
               ✓ ${this.t("completeWithDetails")}: ${this._escape(task.title || "")}
             </h2>
+
+            <div class="form-group">
+              <label class="form-label" for="m-comp-user">${this.t("completedBy")}</label>
+              <select class="text-input" id="m-comp-user">
+                ${users.map(user => `
+                  <option value="${this._escape(user.id)}" ${user.id === completedBy ? "selected" : ""}>${this._escape(user.name)}</option>
+                `).join("")}
+              </select>
+            </div>
 
             ${isReading ? `
               <div style="background:rgba(6, 182, 212, 0.12); border:1px solid rgba(6, 182, 212, 0.25); border-radius:8px; padding:12px; margin-bottom:14px;">
@@ -7047,6 +7221,26 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
     }
 
 
+    _renderUserAccountField() {
+      const { user, accounts } = this._modalState;
+      if (!accounts) return "";
+      const linkedId = user.ha_user_id || "";
+      return `
+        <label class="form-label" for="m-user-account">${this.t("homeAssistantUser")}</label>
+        <select class="select-input" id="m-user-account">
+          <option value="">${this.t("none")}</option>
+          ${linkedId && !accounts.some(account => account.id === linkedId) ? `
+            <option value="${this._escape(linkedId)}" selected>${this._escape(linkedId)}</option>
+          ` : ""}
+          ${accounts.map(account => `
+            <option value="${this._escape(account.id)}" ${account.id === linkedId ? "selected" : ""}>
+              ${this._escape(account.name || account.id)}
+            </option>
+          `).join("")}
+        </select>
+      `;
+    }
+
     _renderUserModal() {
       const isGamification = this._data.settings && this._data.settings.gamification_enabled !== false;
       const user = this._modalState.user;
@@ -7067,6 +7261,10 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
               <label class="form-label">${this.t("colorTheme")}</label>
               <input type="color" id="m-user-color" value="${user.color || "#3b82f6"}" style="width:60px; height:36px; border:none; border-radius:6px; cursor:pointer;">
             </div>
+
+            ${this._hass.user?.is_admin ? `
+              <div class="form-group" id="m-user-account-field">${this._renderUserAccountField()}</div>
+            ` : ""}
 
             ${isGamification ? `
               <div class="form-group">
@@ -7152,6 +7350,22 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         tab.addEventListener("click", () => {
           this._currentTab = tab.getAttribute("data-tab");
           this._render();
+        });
+      });
+
+      root.getElementById("completion-history-task")?.addEventListener("change", event => {
+        this._historyTaskId = event.target.value;
+        this._render();
+        root.getElementById("completion-history-task")?.focus();
+      });
+
+      root.querySelectorAll("[data-completion-history]").forEach(button => {
+        button.addEventListener("click", event => {
+          event.stopPropagation();
+          this._historyTaskId = button.dataset.completionHistory;
+          this._currentTab = "history";
+          this._render();
+          root.getElementById("completion-history-task")?.focus();
         });
       });
 
@@ -7277,16 +7491,32 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
 
       // Task complete toggle
       root.querySelectorAll("[data-complete-task]").forEach(btn => {
-        btn.addEventListener("click", (e) => {
+        btn.addEventListener("click", async (e) => {
           e.stopPropagation();
           const tId = btn.getAttribute("data-complete-task");
+          if (this._pendingTaskActions.has(tId) || this._justCompletedTaskId === tId) return;
+
           const task = this._data.tasks.find(t => t.id === tId);
-          if (task && task.status === "completed") {
-            this.resetTask(tId);
-          } else if (task && task.task_type === "reading") {
+          if (!task) return;
+          const isCompleted = task.status === "completed";
+          if (!isCompleted && task.task_type === "reading") {
             this.openCompleteModal(task);
-          } else {
-            this.completeTask(tId);
+            return;
+          }
+
+          this._pendingTaskActions.add(tId);
+          btn.setAttribute("aria-disabled", "true");
+          try {
+            if (isCompleted) {
+              await this.resetTask(tId);
+            } else {
+              await this.completeTask(tId);
+            }
+          } finally {
+            this._pendingTaskActions.delete(tId);
+            // The action can re-render the button before it finishes.
+            const currentButton = root.querySelector(`[data-complete-task="${CSS.escape(tId)}"]`);
+            currentButton?.setAttribute("aria-disabled", String(this._justCompletedTaskId === tId));
           }
         });
       });
@@ -7610,6 +7840,13 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
         });
       }
 
+      const taskRotation = root.getElementById("m-task-rotation");
+      if (taskRotation) {
+        taskRotation.addEventListener("change", () => {
+          root.getElementById("m-task-rotation-participants").hidden = taskRotation.value === "none";
+        });
+      }
+
       // Modal Save Task
       const btnSaveTask = root.getElementById("modal-save-task");
       if (btnSaveTask) {
@@ -7624,6 +7861,17 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           const subtasks = Array.from(subtaskInputs).map(inp => inp.value.trim()).filter(Boolean);
 
           const assignee = root.getElementById("m-task-assignee").value;
+          const rotationMode = taskRotation.value;
+          let assignees = assignee ? [assignee] : [];
+          if (rotationMode !== "none") {
+            const selected = new Set(assignees);
+            for (const checkbox of root.querySelectorAll(".m-task-rotation-participant:checked")) {
+              selected.add(checkbox.value);
+            }
+            // Preserve the order of existing participants for round robin.
+            const existing = (this._modalState.task.assignees || []).filter(id => selected.delete(id));
+            assignees = [...existing, ...selected];
+          }
           const destSelect = root.getElementById("m-task-dest");
           const destProvider = destSelect ? destSelect.value : undefined;
           const selectedReminders = Array.from(root.querySelectorAll(".m-reminder-checkbox:checked")).map(cb => parseInt(cb.value, 10));
@@ -7674,9 +7922,9 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             due_time: root.getElementById("m-task-time").value,
             priority: root.getElementById("m-task-priority").value,
             points: parseInt(root.getElementById("m-task-points").value, 10) || 10,
-            assignees: assignee ? [assignee] : [],
-            current_assignee: assignee || null,
-            rotation_mode: root.getElementById("m-task-rotation").value,
+            assignees,
+            current_assignee: assignee || assignees[0] || null,
+            rotation_mode: rotationMode,
             destination_provider: destProvider,
             reminders: selectedReminders,
             is_active: root.getElementById("m-task-is-active") ? root.getElementById("m-task-is-active").checked : true,
@@ -8128,6 +8376,7 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
           const compDate = root.getElementById("m-comp-date") ? root.getElementById("m-comp-date").value : null;
 
           await this.completeTask(task.id, {
+            user_id: root.getElementById("m-comp-user").value || null,
             reading_value: readingVal,
             readings: readings.length > 0 ? readings : null,
             consumed_parts: consumedParts,
@@ -8244,8 +8493,12 @@ function QR8bitByte(t){this.mode=QRMode.MODE_8BIT_BYTE,this.data=t,this.parsedDa
             points: parseInt(root.getElementById("m-user-points").value, 10) || 0
           };
 
-          await this._callWS("task_manager/save_user", { user: userPayload });
-          this.closeModal();
+          const account = root.getElementById("m-user-account");
+          if (account) userPayload.ha_user_id = account.value || null;
+
+          const modal = this._modalState;
+          const result = await this._callWS("task_manager/save_user", { user: userPayload });
+          if (result?.success && this._modalState === modal) this.closeModal();
         });
       }
 

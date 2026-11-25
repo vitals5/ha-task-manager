@@ -49,6 +49,7 @@ The card supports the following configuration options:
 | `title` | string | `"Task Manager"` | Card header title. |
 | `default_filter` | string | `"all"` | Default filter tab selected on load: `all`, `today`, `due_soon`, `overdue`, `completed`, `inactive`. |
 | `show_add` | boolean | `true` | Show inline "+ Add chore" input field at the bottom. |
+| `show_skip` | boolean | `true` | Show the Skip button on unfinished tasks. |
 | `show_completed` | boolean | `true` | Include the "Completed" filter button. |
 | `show_assignee` | boolean | `true` | Display member avatars and names. |
 | `show_priority` | boolean | `true` | Display priority colored dots and chips (P1–P4). |

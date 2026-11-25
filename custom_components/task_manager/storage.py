@@ -1786,6 +1786,7 @@ class TaskManagerData:
         new_user = {
             "id": user_id,
             "name": user_data.get("name", "User"),
+            "ha_user_id": user_data.get("ha_user_id"),
             "color": user_data.get("color", "#3b82f6"),
             "avatar": user_data.get("avatar", "mdi:account"),
             "points": int(user_data.get("points", 0)),

@@ -100,6 +100,21 @@ class TestTaskManagerStorage(unittest.TestCase):
         self.assertEqual(len(self.data.tasks), 0)
         self.assertTrue(self.data.settings.get("gamification_enabled"))
 
+    def test_member_home_assistant_user_link(self):
+        """Persist links and support linking and unlinking older members."""
+        member = self.data.create_user({"name": "Alex", "ha_user_id": "ha-alex"})
+        legacy_member = {"id": "legacy", "name": "Sam"}
+        self.data.users.append(legacy_member)
+        self.data.update_user("legacy", {"ha_user_id": "ha-sam"})
+
+        restored = TaskManagerData()
+        restored.import_data(self.data.to_dict())
+        restored.update_user(member["id"], {"name": "Alex Updated"})
+        self.assertEqual(restored.get_user(member["id"])["ha_user_id"], "ha-alex")
+        self.assertEqual(restored.get_user("legacy")["ha_user_id"], "ha-sam")
+        restored.update_user("legacy", {"ha_user_id": None})
+        self.assertIsNone(restored.get_user("legacy")["ha_user_id"])
+
     def test_create_and_get_task(self):
         """Test task creation and retrieval."""
         task = self.data.create_task({

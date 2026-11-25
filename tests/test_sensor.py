@@ -166,6 +166,11 @@ class TestTaskManagerSensors(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(user_sensor.native_value, 150)
         self.assertEqual(user_sensor.native_unit_of_measurement, "pts")
         self.assertEqual(user_sensor.unique_id, f"{DOMAIN}_user_{user['id']}_points")
+        self.assertIsNone(user_sensor.extra_state_attributes["ha_user_id"])
+        self.storage.data.update_user(user["id"], {"ha_user_id": "ha-alice"})
+        self.assertEqual(user_sensor.extra_state_attributes["ha_user_id"], "ha-alice")
+        self.storage.data.update_user(user["id"], {"ha_user_id": None})
+        self.assertIsNone(user_sensor.extra_state_attributes["ha_user_id"])
 
     async def test_thing_sensor(self):
         """Test thing sensor value and extra attributes."""

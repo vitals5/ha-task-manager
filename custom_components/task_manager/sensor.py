@@ -299,6 +299,7 @@ class TaskManagerUserSensor(SensorEntity):
         return {
             "user_id": self._user_id,
             "user_name": user.get("name"),
+            "ha_user_id": user.get("ha_user_id"),
             "streak": user.get("streak", 0),
             "completed_count": user.get("completed_count", 0),
             "tasks_due": due_count,

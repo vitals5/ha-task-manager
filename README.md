@@ -388,6 +388,11 @@ title: Maintenance Calendar
 ### Where is my data stored?
 All tasks, things, spare parts, users, and settings are stored locally in Home Assistant's secure storage directory (`.storage/task_manager_data`). Your data never leaves your local network.
 
+### How do I link a household member to a Home Assistant user?
+As a Home Assistant administrator, open **Settings** in the Task Manager sidebar panel and add or edit a member. Select an account in the **Home Assistant user** field and save. To remove the link, select **None** and save.
+
+The member’s points sensor exposes the linked account ID in its `ha_user_id` attribute. For members without a link, the attribute is `null`.
+
 ### How does Odometer Mode work for cars or machines?
 Traditional counters assume the sensor is reset to 0 upon completion. However, car odometers or electricity meters only count up. When **Odometer Mode** is enabled on a Thing:
 1. `current_value` continues to follow your external HA sensor (e.g. `65,400 km`).

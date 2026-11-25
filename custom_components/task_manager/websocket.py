@@ -407,8 +407,20 @@ def async_register_websocket_api(hass: HomeAssistant, storage: TaskManagerStorag
         """Handle save or update user command."""
         user_data = msg["user"]
         user_id = user_data.get("id")
+        member = storage.data.get_user(user_id) if user_id else None
+        if "ha_user_id" in user_data:
+            ha_user_id = user_data["ha_user_id"]
+            if ha_user_id != (member or {}).get("ha_user_id"):
+                if not connection.user.is_admin:
+                    connection.send_error(msg["id"], "unauthorized", "Admin access required")
+                    return
+                if ha_user_id is not None:
+                    ha_user = await hass.auth.async_get_user(ha_user_id) if isinstance(ha_user_id, str) else None
+                    if not ha_user or ha_user.system_generated:
+                        connection.send_error(msg["id"], "invalid_user", "Home Assistant user not found")
+                        return
 
-        if user_id and storage.data.get_user(user_id):
+        if member:
             result = storage.data.update_user(user_id, user_data)
         else:
             result = storage.data.create_user(user_data)
